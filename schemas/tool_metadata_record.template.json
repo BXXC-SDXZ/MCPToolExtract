@@ -1,0 +1,76 @@
+{
+  "repo_id": "01",
+  "record_type": "mcp_tool_metadata_record",
+  "repo_name": "xxxxxx",
+  "source": "mcp.so",
+
+  "tool": {
+    "tool_id": "repo_id::tool_name::file:line",
+    "sdk": "python-sdk",
+    "metadata": {
+      "name": "unique tool identifier",
+      "title": "optional human-readable display name, null if absent",
+      "description": "human-readable tool description, null if absent",
+      "icons": [
+        {
+          "src": "icon URL/path/data if present",
+          "mimeType": "image/png | image/jpeg | image/svg+xml | etc.",
+          "sizes": "optional size string if present"
+        }
+      ],
+      "inputSchema": {
+        "raw": {
+          "type": "object",
+          "properties": {},
+          "required": []
+        },
+        "schema_dialect": "json-schema-2020-12 | zod-derived | pydantic-derived | unknown",
+        "parameters": [
+          {
+            "name": "parameter_name",
+            "type": "string | integer | boolean | object | array | unknown",
+            "required": true,
+            "default": null,
+            "description": "parameter description if present",
+            "enum": null,
+            "constraints": {
+              "minimum": null,
+              "maximum": null,
+              "pattern": null,
+              "additionalProperties": null
+            }
+          }
+        ]
+      },
+      "outputSchema": {
+        "raw": null,
+        "schema_dialect": "json-schema-2020-12 | zod-derived | pydantic-derived | unknown | absent"
+      },
+      "annotations": {
+        "title": "annotation title if present",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden | optional | required | absent | unknown",
+        "extra_fields": {}
+      },
+      "_meta": {
+        "raw": null,
+        "extra_fields": {}
+      }
+      }
+    },
+    "code": {
+      "entry_point": {
+        "file": "relative/path/to/source/file",
+        "line_start": 1,
+        "line_end": 20,
+        "function_name": "handler or decorated function name if recoverable",
+        "function_content": "actual entry-point function body/source; for decorator style this may be the tool body itself",
+      },
+      "handler_resolution": "null"
+    }
+}
