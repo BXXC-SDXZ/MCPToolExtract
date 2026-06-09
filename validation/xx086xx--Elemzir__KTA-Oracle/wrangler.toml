@@ -1,0 +1,24 @@
+name = "kta-oracle"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = false
+[define]
+window = "globalThis"
+
+[triggers]
+crons = ["*/5 * * * *"]
+
+[[kv_namespaces]]
+binding = "KV"
+id = "e5647b8957cb4bfc8d01c1c34fe7d042"
+preview_id = "e5647b8957cb4bfc8d01c1c34fe7d042"
+
+[[services]]
+binding = "SOCIAL_SERVICE"
+service = "kta"
+
+[vars]
+KEETA_ACCOUNT_INDEX = "0"
+ORACLE_WALLET = "keeta_aab4y4nd5ug4nnzjtp5fslfsrdv7pnxfbeexafwolqs4mgxrb2ppontfqb64tzi"
+

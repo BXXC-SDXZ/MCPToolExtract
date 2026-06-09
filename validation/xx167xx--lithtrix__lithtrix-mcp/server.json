@@ -1,0 +1,36 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.learningloons-hash/lithtrix",
+  "description": "Memory Consolidation for AI agents — search, memory, browser, commons. Free trial at lithtrix.ai.",
+  "repository": {
+    "url": "https://github.com/lithtrix/lithtrix-mcp",
+    "source": "github"
+  },
+  "version": "0.9.1",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "lithtrix-mcp",
+      "version": "0.9.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "LITHTRIX_API_KEY",
+          "description": "Your Lithtrix API key (ltx_...). Register free at https://lithtrix.ai/v1/register — Spark trial included, no card required. Or use the lithtrix_register tool.",
+          "isRequired": true,
+          "isSecret": true,
+          "format": "string"
+        },
+        {
+          "name": "LITHTRIX_API_URL",
+          "description": "Optional. Override the Lithtrix API base URL. Defaults to https://lithtrix.ai.",
+          "isRequired": false,
+          "isSecret": false,
+          "format": "string"
+        }
+      ]
+    }
+  ]
+}

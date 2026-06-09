@@ -1,0 +1,589 @@
+package gomcp
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"log/slog"
+	"net/http"
+	"reflect"
+	"sort"
+	"strconv"
+	"strings"
+	"sync"
+	"sync/atomic"
+
+	"github.com/zhangpanda/gomcp/schema"
+	"github.com/zhangpanda/gomcp/transport"
+)
+
+const protocolVersion = "2025-11-25"
+
+// HandlerFunc is the simplest tool handler signature.
+type HandlerFunc func(ctx *Context) (*CallToolResult, error)
+
+type toolEntry struct {
+	info      ToolInfo
+	handler   HandlerFunc
+	schemaRes *schema.Result // for validation, nil for simple handlers
+}
+
+// Server is the core MCP server.
+type Server struct {
+	name              string
+	version           string
+	desc              string
+	tools             map[string]toolEntry
+	versionLatest     map[string]string // unversioned base name → registration key, e.g. "search" → "search@2.0"
+	resources         []resourceEntry
+	resourceTemplates []resourceTemplateEntry
+	prompts           []promptEntry
+	middlewares       []Middleware
+	logger            *slog.Logger
+	mu                sync.RWMutex
+	notifyFn          []func(method string, params any) // set by HTTP transport; protected by mu
+	taskMgr           *taskManager
+	completions       []completionEntry
+	sessions          *SessionManager
+	maxRequestSize    int64                     // default 10MB
+	sseValidate       func(*http.Request) error // optional SSE (GET) gate for Streamable HTTP
+	closeOnce         sync.Once
+	// closed is flipped to true under closeOnce.Do so that post-Close
+	// helpers (e.g. ensureTaskManager) become no-ops. Plain atomic lets
+	// them check without touching s.mu.
+	closed atomic.Bool
+	done   chan struct{} // closed by Close() to stop background goroutines
+}
+
+// Option configures the Server.
+type Option func(*Server)
+
+// WithDescription sets the server description.
+func WithDescription(desc string) Option { return func(s *Server) { s.desc = desc } }
+
+// WithLogger sets a custom logger for the server.
+func WithLogger(l *slog.Logger) Option { return func(s *Server) { s.logger = l } }
+
+// WithMaxRequestSize sets the maximum request body size in bytes (default 10MB).
+func WithMaxRequestSize(n int64) Option { return func(s *Server) { s.maxRequestSize = n } }
+
+// WithSSEAuth sets an optional handler invoked before accepting an SSE connection on Streamable HTTP GET.
+// Return a non-nil error to reject the connection (typically 401).
+// Use [SSEBearerAuth], [SSEAPIKeyAuth], or [SSEBasicAuth], or supply your own check.
+func WithSSEAuth(fn func(*http.Request) error) Option {
+	return func(s *Server) { s.sseValidate = fn }
+}
+
+// New creates a new MCP Server.
+func New(name, version string, opts ...Option) *Server {
+	s := &Server{
+		name:           name,
+		version:        version,
+		tools:          make(map[string]toolEntry),
+		versionLatest:  make(map[string]string),
+		logger:         slog.Default(),
+		sessions:       newSessionManager(),
+		maxRequestSize: 10 << 20, // 10MB
+		done:           make(chan struct{}),
+	}
+	for _, o := range opts {
+		o(s)
+	}
+	return s
+}
+
+// Close stops background work tied to the server: the session manager eviction loop,
+// the signal used by LoadDir(Watch: true), and the async task manager eviction loop.
+// Close stops background work tied to the server: the session manager eviction loop,
+// the signal used by LoadDir(Watch: true), and the async task manager (including
+// any in-flight AsyncTool handlers — their contexts are cancelled via taskMgr.rootCancel).
+// It is idempotent. It does not wait for in-flight AsyncTool handlers to finish.
+func (s *Server) Close() {
+	s.closeOnce.Do(func() {
+		s.closed.Store(true)
+		close(s.done)
+		s.sessions.close()
+		s.mu.RLock()
+		tm := s.taskMgr
+		s.mu.RUnlock()
+		if tm != nil {
+			tm.close()
+		}
+	})
+}
+
+// Sessions returns the session manager for inspecting active sessions.
+func (s *Server) Sessions() *SessionManager { return s.sessions }
+
+func (s *Server) notify(method string) {
+	s.mu.RLock()
+	fns := s.notifyFn
+	s.mu.RUnlock()
+	for _, fn := range fns {
+		fn(method, nil)
+	}
+}
+
+// ToolOption configures a tool registration.
+type ToolOption func(*toolEntry)
+
+// Version sets the version for a tool. Versioned tools are registered as "name@version".
+func Version(v string) ToolOption {
+	return func(e *toolEntry) {
+		if e.info.Annotations == nil {
+			e.info.Annotations = make(map[string]string)
+		}
+		e.info.Annotations["version"] = v
+	}
+}
+
+// Deprecated marks a tool as deprecated.
+func Deprecated(msg string) ToolOption {
+	return func(e *toolEntry) {
+		if e.info.Annotations == nil {
+			e.info.Annotations = make(map[string]string)
+		}
+		e.info.Annotations["deprecated"] = msg
+	}
+}
+
+func (s *Server) registerTool(name string, entry toolEntry, opts []ToolOption) {
+	for _, o := range opts {
+		o(&entry)
+	}
+	key := name
+	if v, ok := entry.info.Annotations["version"]; ok && v != "" {
+		key = name + "@" + v
+		entry.info.Name = key
+	}
+	s.mu.Lock()
+	s.tools[key] = entry
+	if v, ok := entry.info.Annotations["version"]; ok && v != "" {
+		s.bumpVersionLatestLocked(name, v, key)
+	}
+	s.mu.Unlock()
+	s.notify("notifications/tools/list_changed")
+}
+
+// Tool registers a tool with a simple HandlerFunc.
+func (s *Server) Tool(name, description string, handler HandlerFunc, opts ...ToolOption) {
+	entry := toolEntry{
+		info: ToolInfo{
+			Name:        name,
+			Description: description,
+			InputSchema: JSONSchema{Type: "object", Properties: make(map[string]JSONSchema)},
+		},
+		handler: handler,
+	}
+	s.registerTool(name, entry, opts)
+}
+
+// RegisterToolRaw registers a tool with a pre-built schema (used by adapters).
+func (s *Server) RegisterToolRaw(name, description string, inputSchema JSONSchema, handler HandlerFunc, opts ...ToolOption) {
+	entry := toolEntry{
+		info:    ToolInfo{Name: name, Description: description, InputSchema: inputSchema},
+		handler: handler,
+	}
+	s.registerTool(name, entry, opts)
+}
+
+// ToolFunc registers a tool using a typed function.
+// Signature: func(*Context, InputStruct) (OutputType, error)
+func (s *Server) ToolFunc(name, description string, fn any, opts ...ToolOption) {
+	entry := s.buildTypedToolEntry(name, description, fn)
+	s.registerTool(name, entry, opts)
+}
+
+// buildTypedToolEntry reflects on fn, validates its signature, and builds
+// a toolEntry with a schema-aware handler — but does not register it.
+// Shared by [Server.ToolFunc] and [Server.AsyncToolFunc] so the latter
+// can apply its async wrapper and register atomically under one lock.
+func (s *Server) buildTypedToolEntry(name, description string, fn any) toolEntry {
+	fv := reflect.ValueOf(fn)
+	ft := fv.Type()
+	if ft.Kind() != reflect.Func || ft.NumIn() != 2 || ft.NumOut() != 2 {
+		panic(fmt.Sprintf("gomcp: ToolFunc %q requires func(*Context, Input) (Output, error)", name))
+	}
+	ctxType := reflect.TypeOf((*Context)(nil))
+	errType := reflect.TypeOf((*error)(nil)).Elem()
+	if ft.In(0) != ctxType {
+		panic(fmt.Sprintf("gomcp: ToolFunc %q first param must be *Context, got %s", name, ft.In(0)))
+	}
+	if !ft.Out(1).Implements(errType) {
+		panic(fmt.Sprintf("gomcp: ToolFunc %q second return must implement error, got %s", name, ft.Out(1)))
+	}
+
+	inputType := ft.In(1)
+	inputSchema := generateSchema(inputType)
+	schemaRes := schema.Generate(inputType)
+
+	handler := func(ctx *Context) (*CallToolResult, error) {
+		inPtr := reflect.New(inputType)
+		if err := ctx.Bind(inPtr.Interface()); err != nil {
+			return nil, fmt.Errorf("invalid parameters: %w", err)
+		}
+		results := fv.Call([]reflect.Value{reflect.ValueOf(ctx), inPtr.Elem()})
+		if errVal := results[1]; !errVal.IsNil() {
+			if err, ok := errVal.Interface().(error); ok {
+				return nil, err
+			}
+			return nil, fmt.Errorf("%v", errVal.Interface())
+		}
+		return toResult(results[0].Interface()), nil
+	}
+
+	return toolEntry{
+		info:      ToolInfo{Name: name, Description: description, InputSchema: inputSchema},
+		handler:   handler,
+		schemaRes: &schemaRes,
+	}
+}
+
+// bumpVersionLatestLocked records the latest semver among keys "base@*" for a given base.
+// Must be called with s.mu Lock held (same critical section as mutating s.tools).
+func (s *Server) bumpVersionLatestLocked(base, version, key string) {
+	if s.versionLatest == nil {
+		s.versionLatest = make(map[string]string)
+	}
+	curKey, ok := s.versionLatest[base]
+	if !ok {
+		s.versionLatest[base] = key
+		return
+	}
+	curVer := curKey[len(base)+1:] // part after "base@"
+	if compareSemver(version, curVer) > 0 {
+		s.versionLatest[base] = key
+	}
+}
+
+// resolveToolVersion finds a versioned tool when the exact name is not registered.
+// Must be called with s.mu.RLock held.
+func (s *Server) resolveToolVersion(name string) (toolEntry, bool) {
+	// O(1): only when the client passes an unversioned base (e.g. "search" for search@* family).
+	if !strings.Contains(name, "@") {
+		if key, ok := s.versionLatest[name]; ok {
+			if e, ok2 := s.tools[key]; ok2 {
+				return e, true
+			}
+		}
+	}
+	// O(n) fallback: explicit "base@ver" that is missing, or base names with "@" in the logical name.
+	return s.resolveToolVersionScan(name)
+}
+
+// resolveToolVersionScan is the full-map scan; kept for edge cases and index/tool drift.
+func (s *Server) resolveToolVersionScan(name string) (toolEntry, bool) {
+	prefix := name + "@"
+	var best toolEntry
+	var bestVersion string
+	found := false
+	for key, entry := range s.tools {
+		if len(key) > len(prefix) && key[:len(prefix)] == prefix {
+			v := key[len(prefix):]
+			if !found || compareSemver(v, bestVersion) > 0 {
+				best = entry
+				bestVersion = v
+				found = true
+			}
+		}
+	}
+	return best, found
+}
+
+// compareSemver compares two version strings numerically by splitting on ".".
+// Returns >0 if a > b, <0 if a < b, 0 if equal. Non-numeric segments parse as 0.
+func compareSemver(a, b string) int {
+	ap := strings.Split(a, ".")
+	bp := strings.Split(b, ".")
+	for i := 0; i < len(ap) || i < len(bp); i++ {
+		ai, bi := semverPart(ap, i), semverPart(bp, i)
+		if ai != bi {
+			return ai - bi
+		}
+	}
+	return 0
+}
+
+func semverPart(parts []string, i int) int {
+	if i >= len(parts) {
+		return 0
+	}
+	n, err := strconv.Atoi(strings.TrimSpace(parts[i]))
+	if err != nil {
+		return 0
+	}
+	return n
+}
+
+func toResult(v any) *CallToolResult {
+	switch val := v.(type) {
+	case *CallToolResult:
+		return val
+	case string:
+		return TextResult(val)
+	default:
+		data, err := json.MarshalIndent(val, "", "  ")
+		if err != nil {
+			return TextResult(fmt.Sprint(v))
+		}
+		return TextResult(string(data))
+	}
+}
+
+// HandleRaw processes a raw JSON-RPC message. Used by mcptest and custom transports.
+func (s *Server) HandleRaw(ctx context.Context, raw json.RawMessage) json.RawMessage {
+	return s.rawHandler(ctx, raw)
+}
+
+// mergedArgsForMiddleware exposes JSON-RPC params to global middleware before dispatch so values
+// like tools/call "arguments" can inform auth (e.g. [APIKeyAuth] reading api_key without a header).
+func mergedArgsForMiddleware(msg *jsonrpcMessage) map[string]any {
+	switch msg.Method {
+	case "tools/call":
+		var params CallToolParams
+		if err := json.Unmarshal(msg.Params, &params); err != nil || params.Arguments == nil {
+			return nil
+		}
+		out := make(map[string]any, len(params.Arguments))
+		for k, v := range params.Arguments {
+			out[k] = v
+		}
+		return out
+	case "prompts/get":
+		var params GetPromptParams
+		if err := json.Unmarshal(msg.Params, &params); err != nil || len(params.Arguments) == 0 {
+			return nil
+		}
+		out := make(map[string]any, len(params.Arguments))
+		for k, v := range params.Arguments {
+			out[k] = v
+		}
+		return out
+	case "resources/read":
+		var m map[string]any
+		if err := json.Unmarshal(msg.Params, &m); err != nil || len(m) == 0 {
+			return nil
+		}
+		return m
+	default:
+		return nil
+	}
+}
+
+func (s *Server) handleRequestInternal(ctx context.Context, msg *jsonrpcMessage) *jsonrpcMessage {
+	if msg.Method == "notifications/initialized" {
+		return nil
+	}
+
+	s.mu.RLock()
+	mws := make([]Middleware, len(s.middlewares))
+	copy(mws, s.middlewares)
+	s.mu.RUnlock()
+
+	base := newContext(ctx, mergedArgsForMiddleware(msg), s.logger)
+	base.Set("_mcp_method", msg.Method)
+
+	// Pre-extract the tool name for tools/call so middlewares that
+	// read "_tool_name" (OpenTelemetry span naming, PrometheusMetrics
+	// labels, custom audit chains) actually see it.
+	//
+	// Previously "_tool_name" was only set deep inside handleToolsCall,
+	// after the outer middleware chain had already fired. OTel spans
+	// came out as "mcp.tool.unknown" and Prometheus counters got
+	// empty-string tool labels — the middleware was effectively
+	// blind to which tool it was wrapping. Peeking once here avoids
+	// that without rerouting the chain through every per-method
+	// handler.
+	if msg.Method == "tools/call" && len(msg.Params) > 0 {
+		var p struct {
+			Name string `json:"name"`
+		}
+		if err := json.Unmarshal(msg.Params, &p); err == nil && p.Name != "" {
+			base.Set("_tool_name", p.Name)
+		}
+	}
+
+	var resp *jsonrpcMessage
+	var chainErr error
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				s.logger.Error("panic in MCP dispatch", "method", msg.Method, "panic", fmt.Sprintf("%v", r))
+				resp = newResponse(msg.ID, ErrorResult(fmt.Sprintf("internal error: %v", r)))
+			}
+		}()
+		chainErr = executeChain(base, mws, func() error {
+			resp = s.dispatchMethod(base, msg)
+			return nil
+		})
+	}()
+
+	if chainErr != nil {
+		return newResponse(msg.ID, ErrorResult(chainErr.Error()))
+	}
+	return resp
+}
+
+func (s *Server) dispatchMethod(base *Context, msg *jsonrpcMessage) *jsonrpcMessage {
+	switch msg.Method {
+	case "initialize":
+		return s.handleInitialize(base, msg)
+	case "ping":
+		return newResponse(msg.ID, map[string]any{})
+	case "tools/list":
+		return s.handleToolsList(msg)
+	case "tools/call":
+		return s.handleToolsCall(base, msg)
+	case "resources/list":
+		return s.handleResourcesList(msg)
+	case "resources/templates/list":
+		return s.handleResourceTemplatesList(msg)
+	case "resources/read":
+		return s.handleResourcesRead(base, msg)
+	case "prompts/list":
+		return s.handlePromptsList(msg)
+	case "prompts/get":
+		return s.handlePromptsGet(base, msg)
+	case "tasks/get":
+		return s.handleTasksGet(msg)
+	case "tasks/cancel":
+		return s.handleTasksCancel(msg)
+	case "completion/complete":
+		return s.handleComplete(msg)
+	default:
+		return newErrorResponse(msg.ID, -32601, "method not found: "+msg.Method)
+	}
+}
+
+func (s *Server) handleInitialize(base *Context, msg *jsonrpcMessage) *jsonrpcMessage {
+	caps := ServerCapabilities{Tools: &ToolCapability{ListChanged: true}}
+
+	s.mu.RLock()
+	hasResources := len(s.resources) > 0 || len(s.resourceTemplates) > 0
+	hasPrompts := len(s.prompts) > 0
+	s.mu.RUnlock()
+
+	if hasResources {
+		caps.Resources = &ResourceCapability{ListChanged: true}
+	}
+	if hasPrompts {
+		caps.Prompts = &PromptCapability{ListChanged: true}
+	}
+
+	// MCP Streamable HTTP spec: the server MAY assign a session ID at
+	// initialize time by returning Mcp-Session-Id on the response. We
+	// always do so here — clients that don't want sessions can simply
+	// ignore the header.
+	if sink := transport.SessionIDFromContext(base.ctx); sink != nil {
+		sessionID := transport.LookupHeader(base.ctx, "Mcp-Session-Id")
+		sess := s.sessions.GetOrCreate(sessionID)
+		sink.Set(sess.ID)
+	}
+
+	return newResponse(msg.ID, InitializeResult{
+		ProtocolVersion: protocolVersion,
+		Capabilities:    caps,
+		ServerInfo:      ServerInfo{Name: s.name, Version: s.version},
+	})
+}
+
+func (s *Server) handleToolsList(msg *jsonrpcMessage) *jsonrpcMessage {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	tools := make([]ToolInfo, 0, len(s.tools))
+	for _, t := range s.tools {
+		tools = append(tools, t.info)
+	}
+	sort.Slice(tools, func(i, j int) bool { return tools[i].Name < tools[j].Name })
+	return newResponse(msg.ID, ToolListResult{Tools: tools})
+}
+
+func (s *Server) handleToolsCall(parent *Context, msg *jsonrpcMessage) *jsonrpcMessage {
+	// Extract tool name. Prefer the value already peeked by
+	// handleRequestInternal (avoids a second Unmarshal of msg.Params).
+	toolName := ""
+	if v, ok := parent.Get("_tool_name"); ok {
+		toolName, _ = v.(string)
+	}
+	if toolName == "" {
+		// Fallback: parse params (should not happen in normal flow).
+		var params CallToolParams
+		if err := json.Unmarshal(msg.Params, &params); err != nil {
+			return newErrorResponse(msg.ID, -32602, "invalid params: "+err.Error())
+		}
+		toolName = params.Name
+	}
+
+	s.mu.RLock()
+	entry, ok := s.tools[toolName]
+	if !ok {
+		entry, ok = s.resolveToolVersion(toolName)
+	}
+	s.mu.RUnlock()
+
+	if !ok {
+		return newErrorResponse(msg.ID, -32602, "tool not found: "+toolName)
+	}
+
+	// Use the args map that flowed through the middleware chain so any
+	// mutation done there (e.g. [APIKeyAuth] stripping api_key after
+	// validation) is visible to schema validation and the handler.
+	// Use the args map that flowed through the middleware chain so any
+	// mutation done there (e.g. [APIKeyAuth] stripping api_key after
+	// validation) is visible to schema validation and the handler.
+	args := parent.Args()
+
+	if !ok {
+		return newErrorResponse(msg.ID, -32001, "tool not found: "+toolName)
+	}
+
+	// validate parameters if schema available
+	if entry.schemaRes != nil {
+		if err := schema.Validate(args, *entry.schemaRes); err != nil {
+			return newResponse(msg.ID, ErrorResult("validation failed: "+err.Error()))
+		}
+	}
+
+	c := forkContext(parent, args, s.logger.With("tool", toolName))
+	c.Set("_tool_name", toolName)
+
+	// attach session (header name matched case-insensitively, like net/http)
+	sessionID := transport.LookupHeader(c.ctx, "Mcp-Session-Id")
+	c.session = s.sessions.GetOrCreate(sessionID)
+	// Advertise the session ID so the HTTP transport can return it as
+	// the Mcp-Session-Id response header. Without this, clients that
+	// don't bring their own session ID never learn one and effectively
+	// get a fresh session per request.
+	if sink := transport.SessionIDFromContext(c.ctx); sink != nil {
+		sink.Set(c.session.ID)
+	}
+
+	var result *CallToolResult
+	var handlerErr error
+
+	// safety net: recover panics even without Recovery middleware
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				s.logger.Error("unrecovered panic in tool handler", "tool", toolName, "panic", fmt.Sprintf("%v", r))
+				handlerErr = fmt.Errorf("internal error: %v", r)
+			}
+		}()
+		handlerErr = executeChain(c, nil, func() error {
+			var err error
+			result, err = entry.handler(c)
+			return err
+		})
+	}()
+
+	if handlerErr != nil {
+		return newResponse(msg.ID, ErrorResult(handlerErr.Error()))
+	}
+	if result == nil {
+		// Return an explicitly-empty content array instead of a zero
+		// CallToolResult, which would marshal to "content":null and
+		// trip strict MCP clients that require an array.
+		result = &CallToolResult{Content: []ContentBlock{}}
+	}
+	return newResponse(msg.ID, result)
+}

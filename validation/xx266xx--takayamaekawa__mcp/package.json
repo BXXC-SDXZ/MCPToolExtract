@@ -1,0 +1,37 @@
+{
+  "name": "mcp",
+  "version": "0.0.0",
+  "description": "First project with mcp server, connecting to ai tools",
+  "keywords": [
+    "mcp"
+  ],
+  "homepage": "https://github.com/takayamaekawa/mcp#readme",
+  "bugs": {
+    "url": "https://github.com/takayamaekawa/mcp/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/takayamaekawa/mcp.git"
+  },
+  "license": "MIT",
+  "author": "Takaya Maekawa",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev",
+    "start": "wrangler dev",
+    "cf-typegen": "wrangler types",
+    "inspector": "npx @modelcontextprotocol/inspector"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250510.0",
+    "typescript": "^5.5.2",
+    "wrangler": "^4.15.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.11.2",
+    "agents": "^0.0.84",
+    "zod": "^3.24.4"
+  }
+}

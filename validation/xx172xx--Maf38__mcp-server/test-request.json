@@ -1,0 +1,9 @@
+{
+  "jsonrpc": "2.0",
+  "method": "context/create",
+  "params": {
+    "key": "test-key",
+    "value": "test-value"
+  },
+  "id": "1"
+} 

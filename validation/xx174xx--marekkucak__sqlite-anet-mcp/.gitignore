@@ -1,0 +1,6 @@
+/target
+.env
+Chinook_Sqlite.sqlite
+collected_code.txt
+chinook.db
+.data

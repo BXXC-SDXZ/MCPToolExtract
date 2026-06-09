@@ -1,0 +1,61 @@
+{
+  "name": "minimax-mcp-tools",
+  "version": "2.2.3",
+  "description": "Async MCP server with Minimax API integration for image generation and text-to-speech",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "minimax-mcp-tools": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts",
+    "dev:watch": "nodemon --exec ts-node src/index.ts",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "mcp",
+    "minimax",
+    "ai",
+    "image-generation",
+    "text-to-speech",
+    "tts"
+  ],
+  "author": "PsychArch (https://github.com/PsychArch)",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/PsychArch/minimax-mcp-tools.git"
+  },
+  "bugs": {
+    "url": "https://github.com/PsychArch/minimax-mcp-tools/issues"
+  },
+  "homepage": "https://github.com/PsychArch/minimax-mcp-tools#readme",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.17.0",
+    "node-fetch": "^3.3.2",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.9",
+    "nodemon": "^3.0.0",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.3.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "files": [
+    "dist/",
+    "src/",
+    "README.md",
+    "README.zh-CN.md",
+    "LICENSE",
+    "assets/"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}

@@ -1,0 +1,16 @@
+node_modules/
+build/
+test.js
+.env
+.git/
+.gitignore
+.vscode/
+.idea/
+*.sublime-*
+.cursor/
+
+# Logs
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db 

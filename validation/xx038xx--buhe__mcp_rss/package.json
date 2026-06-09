@@ -1,0 +1,33 @@
+{
+  "name": "mcp_rss",
+  "version": "1.0.6",
+  "description": "MCP server for interacting with RSS",
+  "license": "MIT",
+  "author": "buhe",
+  "bin": {
+    "mcp_rss": "dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "prepare": "npm run build",
+    "watch": "tsc --watch",
+    "inspector": "npx @modelcontextprotocol/inspector node dist/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.7.0",
+    "dotenv": "^16.0.3",
+    "fast-xml-parser": "^4.2.7",
+    "mysql2": "^3.14.0",
+    "node-cron": "^3.0.2",
+    "rss-parser": "^3.13.0",
+    "typeorm": "^0.3.17"
+  },
+  "devDependencies": {
+    "@types/node": "^20.5.0",
+    "@types/node-cron": "^3.0.11",
+    "typescript": "^5.1.6"
+  }
+}

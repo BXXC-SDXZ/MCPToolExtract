@@ -1,0 +1,73 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Khamel83/argus",
+  "title": "Argus Retrieval",
+  "description": "Multi-provider search broker for AI agents: 14 providers, 12-step extraction, retrieval workflows.",
+  "repository": {
+    "url": "https://github.com/Khamel83/argus",
+    "source": "github"
+  },
+  "version": "1.6.2",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "registryBaseUrl": "https://pypi.org",
+      "identifier": "argus-search",
+      "version": "1.6.2",
+      "runtimeHint": "uvx",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "ARGUS_WOLFRAM_API_KEY",
+          "description": "WolframAlpha App ID (2,000 free computed-answer queries/month)",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "ARGUS_BRAVE_API_KEY",
+          "description": "Brave Search API key (2,000 free queries/month)",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "ARGUS_TAVILY_API_KEY",
+          "description": "Tavily API key (1,000 free queries/month)",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "ARGUS_EXA_API_KEY",
+          "description": "Exa API key (1,000 free queries/month)",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "ARGUS_SERPER_API_KEY",
+          "description": "Serper API key (2,500 one-time free queries)",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "ARGUS_LINKUP_API_KEY",
+          "description": "Linkup API key (1,000 free queries/month)",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "ARGUS_SEARXNG_BASE_URL",
+          "description": "SearXNG instance URL (self-hosted, aggregates 70+ engines)",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "ARGUS_DATA_ROOT",
+          "description": "Optional override for the writable Argus runtime corpus root",
+          "isRequired": false,
+          "isSecret": false
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,52 @@
+# Source: https://docs.astral.sh/ruff/configuration/#configuring-ruff
+# Exclude a variety of commonly ignored directories.
+exclude = [
+  "*.egg-info/",
+  "*.pyc",
+  "*.pyd",
+  "*.pyo",
+  ".bzr",
+  ".direnv",
+  ".eggs",
+  ".git",
+  ".git-rewrite",
+  ".hg",
+  ".ipynb_checkpoints",
+  ".mypy_cache",
+  ".nox",
+  ".pants.d",
+  ".pyenv",
+  ".pytest_cache",
+  ".pytype",
+  ".ruff_cache",
+  ".svn",
+  ".tox",
+  ".venv",
+  ".vscode",
+  "__pycache__",
+  "__pypackages__",
+  "_build",
+  "buck-out",
+  "build",
+  "coverage/",
+  "dist",
+  "htmlcov/",
+  "node_modules",
+  "site-packages",
+  "venv",
+]
+
+line-length = 120
+
+[lint]
+# Default: ["E4", "E7", "E9", "F"]
+# List of rules: https://docs.astral.sh/ruff/rules/
+extend-select = [
+  "B",   # bugbear
+  "E",   # pycodestyle
+  "I",   # isort
+  "N",   # pep8-naming
+  "SIM", # flake8-simplify
+]
+
+ignore = ["E501"]  # Line length (`E501`)

@@ -1,0 +1,33 @@
+{
+  "name": "mcp-weather-oauth2-server",
+  "description": "Sample Spring Boot application demonstrating MCP Server usage with OAuth2 authorization",
+  "keywords": [
+    "spring-boot",
+    "java",
+    "oauth2",
+    "mcp",
+    "weather"
+  ],
+  "stack": "heroku-22",
+  "buildpacks": [
+    {
+      "url": "heroku/java"
+    }
+  ],
+  "env": {
+    "SPRING_PROFILES_ACTIVE": {
+      "description": "Spring active profile",
+      "value": "heroku"
+    },
+    "JAVA_OPTS": {
+      "description": "Java runtime options",
+      "value": "-XX:+UseContainerSupport"
+    }
+  },
+  "formation": {
+    "web": {
+      "quantity": 1,
+      "size": "standard-1x"
+    }
+  }
+} 

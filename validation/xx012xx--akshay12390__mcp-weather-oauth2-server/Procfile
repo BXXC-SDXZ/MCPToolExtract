@@ -1,0 +1,1 @@
+web: java -Dserver.port=$PORT -DHEROKU_APP_NAME=mcp-weather-oauth2-server-1e9dd0f77fe5 $JAVA_OPTS -jar target/*.jar 

@@ -1,0 +1,38 @@
+# Environment variables
+.env
+
+# Dependencies
+node_modules/
+
+# Build output
+build/
+dist/
+
+# IDE files
+.vscode/
+.idea/
+*.sublime-*
+.cursor/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Operating System
+.DS_Store
+Thumbs.db
+
+# Test logs
+*.log
+
+# Roo AI configuration files (prevent accidental commits)
+.roo/
+.roomodes
+.windsurfrules
+
+# Task Master configuration files (prevent accidental commits)
+.taskmasterconfig
+tasks/
+tasks.json
+scripts/prd.txt
+scripts/task-complexity-report.json 

@@ -1,0 +1,25 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.98lukehall/renoun",
+  "title": "ReNoUn — Crypto Regime Classification",
+  "description": "Crypto regime classifier for trading agents. 100% bounded regime accuracy. 50 free calls/day.",
+  "repository": {
+    "url": "https://github.com/98lukehall/renoun-mcp",
+    "source": "github"
+  },
+  "version": "1.4.0",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://api.harrisoncollab.com/mcp",
+      "headers": [
+        {
+          "name": "Authorization",
+          "description": "Bearer token from POST /v1/keys/provision (free, no credit card). Format: Bearer rn_agent_...",
+          "isRequired": true,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}

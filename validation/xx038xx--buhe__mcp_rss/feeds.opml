@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<opml version="2.0">
+  <head>
+    <title>RSS订阅列表</title>
+  </head>
+  <body>
+    <outline text="科技" title="科技">
+      <outline type="rss" text="少数派" title="少数派" xmlUrl="https://sspai.com/feed" htmlUrl="https://sspai.com"/>
+      <outline type="rss" text="36氪" title="36氪" xmlUrl="https://36kr.com/feed" htmlUrl="https://36kr.com"/>
+    </outline>
+    <outline text="新闻" title="新闻">
+      <outline type="rss" text="BBC中文网" title="BBC中文网" xmlUrl="https://www.bbc.co.uk/zhongwen/simp/index.xml" htmlUrl="https://www.bbc.co.uk/zhongwen/simp"/>
+    </outline>
+  </body>
+</opml>

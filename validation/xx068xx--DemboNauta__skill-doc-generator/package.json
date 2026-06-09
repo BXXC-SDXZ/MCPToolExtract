@@ -1,0 +1,61 @@
+{
+  "name": "skill-doc-generator",
+  "version": "0.4.1",
+  "description": "MCP server that generates Claude Code skill files from any documentation URL or GitHub repo — create, test, and iterate on skills for Claude Code, Cursor, and Windsurf",
+  "license": "MIT",
+  "author": "Edgar Milá",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DemboNauta/skill-doc-generator.git"
+  },
+  "homepage": "https://github.com/DemboNauta/skill-doc-generator#readme",
+  "bugs": {
+    "url": "https://github.com/DemboNauta/skill-doc-generator/issues"
+  },
+  "keywords": [
+    "mcp",
+    "mcp-server",
+    "claude",
+    "claude-code",
+    "skill",
+    "skills",
+    "skill-docs",
+    "skill-generator",
+    "skill-creator",
+    "claude-code-skills",
+    "agent-skills",
+    "ai-skills",
+    "documentation",
+    "docs-to-skills",
+    "anthropic",
+    "agent",
+    "agentic-ide",
+    "cursor",
+    "windsurf"
+  ],
+  "type": "module",
+  "bin": {
+    "skill-doc-generator": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "bundled-skills",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "prepare": "npm run build",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}

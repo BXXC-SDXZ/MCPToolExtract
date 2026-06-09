@@ -1,0 +1,21 @@
+{
+  "manifest_version": "0.2",
+  "name": "speclock",
+  "version": "5.5.2",
+  "description": "Stop AI from breaking code you told it not to touch. Enforces .cursorrules, CLAUDE.md, and AGENTS.md — not just suggests. Zero-config Guardian Mode, Universal Rules Sync, Drift Score, AI Patch Firewall, Spec Compiler, Code Graph. 51 MCP tools, 991 tests, 100% accuracy. Developed by Sandeep Roy.",
+  "author": {
+    "name": "Sandeep Roy (https://github.com/sgroy10)"
+  },
+  "server": {
+    "type": "node",
+    "entry_point": "src/mcp/server.js",
+    "mcp_config": {
+      "command": "node",
+      "args": [
+        "${__dirname}/src/mcp/server.js"
+      ],
+      "env": {}
+    }
+  },
+  "license": "MIT"
+}

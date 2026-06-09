@@ -1,0 +1,62 @@
+{
+    "name": "@sinco-lab/evm-mcp-server",
+    "version": "0.0.1",
+    "type": "module",
+    "description": "An EVM interaction service gateway based on Model Context Protocol (MCP) and Viem, enabling AI agents or services to securely interact with EVM-compatible blockchains.",
+    "private": false,
+    "publishConfig": {
+        "access": "public",
+        "registry": "https://registry.npmjs.org/"
+    },
+    "main": "./build/evm.js",
+    "bin": {
+        "evm-mcp-server": "./build/evm.js"
+    },
+    "scripts": {
+        "debug": "source .env && npx @modelcontextprotocol/inspector node ./build/evm.js -e WALLET_PRIVATE_KEY=$WALLET_PRIVATE_KEY -e RPC_PROVIDER_URL=$RPC_PROVIDER_URL",
+        "build": "tsc && node -e \"require('fs').chmodSync('build/evm.js', '755')\"",
+        "test": "source .env && tsx ./test/client.ts",
+        "clean": "rm -rf build",
+        "prepublishOnly": "npm run clean && npm run build"
+    },
+    "files": [
+        "build"
+    ],
+    "engines": {
+        "node": ">=18.0.0"
+    },
+    "author": "sinco",
+    "license": "MIT",
+    "keywords": [
+        "evm",
+        "mcp",
+        "model-context-protocol",
+        "viem",
+        "ethereum",
+        "blockchain",
+        "service",
+        "gateway",
+        "ai",
+        "agent"
+    ],
+    "dependencies": {
+        "@modelcontextprotocol/sdk": "^1.9.0",
+        "dotenv": "^16.4.7",
+        "viem": "2.24.1",
+        "zod": "3.24.2",
+        "zod-to-json-schema": "^3.24.5"
+    },
+    "devDependencies": {
+        "@types/node": "22.13.14",
+        "ts-node": "^10.9.2",
+        "typescript": "^5.8.3"
+    },
+    "homepage": "https://github.com/sinco-lab/evm-mcp-server#readme",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/sinco-lab/evm-mcp-server.git"
+    },
+    "bugs": {
+        "url": "https://github.com/sinco-lab/evm-mcp-server/issues"
+    }
+}

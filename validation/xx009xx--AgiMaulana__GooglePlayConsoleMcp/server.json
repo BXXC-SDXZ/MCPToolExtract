@@ -1,0 +1,34 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.AgiMaulana/google-play-mcp",
+  "title": "Google Play Console MCP",
+  "description": "Google Play release lifecycle: tracks, testers, rollout, and Android Vitals.",
+  "version": "0.6.0",
+  "repository": {
+    "url": "https://github.com/AgiMaulana/GooglePlayConsoleMcp",
+    "source": "github"
+  },
+  "websiteUrl": "https://github.com/AgiMaulana/GooglePlayConsoleMcp",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "identifier": "google-play-mcp",
+      "version": "0.6.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "runtimeArguments": [
+        {
+          "type": "positional",
+          "value": "google-play-mcp"
+        }
+      ],
+      "environmentVariables": [
+        {
+          "name": "GOOGLE_APPLICATION_CREDENTIALS",
+          "description": "Absolute path to the Google Cloud service account JSON key file"
+        }
+      ]
+    }
+  ]
+}

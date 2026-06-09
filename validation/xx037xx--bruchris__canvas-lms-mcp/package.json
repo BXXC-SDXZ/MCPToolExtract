@@ -1,0 +1,114 @@
+{
+  "name": "canvas-lms-mcp",
+  "version": "1.21.0",
+  "mcpName": "io.github.bruchris/canvas-lms-mcp",
+  "description": "TypeScript MCP 1.x server for Canvas LMS — 116 tools across Canvas courses, assignments, grades, gradebook history, quizzes, New Quizzes (LTI), outcomes, discussions, admin workflows, and more.",
+  "type": "module",
+  "types": "./dist/server.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/server.d.ts",
+      "import": "./dist/server.js",
+      "require": "./dist/server.cjs"
+    },
+    "./stdio": {
+      "types": "./dist/stdio.d.ts",
+      "import": "./dist/stdio.js",
+      "require": "./dist/stdio.cjs"
+    },
+    "./http": {
+      "types": "./dist/http.d.ts",
+      "import": "./dist/http.js",
+      "require": "./dist/http.cjs"
+    },
+    "./canvas": {
+      "types": "./dist/canvas/index.d.ts",
+      "import": "./dist/canvas/index.js",
+      "require": "./dist/canvas/index.cjs"
+    }
+  },
+  "bin": {
+    "canvas-lms-mcp": "bin/canvas-lms-mcp.js"
+  },
+  "files": [
+    "bin/",
+    "dist/"
+  ],
+  "scripts": {
+    "dev": "tsup --watch",
+    "build": "tsup && tsc -p tsconfig.build.json",
+    "generate:manifests": "tsx scripts/generate-manifests.ts",
+    "mcpb:pack": "node scripts/pack-mcpb.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint src/ tests/ && prettier --check src/ tests/",
+    "lint:fix": "eslint src/ tests/ --fix && prettier --write src/ tests/",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "canvas",
+    "canvas-lms",
+    "lms",
+    "mcp",
+    "model-context-protocol",
+    "education",
+    "grading",
+    "ai-agent",
+    "ai-tools",
+    "claude-desktop",
+    "cursor",
+    "vscode",
+    "instructure",
+    "education-technology",
+    "edtech",
+    "teacher",
+    "student",
+    "grading-automation",
+    "typescript"
+  ],
+  "author": "Christian Bru",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bruchris/canvas-lms-mcp.git"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "pnpm@10.11.0",
+  "pnpm": {
+    "overrides": {
+      "hono": "^4.12.16",
+      "ip-address": "^10.1.1",
+      "fast-uri": "^3.1.2",
+      "brace-expansion": "^5.0.6",
+      "qs": "^6.15.2"
+    }
+  },
+  "dependencies": {
+    "@iarna/toml": "^2.2.5",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "prompts": "^2.4.2",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^25.9.1",
+    "@types/prompts": "^2.4.9",
+    "@typescript-eslint/eslint-plugin": "^8.60.0",
+    "@typescript-eslint/parser": "^8.60.0",
+    "@vitest/coverage-v8": "^4.1.7",
+    "eslint": "^10.4.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.6",
+    "prettier": "^3.8.3",
+    "tsup": "^8.5.1",
+    "tsx": "^4.22.3",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.60.0",
+    "vitest": "^4.1.7"
+  }
+}

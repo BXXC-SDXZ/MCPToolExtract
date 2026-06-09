@@ -1,0 +1,43 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "/api/submitClient/index.py",
+      "use": "@vercel/python",
+      "config": {
+        "runtime": "python3.10",
+        "installDependencies": true,
+        "start": "gunicorn -b :$port index:app"
+      }
+    },
+    {
+      "src": "/api/submitServer/index.py",
+      "use": "@vercel/python",
+      "config": {
+        "runtime": "python3.10",
+        "installDependencies": true,
+        "start": "gunicorn -b :$port index:app"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/submit/client",
+      "dest": "/api/submitClient/index.py"
+    },
+    {
+      "src": "/submit/server",
+      "dest": "/api/submitServer/index.py"
+    }
+  ],
+  "crons": [
+    {
+      "path": "/submit/client",
+      "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/submit/server",
+      "schedule": "0 0 * * *"
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+services:
+  argus:
+    build: .
+    image: argus:latest
+    # Without the proxy profile: bind to ARGUS_BIND_HOST so you can reach it directly.
+    # With the proxy profile: Caddy handles external traffic; argus stays on loopback.
+    ports:
+      - "${ARGUS_BIND_HOST:-127.0.0.1}:${ARGUS_PORT:-8000}:8000"
+    env_file:
+      - .env
+    environment:
+      - ARGUS_HOST=0.0.0.0
+      - ARGUS_PORT=8000
+      - ARGUS_BUDGET_DB_PATH=/app/argus_budgets.db
+      - ARGUS_NODE_ROLE=${ARGUS_NODE_ROLE:-primary}
+      - ARGUS_EGRESS_TYPE=${ARGUS_EGRESS_TYPE:-unknown}
+      - ARGUS_MACHINE_NAME=${ARGUS_MACHINE_NAME:-}
+      - ARGUS_RESIDENTIAL_POLICY=${ARGUS_RESIDENTIAL_POLICY:-fallback}
+    volumes:
+      - argus-data:/app
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  caddy:
+    image: caddy:2-alpine
+    profiles: ["proxy"]
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    environment:
+      - ARGUS_DOMAIN=${ARGUS_DOMAIN:-localhost}
+      - ACME_EMAIL=${ACME_EMAIL:-}
+    depends_on:
+      argus:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  argus-data:
+  caddy-data:
+  caddy-config:

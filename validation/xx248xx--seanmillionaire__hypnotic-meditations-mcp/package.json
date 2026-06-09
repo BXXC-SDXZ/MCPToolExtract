@@ -1,0 +1,26 @@
+{
+  "name": "hypnotic-meditations-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for Hypnotic Meditations — returns guided audio product recommendations for sleep, money mindset, manifestation, and nervous system healing",
+  "main": "index.js",
+  "type": "module",
+  "bin": {
+    "hypnotic-meditations-mcp": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "keywords": [
+    "mcp", "meditation", "sleep", "hypnosis", "money-mindset",
+    "manifestation", "subconscious", "wellness", "abundance"
+  ],
+  "author": "Hypnotic Meditations",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "type": "module",
+  "name": "github-cli-mcp-server",
+  "version": "1.0.0",
+  "bin": {
+    "github-cli-mcp-server": "./index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc && shx chmod +x dist/*.js",
+    "prepare": "npm run build",
+    "watch": "tsc --watch"
+  },
+  "keywords": [
+    "github",
+    "mcp"
+  ],
+  "author": "ikutani41",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.8.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.14",
+    "shx": "^0.3.4",
+    "typescript": "^5.8.2"
+  }
+}

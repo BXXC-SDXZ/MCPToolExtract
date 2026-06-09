@@ -1,0 +1,19 @@
+[Unit]
+Description=Argus Search API
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=argus
+WorkingDirectory=/opt/argus
+ExecStart=/bin/bash /opt/argus/scripts/start-server.sh
+Restart=always
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+SyslogIdentifier=argus
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

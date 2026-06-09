@@ -1,0 +1,89 @@
+# WEPPY — MCP Server for Roblox Studio
+
+> WEPPY is an MCP server that lets AI coding agents (Claude, Codex,
+> Cursor, Gemini) control a live Roblox Studio session — create and edit scripts,
+> instances, terrain, lighting, assets, audio, animations, and UI Studio workflows via natural language.
+
+## What it does
+
+WEPPY provides a real-time bridge between AI agents and the Roblox
+Studio DataModel. It exposes the full Roblox API surface as executable MCP tools,
+so AI can directly create, read, modify, and delete instances, scripts, properties,
+terrain, and more — inside a live Studio session.
+
+- Action-based MCP tools covering the full Roblox Studio API surface
+- Bidirectional project sync between Roblox Studio and local files (Pro)
+- Automated playtest: AI starts/stops Play/Run, injects test scripts, collects logs
+- UI Studio: AI creates in-game UI that matches your game's style or analyzes existing UI and suggests improvements
+- Web dashboard: monitor AI actions, tool history, sync state, and changelog in real time at `http://localhost:3002`
+- Multi-place support (up to 3 places simultaneously)
+- Roblox Explorer VSCode extension for browsing Studio hierarchy
+- Works with Claude Code, Claude Desktop, Cursor, Codex CLI, Codex App, Gemini CLI, Antigravity / Antigravity IDE / Antigravity CLI
+
+## Installation
+
+**Install page** (recommended starting point):
+
+https://weppyai.com/en/install
+
+The install page shows the recommended one-line script first.
+
+```bash
+# macOS / Linux
+curl -fsSL https://raw.githubusercontent.com/hope1026/weppy-roblox-mcp/main/install.sh | bash
+
+# Windows (PowerShell)
+irm https://raw.githubusercontent.com/hope1026/weppy-roblox-mcp/main/install.ps1 | iex
+```
+
+Use the terminal-free web installer on the same page if terminal or PowerShell is uncomfortable.
+
+If automated install fails, use the app-specific manual guides from the docs.
+
+## Optional WEPPY Roblox AI Toolkit
+
+Claude Code and Codex can also use the WEPPY Roblox AI Toolkit.
+
+Claude Code:
+
+```bash
+claude plugin marketplace add hope1026/weppy-roblox-mcp --scope user
+claude plugin install weppy-roblox-ai-toolkit@hope1026-roblox-mcp --scope user
+```
+
+Codex:
+
+```bash
+codex plugin marketplace add hope1026/weppy-roblox-mcp
+```
+
+After adding the Codex marketplace, restart Codex, open Plugin Directory, and install WEPPY Roblox AI Toolkit.
+
+## Tiers
+
+- Basic (Free): MCP tool execution + one-way Studio -> Local sync
+- Pro: Bidirectional sync, UI Studio, bulk actions, terrain generation, spatial analysis, multi-place support, advanced tools
+
+## Detailed docs
+
+- Install and setup: https://weppyai.com/en/install
+- Pro upgrade: https://weppyai.com/plans/
+
+## Requirements
+
+- Node.js >= 18
+- Roblox Studio (Windows 10+ or macOS 12+)
+- Any MCP-compatible AI client
+
+## Optional
+
+- Roblox Explorer VSCode extension (browse synced instance tree)
+- Pro subscription for bidirectional sync, UI Studio, and advanced tools
+
+## Links
+
+- GitHub: https://github.com/hope1026/weppy-roblox-mcp
+- npm: https://www.npmjs.com/package/@weppy/roblox-mcp
+- Roblox Explorer (VS Code Marketplace): https://marketplace.visualstudio.com/items?itemName=weppy.weppy-roblox-explorer
+- Roblox Explorer (Open VSX): https://open-vsx.org/extension/weppy/weppy-roblox-explorer
+- Issues: https://github.com/hope1026/weppy-roblox-mcp/issues

@@ -1,0 +1,70 @@
+# Argus
+
+> Search infrastructure for AI agents. 14 providers with topology-aware routing, RRF ranking, 12-step content extraction with completeness assessment, rich provenance tracking (egress/machine), retrieval workflows, and budget enforcement. Works immediately with DuckDuckGo + Yahoo (no API keys). 7,000+ free monthly queries with API keys.
+
+## Installation
+
+> pip install argus-search && argus search -q "query"
+> pip install "argus-search[mcp]" for MCP server support
+> pip install "argus-search[mcp,crawl4ai]" for local JS rendering extraction
+> Zero config — DuckDuckGo + Yahoo handle search with no keys, no containers, no accounts
+> Add ARGUS_WOLFRAM_API_KEY (free at developer.wolframalpha.com) for computed math/fact answers
+> Docker: docker compose up -d for SearXNG + Argus (SearXNG disabled by default — enable in .env when you have a container running)
+
+## MCP Server
+
+> argus mcp serve (stdio) or argus mcp serve --transport streamable-http --port 8001 (Antigravity-compatible)
+> Tools: search_web, extract_content, recover_url, expand_links, search_health, search_budgets, test_provider, valyu_answer, cookie_health
+> Resources: argus://providers/status, argus://providers/budgets, argus://policies/current, argus://corpus/paths
+> Claude Code config: {"mcpServers": {"argus": {"command": "argus", "args": ["mcp", "serve"]}}}
+> Also on MCP Registry: io.github.Khamel83/argus
+
+## HTTP API
+
+> argus serve starts on port 8000. OpenAPI docs at /docs.
+> POST /api/search {"query": "...", "mode": "discovery", "max_results": 10}
+> POST /api/extract {"url": "..."}
+> POST /api/assess-content {"text": "...", "url": "..."}
+> POST /api/recover-url {"url": "...", "title": "..."}
+> POST /api/expand {"query": "..."}
+> GET /api/health/detail, GET /api/budgets
+
+## CLI
+
+> argus search -q "query" --mode discovery --session my-session
+> argus extract -u "https://example.com" -d nytimes.com
+> argus recover-url -u "https://dead.link" -t "Page Title"
+> argus health, argus budgets, argus doctor, argus test-provider -p brave
+> argus set-balance -s jina -b 9833638
+> argus mcp init, argus mcp check, argus mcp serve
+> argus workflows recover-article / capture-site / build-research-pack
+
+## Search Modes
+
+> discovery: related pages, canonical sources. Recovery: find moved/dead URLs. Grounding: facts + WolframAlpha computed answers. Research: broad exploratory retrieval with WolframAlpha.
+> Routing: Tier 0 (free: SearXNG 70+ engines — disabled by default, DuckDuckGo, Yahoo, GitHub, WolframAlpha 2k/mo) → Tier 1 (monthly: Brave 2k, Tavily 1k, Exa 1k, Linkup 1k) → Tier 3 (one-time: Serper 2.5k, Parallel 4k, You.com $20, Valyu $10)
+> Budget-exhausted providers are skipped automatically
+
+## Content Extraction
+
+> 12-step fallback chain: auth → trafilatura → Crawl4AI → Obscura → Playwright → residential → Jina → Valyu Contents → Firecrawl → You.com Contents → Wayback → archive.is
+> Completeness assessment after every step: detects feed truncation, trailing ellipsis, abrupt endings
+> Quality gates between every step. SSRF protection. Domain rate limiting (10 req/min). Cookie auth for paywalls.
+
+## Multi-Turn Sessions
+
+> Pass session_id to search for conversational refinement. Prior queries enrich follow-up searches. SQLite-backed, persists across restarts.
+
+## Python SDK
+
+> from argus.broker.router import create_broker; from argus.models import SearchQuery, SearchMode
+> broker = create_broker()
+> response = await broker.search(SearchQuery(query="...", mode=SearchMode.DISCOVERY, max_results=10))
+> content = await extract_url("https://example.com")
+
+## Documentation
+
+> README.md — full docs with quickstart, providers, integration, configuration
+> CONTRIBUTING.md — contribution guide and adding providers
+> CLAUDE.md — developer guide and architecture overview
+> AGENTS.md — AI contributor onboarding

@@ -1,0 +1,52 @@
+{
+  "name": "mcp-sage",
+  "version": "1.0.0",
+  "main": "index.js",
+  "bin": {
+    "pack": "dist/pack.js",
+    "gemini": "dist/gemini.js"
+  },
+  "files": [
+    "dist/**/*",
+    "models.yaml",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tsc && npm run copy-templates",
+    "copy-templates": "mkdir -p dist/prompts/templates && cp -R src/prompts/templates/* dist/prompts/templates/",
+    "start": "node dist/index.js",
+    "start:http": "node dist/index.js --http",
+    "dev": "tsc && npm run copy-templates && node dist/index.js",
+    "dev:http": "tsc && npm run copy-templates && node dist/index.js --http",
+    "pack": "tsc && npm run copy-templates && node dist/pack.js",
+    "gemini": "tsc && npm run copy-templates && node dist/gemini.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "@types/express": "^5.0.1",
+    "@types/glob": "^8.1.0",
+    "@types/mime": "^3.0.4",
+    "@types/node": "^22.14.1",
+    "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.61.0",
+    "@dqbd/tiktoken": "^1.0.20",
+    "@google/genai": "^0.9.0",
+    "@modelcontextprotocol/sdk": "^1.10.0",
+    "@types/js-yaml": "^4.0.9",
+    "commander": "^13.1.0",
+    "express": "^5.1.0",
+    "glob": "^11.0.1",
+    "ignore": "^7.0.3",
+    "js-yaml": "^4.1.0",
+    "mime": "^4.0.7",
+    "openai": "^4.95.1",
+    "zod": "^3.24.3"
+  }
+}

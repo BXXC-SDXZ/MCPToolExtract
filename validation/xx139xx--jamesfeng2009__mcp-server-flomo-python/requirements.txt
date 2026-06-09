@@ -1,0 +1,16 @@
+# 主要依赖
+flask>=3.0.0
+requests>=2.31.0
+python-dotenv>=1.0.0
+
+# 开发依赖
+pytest>=8.0.0
+black>=24.0.0
+flake8>=7.0.0
+mypy>=1.8.0
+
+# 打包工具
+setuptools>=69.0.0
+wheel>=0.42.0
+build>=1.0.3
+twine>=4.0.2 

@@ -1,0 +1,60 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aws-mcp-server"
+version = "0.2.3"
+description = "AWS MCP Server"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "boto3>=1.37.18",
+    "fastmcp>=1.5.0",
+    "chromadb>=0.5.0",
+    "pypdf>=4.0.0",
+    "requests>=2.31.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["aws_mcp_server*"]
+exclude = ["tests*", "chroma_db*", "datasource*"]
+
+[dependency-groups]
+test = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=5.0.0",
+    "moto>=5.0.0",
+    "pytest-mock>=3.12.0",
+    "coverage>=7.6.0",
+]
+dev = ["ruff>=0.7.0", "mypy>=1.13.0", "black>=24.0.0"]
+
+[project.scripts]
+"aws-mcp-server" = "aws_mcp_server.server:main"
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # Pyflakes
+    "I",  # isort
+    "UP", # pyupgrade
+    "B",  # flake8-bugbear
+]
+
+ignore = [
+    "E501", # Line too long, handled by formatter
+    "F401", # Module imported but unused (needed for MCP tool registration)
+]
+
+fixable = ["ALL"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*" = ["S101"]

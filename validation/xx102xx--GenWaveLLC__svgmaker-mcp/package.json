@@ -1,0 +1,76 @@
+{
+  "name": "@genwave/svgmaker-mcp",
+  "version": "0.4.0",
+  "description": "MCP server for generating, editing, and converting SVG images using SVGMaker API",
+  "type": "module",
+  "main": "build/index.js",
+  "bin": {
+    "svgmaker-mcp": "build/index.js"
+  },
+  "directories": {
+    "doc": "docs"
+  },
+  "files": [
+    "build",
+    "docs"
+  ],
+  "scripts": {
+    "build": "rimraf build && tsc",
+    "start": "node build/index.js",
+    "dev": "tsx watch src/index.ts",
+    "prepare": "npm run build",
+    "test": "echo \"Warning: no tests implemented yet\" && exit 0",
+    "lint": "eslint . --ext .ts --config .eslintrc.json",
+    "lint:fix": "eslint . --ext .ts --fix --config .eslintrc.json",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\"",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run lint && npm run build",
+    "version:patch": "npm version patch --no-git-tag-version",
+    "version:minor": "npm version minor --no-git-tag-version",
+    "version:major": "npm version major --no-git-tag-version"
+  },
+  "keywords": [
+    "mcp",
+    "svg",
+    "svgmaker",
+    "ai",
+    "image-generation",
+    "svg-editor",
+    "svg-converter",
+    "vector-graphics",
+    "image-processing"
+  ],
+  "author": "Genwave",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GenWaveLLC/svgmaker-mcp"
+  },
+  "private": false,
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@genwave/svgmaker-sdk": "^1.0.0",
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "dotenv": "^16.5.0",
+    "zod": "3.25.67"
+  },
+  "overrides": {
+    "zod": "3.25.67"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.29",
+    "@typescript-eslint/eslint-plugin": "^8.33.1",
+    "@typescript-eslint/parser": "^8.33.1",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^10.1.5",
+    "eslint-plugin-prettier": "^5.4.1",
+    "prettier": "^3.5.3",
+    "rimraf": "^6.0.1",
+    "ts-node-dev": "^2.0.0",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  }
+}

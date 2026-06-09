@@ -1,0 +1,150 @@
+### Tests de base
+### Vérifier la santé du serveur
+GET http://localhost:3000/health
+Accept: application/json
+
+### Vérifier les capacités du serveur
+GET http://localhost:3000/capabilities
+Accept: application/json
+
+### Tests de contexte simple
+### Créer un nouveau contexte
+POST http://localhost:3000/context
+Content-Type: application/json
+
+{
+  "jsonrpc": "2.0",
+  "method": "context/create",
+  "params": {
+    "key": "test-key",
+    "value": {
+      "message": "Test message",
+      "priority": "high",
+      "tags": ["test", "example"]
+    },
+    "metadata": {
+      "type": "test",
+      "timestamp": "2025-04-21T12:00:00Z",
+      "source": "http-client"
+    }
+  },
+  "id": "create-1"
+}
+
+### Récupérer le contexte créé
+GET http://localhost:3000/context/test-key
+Accept: application/json
+
+### Mettre à jour le contexte
+POST http://localhost:3000/context
+Content-Type: application/json
+
+{
+  "jsonrpc": "2.0",
+  "method": "context/update",
+  "params": {
+    "key": "test-key",
+    "value": {
+      "message": "Message mis à jour",
+      "priority": "medium",
+      "tags": ["test", "example", "updated"]
+    },
+    "metadata": {
+      "type": "test",
+      "timestamp": "2025-04-21T12:01:00Z",
+      "source": "http-client",
+      "status": "updated"
+    }
+  },
+  "id": "update-1"
+}
+
+### Vérifier la mise à jour
+GET http://localhost:3000/context/test-key
+Accept: application/json
+
+### Tests d'erreur
+### Tester une clé inexistante
+GET http://localhost:3000/context/cle-inexistante
+Accept: application/json
+
+### Tester une validation invalide
+POST http://localhost:3000/context
+Content-Type: application/json
+
+{
+  "jsonrpc": "2.0",
+  "method": "context/create",
+  "params": {
+    "key": "",
+    "value": null
+  },
+  "id": "invalid-1"
+}
+
+### Tests batch
+### Format standard MCP pour les opérations batch :
+### - jsonrpc: "2.0" (requis)
+### - method: "context/batch" (requis)
+### - params.operations: array d'opérations (requis)
+### - id: identifiant unique de la requête batch (requis)
+### Chaque opération dans le tableau doit avoir :
+### - key: string non vide (requis)
+### - value: any valid JSON (requis)
+### - metadata: object (optionnel)
+POST http://localhost:3000/context/batch
+Content-Type: application/json
+
+{
+  "jsonrpc": "2.0",
+  "method": "context/batch",
+  "params": {
+    "operations": [
+      {
+        "key": "batch1",
+        "value": {
+          "index": 1,
+          "data": "Premier élément"
+        },
+        "metadata": {
+          "type": "batch-test",
+          "timestamp": "2025-04-21T12:00:00Z",
+          "index": 1
+        }
+      },
+      {
+        "key": "batch2",
+        "value": {
+          "index": 2,
+          "data": "Deuxième élément"
+        },
+        "metadata": {
+          "type": "batch-test",
+          "timestamp": "2025-04-21T12:00:00Z",
+          "index": 2
+        }
+      }
+    ]
+  },
+  "id": "batch-1"
+}
+
+### Vérifier les résultats batch
+GET http://localhost:3000/context/batch1
+Accept: application/json
+
+###
+GET http://localhost:3000/context/batch2
+Accept: application/json
+
+### Supprimer un contexte
+DELETE http://localhost:3000/context/test-key
+Accept: application/json
+
+### Vérifier la suppression
+GET http://localhost:3000/context/test-key
+Accept: application/json
+
+### Test SSE
+GET http://localhost:3000/sse
+Accept: text/event-stream

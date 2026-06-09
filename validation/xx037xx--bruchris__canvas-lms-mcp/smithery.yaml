@@ -1,0 +1,45 @@
+# Smithery configuration file: https://smithery.ai/docs/config#smitheryyaml
+
+name: Canvas LMS MCP
+description: >
+  The TypeScript MCP 1.x server for Canvas LMS. Connect Claude Desktop, Cursor,
+  VS Code, or any MCP-compatible AI agent to your Canvas instance with 88 tools
+  across 20 domains: health, courses, assignments, submissions, rubrics,
+  quizzes, files, users, groups, enrollments, discussions, modules, pages,
+  calendar, conversations, peer reviews, accounts, analytics, student
+  workflows, and dashboard. Three deployment modes: stdio, HTTP, and library
+  import.
+
+startCommand:
+  type: stdio
+
+configSchema:
+  type: object
+  required:
+    - canvasApiToken
+    - canvasBaseUrl
+  properties:
+    canvasApiToken:
+      type: string
+      description: >
+        Your Canvas personal access token. In Canvas, go to Account > Settings >
+        Approved Integrations > New Access Token to generate one.
+    canvasBaseUrl:
+      type: string
+      description: >
+        Your Canvas instance base URL — the root domain only, without /api/v1.
+        For example: https://yourschool.instructure.com
+
+commandFunction: |-
+  (config) => ({
+    command: 'npx',
+    args: ['-y', 'canvas-lms-mcp'],
+    env: {
+      CANVAS_API_TOKEN: config.canvasApiToken,
+      CANVAS_BASE_URL: config.canvasBaseUrl
+    }
+  })
+
+exampleConfig:
+  canvasApiToken: "1234~abcdefghijklmnopqrstuvwxyz"
+  canvasBaseUrl: "https://school.instructure.com"

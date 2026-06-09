@@ -1,0 +1,56 @@
+{
+  "name": "mcp-api-client",
+  "version": "0.9.16",
+  "description": "A Model Context Protocol (MCP) server that call APIs using YAML config files. ",
+  "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "main": "src/index.ts",
+  "bin": {
+    "mcp-api-client": "dist/index.js"
+  },
+  "homepage": "https://www.npmjs.com/package/mcp-api-client",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/molavec/mcp-api-client.git"
+  },
+  "bugs": {
+    "url": "https://github.com/molavec/mcp-api-client/issues"
+  },
+  "keywords": [
+    "mcp",
+    "yaml",
+    "api",
+    "configuration",
+    "model-context-protocol"
+  ],
+  "author": "@molavec",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "dev:watch": "tsx --watch src/index.ts",
+    "start": "node dist/index.js",
+    "tsc": "tsc --version",
+    "prebuild": "rm -rf dist && rm -rf tsconfig.build.tsbuildinfo",
+    "build": "tsc --project tsconfig.build.json",
+    "inspector": "npx -y @modelcontextprotocol/inspector tsx src/index.ts",
+    "test:server": "tsx src/test/server.ts",
+    "test": "vitest",
+    "npm:publish": "pnpm build && pnpm publish --access public"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.11.2",
+    "yaml": "^2.8.0",
+    "zod": "^3.24.4"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.2",
+    "@types/node": "^22.15.19",
+    "express": "^5.1.0",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3",
+    "vitest": "^1.0.0"
+  },
+  "packageManager": "pnpm@10.2.1+sha512.398035c7bd696d0ba0b10a688ed558285329d27ea994804a52bad9167d8e3a72bcb993f9699585d3ca25779ac64949ef422757a6c31102c12ab932e5cbe5cc92"
+}

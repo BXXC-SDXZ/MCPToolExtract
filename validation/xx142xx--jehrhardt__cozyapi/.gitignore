@@ -1,0 +1,22 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Website
+site/
+
+# Local environment variables
+.env
+
+# Node.js
+node_modules/
+
+# Rust
+target/

@@ -1,0 +1,10 @@
+[project]
+name = "fal"
+version = "0.1.0"
+description = "MCP server for interacting with fal.ai models and services"
+requires-python = ">=3.12"
+dependencies = [
+    "aiofiles>=24.1.0",
+    "fastmcp>=2.7.0",
+    "httpx>=0.28.1",
+]

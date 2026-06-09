@@ -1,0 +1,505 @@
+# GoMCP
+
+[![Go Version](https://img.shields.io/badge/Go-1.25+-00ADD8?style=flat&logo=go)](https://go.dev)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![Release](https://img.shields.io/badge/Release-v1.3.0-green.svg)](https://github.com/zhangpanda/gomcp/releases)
+[![gomcp MCP server](https://glama.ai/mcp/servers/zhangpanda/gomcp/badges/score.svg)](https://glama.ai/mcp/servers/zhangpanda/gomcp)
+
+**用 Go 构建 MCP Server 的最快方式。**
+
+[English](README.md)
+
+---
+
+## 🚀 快速链接
+
+- **GitHub**: https://github.com/zhangpanda/gomcp
+- **Gitee**: https://gitee.com/rilegouasas/gomcp
+- **MCP 协议**: https://modelcontextprotocol.io
+
+---
+
+## 🎯 GoMCP 是什么？
+
+GoMCP 是一个用于构建 [Model Context Protocol (MCP)](https://modelcontextprotocol.io) 服务端的 **Go 框架**——不只是 SDK。可以理解为 **"MCP 领域的 Gin"**。
+
+MCP 是 Anthropic 发布的开放协议，让 AI 应用（Claude Desktop、Cursor、Kiro、VS Code Copilot）能够调用外部工具、读取数据源、使用 Prompt 模板。GoMCP 让构建这些服务变得极其简单。
+
+### 为什么选 GoMCP？
+
+| | mcp-go (mark3labs) | 官方 Go SDK | **GoMCP** |
+|---|---|---|---|
+| 定位 | SDK | SDK | **框架** |
+| Schema 生成 | 手动 | `jsonschema` tag | **`mcp` tag + 自动校验** |
+| 中间件 | 基础钩子 | 无 | **完整链（Logger、Auth、限流、OTel…）** |
+| 工具分组 | 无 | 无 | **支持（`user.get`、`admin.delete`）** |
+| 导入 Gin 路由 | 无 | 无 | **✅ 一行代码** |
+| 导入 OpenAPI/Swagger | 无 | 无 | **✅ 一行代码** |
+| 导入 gRPC 服务 | 无 | 无 | **✅** |
+| 内置认证 | 无 | 无 | **Bearer / API Key / Basic + RBAC**（Bearer 由你在回调里校验 token/JWT） |
+| 调试界面 | 无 | 无 | **✅** |
+| 测试工具 | 基础 | 无 | **mcptest 包** |
+
+---
+
+## 🛠️ 技术栈
+
+### 环境要求
+
+| 要求 | 版本 |
+|------|------|
+| **Go** | ≥ 1.25 |
+| **MCP 协议** | 2024-11-05（向后兼容 2025-11-25） |
+
+> **关于 Go 1.25 最低版本要求。** GoMCP 的 `go.mod` 声明 `go 1.25.0`，以确保项目始终使用包含最新安全和运行时修复的工具链构建。如果你本地使用 Go 1.21+ 且保持默认的 `GOTOOLCHAIN=auto`，Go 会自动为你下载并使用匹配的工具链——无需手动升级。如果你显式设置了 `GOTOOLCHAIN=local`，请安装 Go 1.25+ 或取消该设置。
+
+### 核心依赖
+
+| 技术 | 说明 |
+|------|------|
+| **Go 标准库** | 路由、JSON-RPC、传输层——无强制引入数据库/ORM 类依赖 |
+| **Gin** | 仅适配器——导入现有 Gin 路由 |
+| **gRPC** | 仅适配器——导入 gRPC 服务 |
+| **OpenTelemetry** | 可选——分布式追踪 |
+| **YAML v3** | 仅 Provider——热加载工具定义 |
+
+---
+
+## 🌟 核心功能
+
+### 🔧 工具开发
+
+- **Struct tag 自动 schema** — 用 Go 结构体和 `mcp` tag 定义参数，JSON Schema 自动生成
+- **类型安全 handler** — `func(*Context, Input) (Output, error)` — 无需手动解析参数
+- **参数校验** — required、min/max、enum、pattern — handler 执行前自动校验
+- **组件版本化** — 同一工具注册多个版本，客户端通过 `name@version` 调用
+- **异步任务** — 长时间运行的工具立即返回 task ID，支持轮询和取消
+
+### 🔌 适配器（核心差异化）
+
+- **Gin 适配器** — 一行代码将现有 Gin 路由导入为 MCP 工具
+- **OpenAPI 适配器** — 从 Swagger/OpenAPI 3.x 文档自动生成工具
+- **gRPC 适配器** — 将 gRPC 服务方法导入为 MCP 工具
+
+### 🔐 安全
+
+- **BearerAuth** — 由你的校验函数验证 Bearer token（JWT 解析需自行实现；本库不解码 JWT）
+- **APIKeyAuth** — 通过 Header 验证 API Key
+- **BasicAuth** — HTTP Basic 认证
+- **RequireRole / RequirePermission** — 基于角色/权限的授权控制
+
+### 🧩 框架能力
+
+- **中间件链** — Logger、Recovery、RequestID、Timeout、RateLimit、OpenTelemetry
+- **工具分组** — 按前缀组织工具，支持分组级中间件
+- **Resource & Prompt** — 完整 MCP 支持，包括 URI 模板和参数化 Prompt
+- **自动补全** — 为 Prompt/Resource 参数提供补全建议
+
+### 🚀 生产就绪
+
+- **多传输层** — stdio（Claude Desktop、Cursor、Kiro）和 Streamable HTTP + SSE
+- **MCP Inspector** — 内置 Web 调试界面，浏览和测试工具
+- **热加载** — 从 YAML 文件加载工具定义，支持文件监听
+- **mcptest 包** — 内存级测试客户端，支持快照测试
+- **生命周期** — `Close()`、会话空闲清理、异步并发上限 — 详见 [**Server 生命周期、会话与异步任务**](#server-lifecycle)。
+
+---
+
+## 🏗️ 系统架构
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                         用户代码                              │
+│   s.Tool() / s.ToolFunc() / s.Resource() / s.Prompt()        │
+├──────────────────────────────────────────────────────────────┤
+│                        框架核心层                             │
+│   路由 → 中间件链 → 参数校验 → Handler → 结果构建              │
+├────────────┬─────────────┬───────────────┬───────────────────┤
+│   Schema   │   校验引擎   │    适配器     │    可观测性        │
+│   生成器    │  （自动）    │ Gin/OpenAPI/ │  OTel / Logger    │
+│ (mcp tags) │             │ gRPC          │  / Inspector      │
+├────────────┴─────────────┴───────────────┴───────────────────┤
+│                        协议层                                │
+│          JSON-RPC 2.0 / MCP 协议 / 能力协商                   │
+├──────────────────────────────────────────────────────────────┤
+│                        传输层                                │
+│              stdio  /  Streamable HTTP + SSE                 │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### 项目结构
+
+```
+gomcp/
+├── server.go              # Server 核心，工具/资源/Prompt 注册
+├── context.go             # 请求上下文，类型化参数访问
+├── group.go               # 工具分组
+├── middleware.go           # 中间件、HandshakeAuthSkipMethods、SkipAuthForMCPMethods
+├── middleware_builtin.go   # Logger、Recovery、RequestID、Timeout、RateLimit
+├── middleware_auth.go      # Bearer/API Key/Basic、RBAC、SSE 鉴权辅助函数
+├── middleware_otel.go      # OpenTelemetry 追踪
+├── schema/                # struct tag → JSON Schema 生成器 + 校验器
+├── transport/             # stdio + Streamable HTTP + 可选 CORS 封装
+├── adapter/               # Gin、OpenAPI、gRPC 适配器
+├── mcptest/               # 测试工具包
+├── task.go                # 异步任务
+├── completion.go          # 自动补全
+├── inspector.go           # Web 调试界面
+├── provider.go            # YAML 热加载
+└── examples/              # 可运行的示例
+    ├── basic/             # 最小 stdio 服务
+    ├── filesystem/        # 真实文件操作
+    ├── gin-adapter/       # 导入 Gin 路由
+    ├── openapi-adapter/   # 导入 Swagger/OpenAPI
+    └── grpc-adapter/      # 导入 gRPC 服务
+```
+
+### 📖 Cookbook
+
+手把手教程（每篇 5 分钟）：
+
+- [搭一个搜索工具](docs/cookbook/01-search-tool.md) — 从零到 Claude Desktop 可调用
+- [导入现有 API](docs/cookbook/02-import-existing-api.md) — Gin / OpenAPI / gRPC 一行搞定
+- [加认证 + 权限控制](docs/cookbook/03-auth-and-rbac.md) — Bearer token + 角色鉴权
+
+---
+
+## 📦 安装
+
+```bash
+go get github.com/zhangpanda/gomcp
+```
+
+---
+
+## ⚡ 快速开始
+
+### 5 行核心代码，一个完整的 MCP Server
+
+```go
+package main
+
+import (
+    "fmt"
+    "github.com/zhangpanda/gomcp"
+)
+
+type SearchInput struct {
+    Query string `json:"query" mcp:"required,desc=搜索关键词"`
+    Limit int    `json:"limit" mcp:"default=10,min=1,max=100"`
+}
+
+type SearchResult struct {
+    Items []string `json:"items"`
+    Total int      `json:"total"`
+}
+
+func main() {
+    s := gomcp.New("my-server", "1.0.0")
+
+    s.ToolFunc("search", "按关键词搜索文档", func(ctx *gomcp.Context, in SearchInput) (SearchResult, error) {
+        items := []string{fmt.Sprintf("搜索 %q 的结果", in.Query)}
+        return SearchResult{Items: items, Total: len(items)}, nil
+    })
+
+    s.Stdio()
+}
+```
+
+`SearchInput` 结构体 **自动生成** JSON Schema：
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "query": { "type": "string", "description": "搜索关键词" },
+    "limit": { "type": "integer", "default": 10, "minimum": 1, "maximum": 100 }
+  },
+  "required": ["query"]
+}
+```
+
+无效参数在 handler 执行前 **自动拒绝**：
+
+```
+validation failed: query: required; limit: must be <= 100
+```
+
+---
+
+## 📖 使用指南
+
+### Struct Tag 参考
+
+| Tag | 类型 | 说明 | 示例 |
+|-----|------|------|------|
+| `required` | 标志 | 必填字段 | `mcp:"required"` |
+| `desc` | 字符串 | 字段描述（展示给 AI） | `mcp:"desc=搜索关键词"` |
+| `default` | 任意 | 默认值 | `mcp:"default=10"` |
+| `min` | 数字 | 最小值（含） | `mcp:"min=0"` |
+| `max` | 数字 | 最大值（含） | `mcp:"max=100"` |
+| `enum` | 字符串 | 竖线分隔的枚举值 | `mcp:"enum=asc\|desc"` |
+| `pattern` | 字符串 | 正则校验 | `mcp:"pattern=^[a-z]+$"` |
+
+组合使用：`mcp:"required,desc=用户邮箱,pattern=^[^@]+@[^@]+$"`
+
+### 工具注册
+
+**简单 handler：**
+
+```go
+s.Tool("hello", "打招呼", func(ctx *gomcp.Context) (*gomcp.CallToolResult, error) {
+    return ctx.Text("你好，" + ctx.String("name")), nil
+})
+```
+
+**类型化 handler（推荐）：**
+
+```go
+type Input struct {
+    Name  string `json:"name"  mcp:"required,desc=用户姓名"`
+    Email string `json:"email" mcp:"required,pattern=^[^@]+@[^@]+$"`
+}
+
+s.ToolFunc("create_user", "创建用户", func(ctx *gomcp.Context, in Input) (User, error) {
+    return db.CreateUser(in.Name, in.Email)
+})
+```
+
+### 资源
+
+```go
+// 静态资源
+s.Resource("config://app", "应用配置", func(ctx *gomcp.Context) (any, error) {
+    return map[string]any{"version": "1.0"}, nil
+})
+
+// 动态 URI 模板
+s.ResourceTemplate("db://{table}/{id}", "数据库记录", func(ctx *gomcp.Context) (any, error) {
+    return db.Find(ctx.String("table"), ctx.String("id")), nil
+})
+```
+
+### 中间件
+
+```go
+s.Use(gomcp.Logger())                              // 记录 MCP 方法 + 耗时
+s.Use(gomcp.Recovery())                            // panic 恢复
+s.Use(gomcp.RequestID())                           // 唯一请求 ID
+s.Use(gomcp.Timeout(10 * time.Second))             // 超时控制
+s.Use(gomcp.RateLimit(100))                        // 100 次/分钟限流
+s.Use(gomcp.OpenTelemetry())                       // 分布式追踪
+// 二选一：BearerAuth（initialize 也需凭证）或 BearerAuthSkipHandshake（initialize/ping 可匿名）
+s.Use(gomcp.BearerAuthSkipHandshake(tokenValidator))
+s.Use(gomcp.APIKeyAuthSkipHandshake("X-API-Key", keyValidator))
+```
+
+> **认证错误的返回形态。** 当 BearerAuth / APIKeyAuth / BasicAuth /
+> RequireRole / RequirePermission 中间件拒绝一次调用时，框架会返回
+> 一个普通的 JSON-RPC `result`，其中 `isError = true` 且
+> `content[0].text` 里是拒绝原因——**不是** JSON-RPC 的 `error`
+> 对象，**也不是** HTTP 401/403。客户端需要检查工具调用结果的
+> `isError` 字段来判断鉴权失败。
+
+### 工具分组
+
+```go
+user := s.Group("user", authMiddleware)
+user.Tool("get", "获取用户", getUser)              // → user.get
+
+admin := user.Group("admin", gomcp.RequireRole("admin"))
+admin.Tool("delete", "删除用户", deleteUser)       // → user.admin.delete
+```
+
+### 适配器
+
+**Gin——一行代码导入现有 API：**
+
+```go
+adapter.ImportGin(s, ginRouter, adapter.ImportOptions{
+    IncludePaths: []string{"/api/v1/"},
+})
+// GET /api/v1/users/:id → Tool get_api_v1_users_by_id
+```
+
+**OpenAPI——从 Swagger 文档生成：**
+
+```go
+adapter.ImportOpenAPI(s, "./swagger.yaml", adapter.OpenAPIOptions{
+    TagFilter: []string{"pets"},
+    ServerURL: "https://api.example.com",
+})
+```
+
+**gRPC：**
+
+```go
+adapter.ImportGRPC(s, grpcConn, adapter.GRPCOptions{
+    Services: []string{"user.UserService"},
+})
+```
+
+### 组件版本化
+
+```go
+s.ToolFunc("search", "v1", searchV1, gomcp.Version("1.0"))
+s.ToolFunc("search", "v2 语义搜索", searchV2, gomcp.Version("2.0"))
+// "search" → 最新版本，"search@1.0" → 指定版本
+```
+
+### 异步任务
+
+```go
+s.AsyncTool("report", "生成报告", handler)
+// 客户端立即收到 taskId，通过 tasks/get 轮询，tasks/cancel 取消
+```
+
+### 热加载
+
+```go
+s.LoadDir("./tools/", gomcp.DirOptions{Watch: true})
+```
+
+YAML tool 文件格式：
+
+```yaml
+name: search
+description: 全文档搜索
+version: "1.0"            # 可选——非空会把 tool 名改成 "search@1.0"
+method: GET
+handler: https://example.com/search
+params:
+  - {name: query, type: string, required: true, description: 查询关键字}
+```
+
+> **注意——`version` 会改写 tool 名。** YAML 里非空的 `version` 字段
+> 会让 Provider 把 tool 注册为 `name@version`（例如 `search@1.0`），
+> 与 [`gomcp.Version()`](#组件版本化) 的约定一致。这也是客户端调用
+> `tools/call` 时必须使用的名字，以及 `tools/list` 里展示的名字。
+> 如果希望保留 `search` 这样的无版本名，直接删掉 `version` 字段即可。
+
+<a id="server-lifecycle"></a>
+
+### Server 生命周期、会话与异步任务
+
+- **`Server.Close()`** — 若使用了 **`LoadDir(..., Watch: true)`** 或长时间运行的 HTTP 服务，在进程退出或测试收尾时应调用一次 **`Close()`**：会结束 YAML 目录轮询、**会话驱逐**后台循环，以及**异步任务管理器**的驱逐循环。可**重复调用**（幂等）。
+- **会话（Session）** — 会话数据仅在**内存**中；Streamable HTTP 下由客户端 `Mcp-Session-Id` 关联。**超过 30 分钟**未再访问的会话会被**清理**；客户端若仍持旧 ID，下次会得到**新的空会话**。若业务依赖会话内状态，需避免长时间无请求，或自行恢复状态。
+- **`SetMaxConcurrentTasks(n)`** — 请在首次注册 **`AsyncTool` / `AsyncToolFunc` 之前**调用。内部 task manager 一旦创建，后续再调该方法为 **no-op**（避免与进行中的任务产生竞态）。
+- **关闭与异步任务** — `Close()` **不会**等待仍在执行的异步工具 handler；若进程退出前必须跑完任务，需在外层自行做**超时与等待**。
+
+### MCP Inspector
+
+```go
+s.Dev(":9090") // http://localhost:9090 — 浏览和测试所有工具
+```
+
+### 测试
+
+```go
+func TestSearch(t *testing.T) {
+    c := mcptest.NewClient(t, setupServer())
+    c.Initialize()
+
+    result := c.CallTool("search", map[string]any{"query": "golang"})
+    result.AssertNoError(t)
+    result.AssertContains(t, "golang")
+    mcptest.MatchSnapshot(t, "search_result", result)
+}
+```
+
+### 传输层
+
+```go
+s.Stdio()          // Claude Desktop、Cursor、Kiro
+s.HTTP(":8080")    // 远程部署，支持 SSE
+s.Handler()        // 嵌入现有 HTTP 服务
+// 浏览器 fetch：需要时用 transport.WrapCORS(h, []string{"https://你的前端域"})
+```
+
+### 配合 AI 客户端使用
+
+```json
+{
+  "mcpServers": {
+    "my-server": {
+      "command": "/path/to/your/binary"
+    }
+  }
+}
+```
+
+支持 Claude Desktop、Cursor、Kiro、Windsurf、VS Code Copilot 及所有 MCP 兼容客户端。
+
+---
+
+## 📋 路线图
+
+- [x] 核心：Tool、Resource、Prompt，完整 MCP 协议支持
+- [x] struct tag 自动 schema 生成 + 参数校验
+- [x] 中间件链（Logger、Recovery、RateLimit、Timeout、RequestID）
+- [x] 认证中间件（Bearer / API Key / Basic）+ RBAC 授权
+- [x] 工具分组 + 嵌套分组
+- [x] stdio + Streamable HTTP 传输（含 SSE 通知）
+- [x] Gin 适配器——现有 Gin 路由一键转 MCP 工具
+- [x] OpenAPI 适配器——从 Swagger 文档自动生成 MCP 工具
+- [x] gRPC 适配器
+- [x] OpenTelemetry 集成
+- [x] mcptest 测试包 + 快照测试
+- [x] 组件版本化 + 废弃标记
+- [x] 异步任务（轮询 + 取消）
+- [x] MCP Inspector Web 调试界面
+- [x] YAML 热加载 Provider
+- [x] Prompt/Resource 参数自动补全
+
+---
+
+## 🤝 问题反馈
+
+- **Bug 报告**: [GitHub Issues](https://github.com/zhangpanda/gomcp/issues)
+- **功能建议**: [GitHub Issues](https://github.com/zhangpanda/gomcp/issues)
+- **讨论交流**: [GitHub Discussions](https://github.com/zhangpanda/gomcp/discussions)
+
+> 💡 推荐阅读：[《提问的智慧》](https://github.com/ryanhanwu/How-To-Ask-Questions-The-Smart-Way) 和 [《如何向开源社区提问题》](https://github.com/seajs/seajs/issues/545)
+
+---
+
+## 🔒 安全披露
+
+### HTTP 传输与认证
+
+- **`Use` 注册的中间件会对几乎所有 JSON-RPC 方法生效**（除仅通知、无响应体的 `notifications/initialized`）：包括 `initialize`、`tools/list`、`tools/call`、`resources/read`、`prompts/get`、`tasks/*`、`completion/complete` 等。对外暴露 **`POST /mcp`** 时应配合 `BearerAuth` / `APIKeyAuth` / `BasicAuth`。**`APIKeyAuth`** 会把 **`tools/call` arguments**、**`prompts/get` arguments** 或 **`resources/read` params** JSON 里的键（含 `api_key`）合并给中间件读取——生产环境仍建议优先用 Header。
+- **`BearerAuthSkipHandshake` / `APIKeyAuthSkipHandshake` / `BasicAuthSkipHandshake`**（或 `SkipAuthForMCPMethods`）允许 **`HandshakeAuthSkipMethods` 返回的方法**（默认 `initialize`、`ping`）免凭证，其余请求仍受保护，适合「先握手再带 token」的 HTTP 客户端。
+- **请求的 `context.Context` 会传递到工具、资源与 Prompt 的 handler**（截止时间、`Authorization`、Streamable HTTP 注入的头等）。
+- **SSE（`GET /mcp`）不会走 MCP 中间件链**。请用 **`WithSSEAuth`**，可选用 **`SSEBearerAuth`**、**`SSEAPIKeyAuth`**、**`SSEBasicAuth`** 或自定义校验。未配置时，能访问 `GET` 的客户端可订阅广播通知。
+- **浏览器跨域**：使用 `github.com/zhangpanda/gomcp/transport` 的 **`WrapCORS(h, allowedOrigins)`** 包裹 `/mcp` Handler；带凭证时不要使用 `*`，只列出可信 Origin。
+
+生产环境部署 Streamable HTTP 时，建议同时使用 TLS、`POST` 侧认证中间件，以及在通知内容敏感时启用 **`WithSSEAuth`**。
+
+报告安全漏洞请参阅 [SECURITY.md](SECURITY.md)。
+
+---
+
+## ⚖️ 版权与许可
+
+Copyright © 2026 GoMCP Contributors
+
+本项目基于 [Apache License 2.0](LICENSE) 开源。
+
+### 重要说明
+
+1. 本项目 **开源免费**，个人和商业使用均遵循 Apache 2.0 协议。
+2. 使用本项目时，**必须保留** 版权声明、许可证文本及相关归属声明。
+3. Apache 2.0 协议包含 **明确的专利授权**——贡献者向用户授予免费的专利使用许可。
+4. 对本项目的贡献同样遵循 Apache 2.0 协议。
+5. 未经授权删除版权声明，将依法追究法律责任。
+
+### 专利声明
+
+本框架的部分功能（struct tag schema 生成、HTTP 到 MCP 自动适配、OpenAPI 到 MCP 自动适配）已提交专利申请。Apache 2.0 协议授予您永久的、全球范围的、免版税的专利许可，允许您在使用本软件时使用这些功能。
+
+---
+
+## ⭐ Star
+
+如果 GoMCP 对你有帮助，请给个 Star！这能帮助更多人发现这个项目。
+

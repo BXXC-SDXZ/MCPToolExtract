@@ -1,0 +1,22 @@
+dist/
+node_modules/
+.DS_Store
+.mcpregistry_*
+key.pem
+.cursor/
+.docfork/
+.dgrep/.cache/
+.claude/settings.local.json
+.claude/plans/
+.claude/worktrees/
+.claude/bridge/
+.env*
+
+# turborepo
+.turbo
+
+# pnpm
+.pnpm-store/
+
+# npm link
+packages/dgrep/bin/

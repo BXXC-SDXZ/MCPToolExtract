@@ -1,0 +1,6 @@
+*
+!src/
+!.env
+!poetry.lock
+!pyproject.toml
+!Makefile

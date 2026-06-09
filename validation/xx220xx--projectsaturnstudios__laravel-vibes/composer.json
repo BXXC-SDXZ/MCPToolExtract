@@ -1,0 +1,69 @@
+{
+    "name": "superconductor/laravel-vibes",
+    "description": "Laravel Boost augments AI-assisted development to generate high-quality, Laravel-specific code and other capabilities.",
+    "keywords": [
+        "dev",
+        "laravel",
+        "ai",
+        "superconductor",
+        "mcp"
+    ],
+    "license": "MIT",
+    "type": "library",
+    "version": "0.6.2",
+    "require": {
+        "php": "^8.2",
+        "laravel/roster": "^0.2",
+        "superconductor/mcp": "^20241105.5.0",
+        "superconductor/tools": "^20241105.5.0",
+        "superconductor/prompts": "^20241105.5.0",
+        "superconductor/resources": "^20241105.5.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^10.0 || ^11.0",
+        "orchestra/testbench": "^8.0 || ^9.0",
+        "mockery/mockery": "^1.4",
+        "mikey179/vfsstream": "^1.6",
+        "squizlabs/php_codesniffer": "^3.8",
+        "phpstan/phpstan": "^1.10",
+        "phpmd/phpmd": "^2.15"
+    },
+    "autoload": {
+        "psr-4": {
+            "Superconductor\\LaravelVibes\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Superconductor\\LaravelVibes\\Providers\\LaravelVibesServiceProvider"
+            ]
+        }
+    },
+    "scripts": {
+        "lint": [
+            "vendor/bin/pint",
+            "vendor/bin/phpstan"
+        ],
+        "test": [
+            "vendor/bin/pest"
+        ],
+        "check": [
+            "@composer lint",
+            "@composer test"
+        ]
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}

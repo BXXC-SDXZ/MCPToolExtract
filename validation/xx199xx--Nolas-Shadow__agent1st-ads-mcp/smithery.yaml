@@ -1,0 +1,38 @@
+configSchema:
+  type: object
+  properties:
+    licenseKey:
+      type: string
+      description: "Agent 1st license key — get yours at https://agent1st.io/ads/ (plans from $29/mo)"
+    metaToken:
+      type: string
+      description: "Meta Ads access token from developers.facebook.com/tools/explorer"
+    metaAccountId:
+      type: string
+      description: "Meta Ad Account ID — format: act_XXXXXXXXXX"
+    metaPageId:
+      type: string
+      description: "Facebook Page ID — found on your Page under About"
+    tikTokToken:
+      type: string
+      description: "TikTok Ads access token from business-api.tiktok.com"
+    tikTokAdvertiserId:
+      type: string
+      description: "TikTok Advertiser ID from your TikTok Ads account"
+  required:
+    - licenseKey
+startCommand:
+  type: stdio
+  commandFunction: |-
+    (config) => ({
+      command: "npx",
+      args: ["meta-tiktok-ads-from-agent1st"],
+      env: {
+        AGENT1ST_LICENSE_KEY: config.licenseKey,
+        META_ADS_ACCESS_TOKEN: config.metaToken || "",
+        META_ADS_ACCOUNT_ID: config.metaAccountId || "",
+        META_PAGE_ID: config.metaPageId || "",
+        TIKTOK_ADS_ACCESS_TOKEN: config.tikTokToken || "",
+        TIKTOK_ADVERTISER_ID: config.tikTokAdvertiserId || ""
+      }
+    })

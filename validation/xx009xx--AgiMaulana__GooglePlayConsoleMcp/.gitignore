@@ -1,0 +1,33 @@
+# Environment & secrets
+.env
+.mcpregistry_*
+*.json
+!*example*.json
+!server.json
+!.well-known/**/*.json
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+
+# Virtual envs
+.venv/
+venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Local editor backups
+.qwen/settings.json.orig
+.serena

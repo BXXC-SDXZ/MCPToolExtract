@@ -1,0 +1,18 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.rocnubie/nanobanana-mcp",
+  "title": "Nano Banana Pro AI MCP",
+  "description": "Nano Banana Pro AI image editor free online. Create, edit, and enhance images by Google Gemini AI",
+  "version": "0.1.0",
+  "websiteUrl": "https://nanobanana-ai.online",
+  "repository": {
+    "url": "https://github.com/rocnubie/nanobanana-mcp",
+    "source": "github"
+  },
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/rocnubie/nanobanana-mcp/main/assets/hero.svg",
+      "mimeType": "image/svg+xml"
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "name": "@miden/mcp",
+  "version": "1.0.2",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc && node -e \"require('fs').chmodSync('dist/index.js', '755')\"",
+    "inspector": "npm run build && npm exec @modelcontextprotocol/inspector dist/index.js"
+  },
+  "author": "",
+  "license": "MIT",
+  "description": "A command line tool for setting up Miden MCP server",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.6.1",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/inspector": "^0.5.1",
+    "@types/node": "^22.13.10",
+    "typescript": "^5.8.2"
+  },
+  "type": "module",
+  "bin": {
+    "miden-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist/**/*.js",
+    "!dist/**/*.test.*",
+    "data/**/*.json.gz",
+    "LICENSE",
+    "README.md",
+    "package.json"
+  ],
+  "keywords": [
+    "mcp",
+    "modelcontextprotocol",
+    "miden"
+  ]
+}

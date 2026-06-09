@@ -1,0 +1,13 @@
+ mongo:
+  host: mongodb
+  port: 27017
+  user: admin
+  password: 123456
+  database: db
+
+ mcp:
+   name: mongo-mcp-server
+   version: 1.0.0
+   base_url: localhost:8081
+   address: ":8081"
+   sse: true

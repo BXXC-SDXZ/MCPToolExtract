@@ -1,0 +1,42 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.nzdsf2-gif/relayshield-mcp",
+  "title": "RelayShield Security Intelligence",
+  "description": "Breach detection, SIM swap, domain lookalikes, OAuth watchlist, URL scanning. Subscription or PAYG.",
+  "version": "0.2.3",
+  "websiteUrl": "https://relayshield.net",
+  "repository": {
+    "url": "https://github.com/relayshield/relayshield-mcp",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "pypi",
+      "identifier": "relayshield-mcp",
+      "version": "0.2.3",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "RELAYSHIELD_API_URL",
+          "description": "API Gateway base URL — https://xhh3tfrhng.execute-api.us-east-1.amazonaws.com/prod",
+          "isRequired": true,
+          "isSecret": false
+        },
+        {
+          "name": "RELAYSHIELD_API_KEY",
+          "description": "RapidAPI subscription key (subscription mode — all 7 tools available)",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "RELAYSHIELD_X_PAYMENT",
+          "description": "x402 payment proof — USDC on Base (pay-as-you-go mode — 4 tools, no API key needed)",
+          "isRequired": false,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}

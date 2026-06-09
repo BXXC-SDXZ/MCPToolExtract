@@ -1,0 +1,13 @@
+.git
+.gitignore
+.github
+.claude-plugin
+.mcp.json
+server.json
+glama.json
+README.md
+LICENSE
+logo-400.png
+tools.md
+dist
+node_modules

@@ -1,0 +1,74 @@
+{
+  "name": "@automatelab/ai-seo-mcp",
+  "version": "0.7.0",
+  "mcpName": "io.github.AutomateLab-tech/ai-seo-mcp",
+  "description": "AI Citation Toolkit - audit, score, and rewrite web pages for AI-citation eligibility. AEO/GEO/LLM visibility for any MCP client.",
+  "license": "MIT",
+  "author": "automatelab.tech",
+  "homepage": "https://github.com/AutomateLab-tech/ai-seo-mcp",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AutomateLab-tech/ai-seo-mcp.git"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "type": "module",
+  "bin": {
+    "ai-seo-mcp": "dist/index.js",
+    "ai-seo-audit": "dist/cli/audit-cli.js"
+  },
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint src tests --ext .ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.29.0",
+    "cheerio": "1.0.0",
+    "fast-xml-parser": "5.8.0",
+    "robots-parser": "3.0.1",
+    "undici": "7.25.0",
+    "zod": "3.25.76"
+  },
+  "peerDependencies": {
+    "playwright-core": "^1.49.0"
+  },
+  "peerDependenciesMeta": {
+    "playwright-core": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/node": "22.19.19",
+    "tsx": "4.22.0",
+    "typescript": "5.7.3",
+    "vitest": "3.2.4"
+  },
+  "files": [
+    "dist",
+    "src/lib/crawlers.json",
+    "src/lib/schema-types.json",
+    "action.yml",
+    "smithery.yaml",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "mcp",
+    "seo",
+    "ai-seo",
+    "aeo",
+    "geo",
+    "ai-overview",
+    "schema",
+    "robots",
+    "llms-txt",
+    "citation"
+  ]
+}

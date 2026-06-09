@@ -1,0 +1,18 @@
+[project]
+name = "stay-often"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "alembic>=1.15.2",
+    "fastapi-mcp>=0.3.3",
+    "fastapi[standard]>=0.115.12",
+    "httpx>=0.28.1",
+    "mcp[cli]>=1.6.0",
+    "psycopg2-binary>=2.9.10",
+    "pydantic>=2.11.3",
+    "python-dotenv>=1.1.0",
+    "sqlalchemy>=2.0.40",
+    "uvicorn>=0.34.2",
+]

@@ -1,0 +1,39 @@
+{
+  "author": "@dryai",
+  "description": "Official MCP server for Dry.ai",
+  "name": "@jrscally/dryai-mcp-server",
+  "version": "1.1.0",
+  "main": "build/index.js",
+  "type": "module",
+  "bin": {
+    "dryai-mcp-server": "build/index.js"
+  },
+  "scripts": {
+    "build": "tsc && chmod 755 build/index.js",
+    "prebuild": "npm install"
+  },
+  "files": [
+    "build"
+  ],
+  "keywords": [
+    "mcp",
+    "dryai",
+    "server"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/UnitaryLabs/dryai-mcp-server.git"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.4.0"
+  },
+  "bugs": {
+    "url": "https://github.com/UnitaryLabs/dryai-mcp-server/issues"
+  },
+  "homepage": "https://github.com/UnitaryLabs/dryai-mcp-server#readme"
+}

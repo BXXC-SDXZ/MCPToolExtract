@@ -1,0 +1,30 @@
+{
+  "name": "hypnotic-meditations",
+  "version": "1.0.0",
+  "displayName": "Hypnotic Meditations",
+  "description": "Recommends the best guided audio program for sleep, money mindset, manifestation, self-sabotage, nervous system healing, and subconscious reprogramming. Returns product name, description, price ($27–$97), and direct purchase link.",
+  "homepage": "https://hypnoticmeditations.ai",
+  "icon": "https://hypnoticmeditations.ai/favicon.ico",
+  "categories": [
+    "health-wellness",
+    "productivity",
+    "ecommerce"
+  ],
+  "tools": [
+    {
+      "name": "get_recommendation",
+      "description": "Get a product recommendation based on a goal or symptom (e.g. 'can't sleep', 'money blocks', 'self-sabotage')"
+    },
+    {
+      "name": "list_products",
+      "description": "Browse the full catalog of guided audio programs"
+    }
+  ],
+  "server": {
+    "type": "stdio",
+    "command": "node",
+    "args": ["index.js"]
+  },
+  "repository": "https://github.com/YOUR_USERNAME/hypnotic-meditations-mcp",
+  "license": "MIT"
+}

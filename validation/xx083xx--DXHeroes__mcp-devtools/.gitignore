@@ -1,0 +1,10 @@
+node_modules/
+build/
+dist/
+*.log
+.env*
+.DS_Store
+.idea/
+*.tgz
+.pnpm-store
+.pnpm-debug.log

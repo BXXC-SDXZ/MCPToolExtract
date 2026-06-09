@@ -1,0 +1,67 @@
+[env]
+CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
+
+[tasks.fmt]
+install_crate = "rustfmt"
+command = "cargo"
+args = ["fmt", "--all", "--", "--check"]
+
+[tasks.clippy]
+command = "cargo"
+args = [
+    "clippy",
+    "--workspace",
+    "--lib",
+    "--bins",
+    "--examples",
+    "--",
+    "-D",
+    "warnings",
+]
+
+[tasks.test]
+install_crate = "nextest"
+command = "cargo"
+args = ["nextest", "run", "--no-tests=pass"]
+
+[tasks.doc-test]
+workspace = false
+command = "cargo"
+args = ["test", "--doc", "-p", "rust-mcp-sdk"]
+dependencies = ["doc-test-macros", "doc-test-transport"]
+
+[tasks.doc-test-transport]
+workspace = false
+command = "cargo"
+args = ["test", "--doc", "-p", "rust-mcp-sdk"]
+
+[tasks.doc-test-macros]
+workspace = false
+command = "cargo"
+args = ["test", "--doc", "-p", "rust-mcp-macros"]
+
+
+[tasks.doc-strict]
+command = "cargo"
+args = ["doc", "--no-deps"]
+env = { RUSTDOCFLAGS = "-D warnings" }
+
+
+
+[tasks.build-all-features]
+script = '''
+set -e
+
+cargo build --lib -p rust-mcp-sdk --no-default-features --features "client,stdio"
+cargo build --lib -p rust-mcp-sdk --no-default-features --features "server,stdio"
+cargo build --lib -p rust-mcp-sdk --no-default-features --features "server,streamable-http"
+cargo build --lib -p rust-mcp-sdk --no-default-features --features "server,sse"
+'''
+
+
+[tasks.check]
+dependencies = ["fmt", "clippy", "build-all-features", "test", "doc-strict", "doc-test"]
+
+[tasks.clippy-fix]
+command = "cargo"
+args = ["clippy", "--fix", "--allow-dirty"]

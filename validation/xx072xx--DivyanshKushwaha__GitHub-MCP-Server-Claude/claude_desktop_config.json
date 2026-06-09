@@ -1,0 +1,11 @@
+{
+    "mcpServers": {
+        "MCP_Server": {
+            "command": "D:/conda-envs/openaidemo/Scripts/uv",
+            "args": [
+                "run",
+                "D:/Assignments/MCP_Server/main.py"
+            ]
+        }
+    }
+}
