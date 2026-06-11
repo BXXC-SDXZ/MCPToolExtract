@@ -1,0 +1,616 @@
+// snippet_notes_test.go contains unit tests for GitLab snippet note operations.
+// Tests use httptest to mock the GitLab Snippet Notes API.
+package snippetnotes
+
+import (
+	"context"
+	"net/http"
+	"testing"
+
+	"github.com/jmrplens/gitlab-mcp-server/v2/internal/testutil"
+	"github.com/jmrplens/gitlab-mcp-server/v2/internal/toolutil"
+)
+
+const (
+	pathSnippetNotes   = "/api/v4/projects/myproject/snippets/1/notes"
+	pathSnippetNote100 = "/api/v4/projects/myproject/snippets/1/notes/100"
+
+	noteJSON = `{
+		"id": 100,
+		"body": "Good snippet!",
+		"author": {"username": "alice"},
+		"system": false,
+		"noteable_type": "Snippet",
+		"noteable_id": 1,
+		"created_at": "2026-03-10T09:00:00Z",
+		"updated_at": "2026-03-10T09:00:00Z"
+	}`
+
+	noteSystemJSON = `{
+		"id": 101,
+		"body": "changed the title",
+		"author": {"username": "admin"},
+		"system": true,
+		"noteable_type": "Snippet",
+		"noteable_id": 1,
+		"created_at": "2026-03-10T12:00:00Z",
+		"updated_at": "2026-03-10T12:00:00Z"
+	}`
+
+	testProjectID = "myproject"
+)
+
+// List tests.
+
+// TestList_Success verifies that List lists a snippet note on a successful GitLab API response.
+func TestList_Success(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && r.URL.Path == pathSnippetNotes {
+			testutil.RespondJSON(w, http.StatusOK, "["+noteJSON+","+noteSystemJSON+"]")
+			return
+		}
+		http.NotFound(w, r)
+	}))
+
+	out, err := List(context.Background(), client, ListInput{ProjectID: testProjectID, SnippetID: 1})
+	if err != nil {
+		t.Fatalf("List() error: %v", err)
+	}
+	if len(out.Notes) != 2 {
+		t.Fatalf("len(Notes) = %d, want 2", len(out.Notes))
+	}
+	if out.Notes[0].ID != 100 {
+		t.Errorf("Notes[0].ID = %d, want 100", out.Notes[0].ID)
+	}
+	if out.Notes[0].Body != "Good snippet!" {
+		t.Errorf("Notes[0].Body = %q, want %q", out.Notes[0].Body, "Good snippet!")
+	}
+	if out.Notes[0].Author != "alice" {
+		t.Errorf("Notes[0].Author = %q, want %q", out.Notes[0].Author, "alice")
+	}
+	if out.Notes[1].System != true {
+		t.Error("Notes[1].System = false, want true")
+	}
+}
+
+// TestList_MissingProjectID verifies that List returns a validation error when project_id is missing.
+func TestList_MissingProjectID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.NotFound(w, nil)
+	}))
+	_, err := List(context.Background(), client, ListInput{SnippetID: 1})
+	if err == nil {
+		t.Fatal("List() expected error for missing project_id, got nil")
+	}
+}
+
+// TestList_MissingSnippetID verifies that List returns a validation error when snippet_id is missing.
+func TestList_MissingSnippetID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.NotFound(w, nil)
+	}))
+	_, err := List(context.Background(), client, ListInput{ProjectID: testProjectID})
+	if err == nil {
+		t.Fatal("List() expected error for missing snippet_id, got nil")
+	}
+}
+
+// TestList_CancelledContext verifies that List returns an error when the context is cancelled before the request completes.
+func TestList_CancelledContext(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.NotFound(w, nil)
+	}))
+	ctx := testutil.CancelledCtx(t)
+	_, err := List(ctx, client, ListInput{ProjectID: testProjectID, SnippetID: 1})
+	if err == nil {
+		t.Fatal("List() expected context error, got nil")
+	}
+}
+
+// TestList_APIError verifies that List propagates errors returned by the GitLab API.
+func TestList_APIError(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		testutil.RespondJSON(w, http.StatusForbidden, `{"message":"403 Forbidden"}`)
+	}))
+	_, err := List(context.Background(), client, ListInput{ProjectID: testProjectID, SnippetID: 1})
+	if err == nil {
+		t.Fatal("List() expected error for 500, got nil")
+	}
+}
+
+// TestList_Pagination verifies that List forwards pagination parameters (page, per_page) to the GitLab API.
+func TestList_Pagination(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("page") != "2" {
+			t.Errorf("page = %q, want %q", r.URL.Query().Get("page"), "2")
+		}
+		if r.URL.Query().Get("per_page") != "5" {
+			t.Errorf("per_page = %q, want %q", r.URL.Query().Get("per_page"), "5")
+		}
+		testutil.RespondJSON(w, http.StatusOK, "["+noteJSON+"]")
+	}))
+	out, err := List(context.Background(), client, ListInput{
+		ProjectID:       testProjectID,
+		SnippetID:       1,
+		PaginationInput: toolutil.PaginationInput{Page: 2, PerPage: 5},
+	})
+	if err != nil {
+		t.Fatalf("List() error: %v", err)
+	}
+	if len(out.Notes) != 1 {
+		t.Errorf("len(Notes) = %d, want 1", len(out.Notes))
+	}
+}
+
+// TestList_OrderBySort verifies that List forwards order_by and sort query parameters to the GitLab API.
+func TestList_OrderBySort(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("order_by") != "updated_at" {
+			t.Errorf("order_by = %q, want %q", r.URL.Query().Get("order_by"), "updated_at")
+		}
+		if r.URL.Query().Get("sort") != "desc" {
+			t.Errorf("sort = %q, want %q", r.URL.Query().Get("sort"), "desc")
+		}
+		testutil.RespondJSON(w, http.StatusOK, "[]")
+	}))
+	_, err := List(context.Background(), client, ListInput{
+		ProjectID: testProjectID,
+		SnippetID: 1,
+		OrderBy:   "updated_at",
+		Sort:      "desc",
+	})
+	if err != nil {
+		t.Fatalf("List() error: %v", err)
+	}
+}
+
+// Get tests.
+
+// TestGet_Success verifies that Get retrieves a snippet note on a successful GitLab API response.
+func TestGet_Success(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && r.URL.Path == pathSnippetNote100 {
+			testutil.RespondJSON(w, http.StatusOK, noteJSON)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+
+	out, err := Get(context.Background(), client, GetInput{ProjectID: testProjectID, SnippetID: 1, NoteID: 100})
+	if err != nil {
+		t.Fatalf("Get() error: %v", err)
+	}
+	if out.ID != 100 {
+		t.Errorf("out.ID = %d, want 100", out.ID)
+	}
+	if out.Author != "alice" {
+		t.Errorf("out.Author = %q, want %q", out.Author, "alice")
+	}
+}
+
+// TestGet_MissingProjectID verifies that Get returns a validation error when project_id is missing.
+func TestGet_MissingProjectID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.NotFound(w, nil)
+	}))
+	_, err := Get(context.Background(), client, GetInput{SnippetID: 1, NoteID: 100})
+	if err == nil {
+		t.Fatal("Get() expected error for missing project_id, got nil")
+	}
+}
+
+// TestGet_MissingSnippetID verifies that Get returns a validation error when snippet_id is missing.
+func TestGet_MissingSnippetID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.NotFound(w, nil)
+	}))
+	_, err := Get(context.Background(), client, GetInput{ProjectID: testProjectID, NoteID: 100})
+	if err == nil {
+		t.Fatal("Get() expected error for missing snippet_id, got nil")
+	}
+}
+
+// TestGet_MissingNoteID verifies that Get returns a validation error when note_id is missing.
+func TestGet_MissingNoteID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.NotFound(w, nil)
+	}))
+	_, err := Get(context.Background(), client, GetInput{ProjectID: testProjectID, SnippetID: 1})
+	if err == nil {
+		t.Fatal("Get() expected error for missing note_id, got nil")
+	}
+}
+
+// TestGet_APIError verifies that Get propagates errors returned by the GitLab API.
+func TestGet_APIError(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		testutil.RespondJSON(w, http.StatusNotFound, `{"message":"404 Not Found"}`)
+	}))
+	_, err := Get(context.Background(), client, GetInput{ProjectID: testProjectID, SnippetID: 1, NoteID: 999})
+	if err == nil {
+		t.Fatal("Get() expected error for 404, got nil")
+	}
+}
+
+// TestGet_CancelledContext verifies that Get returns an error when the context is cancelled before the request completes.
+func TestGet_CancelledContext(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.NotFound(w, nil)
+	}))
+	ctx := testutil.CancelledCtx(t)
+	_, err := Get(ctx, client, GetInput{ProjectID: testProjectID, SnippetID: 1, NoteID: 100})
+	if err == nil {
+		t.Fatal("Get() expected context error, got nil")
+	}
+}
+
+// Create tests.
+
+// TestCreate_Success verifies that Create creates a snippet note on a successful GitLab API response.
+func TestCreate_Success(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == pathSnippetNotes {
+			testutil.RespondJSON(w, http.StatusCreated, noteJSON)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+
+	out, err := Create(context.Background(), client, CreateInput{
+		ProjectID: testProjectID,
+		SnippetID: 1,
+		Body:      "Good snippet!",
+	})
+	if err != nil {
+		t.Fatalf("Create() error: %v", err)
+	}
+	if out.ID != 100 {
+		t.Errorf("out.ID = %d, want 100", out.ID)
+	}
+}
+
+// TestCreate_MissingProjectID verifies that Create returns a validation error when project_id is missing.
+func TestCreate_MissingProjectID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.NotFound(w, nil)
+	}))
+	_, err := Create(context.Background(), client, CreateInput{SnippetID: 1, Body: "hello"})
+	if err == nil {
+		t.Fatal("Create() expected error for missing project_id, got nil")
+	}
+}
+
+// TestCreate_MissingSnippetID verifies that Create returns a validation error when snippet_id is missing.
+func TestCreate_MissingSnippetID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.NotFound(w, nil)
+	}))
+	_, err := Create(context.Background(), client, CreateInput{ProjectID: testProjectID, Body: "hello"})
+	if err == nil {
+		t.Fatal("Create() expected error for missing snippet_id, got nil")
+	}
+}
+
+// TestCreate_MissingBody verifies that Create returns a validation error when body is missing.
+func TestCreate_MissingBody(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.NotFound(w, nil)
+	}))
+	_, err := Create(context.Background(), client, CreateInput{ProjectID: testProjectID, SnippetID: 1})
+	if err == nil {
+		t.Fatal("Create() expected error for missing body, got nil")
+	}
+}
+
+// TestCreate_APIError verifies that Create propagates errors returned by the GitLab API.
+func TestCreate_APIError(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		testutil.RespondJSON(w, http.StatusForbidden, `{"message":"403 Forbidden"}`)
+	}))
+	_, err := Create(context.Background(), client, CreateInput{ProjectID: testProjectID, SnippetID: 1, Body: "hello"})
+	if err == nil {
+		t.Fatal("Create() expected error for 403, got nil")
+	}
+}
+
+// TestCreate_CancelledContext verifies that Create returns an error when the context is cancelled before the request completes.
+func TestCreate_CancelledContext(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.NotFound(w, nil)
+	}))
+	ctx := testutil.CancelledCtx(t)
+	_, err := Create(ctx, client, CreateInput{ProjectID: testProjectID, SnippetID: 1, Body: "hello"})
+	if err == nil {
+		t.Fatal("Create() expected context error, got nil")
+	}
+}
+
+// Update tests.
+
+// TestUpdate_Success verifies that Update updates a snippet note on a successful GitLab API response.
+func TestUpdate_Success(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPut && r.URL.Path == pathSnippetNote100 {
+			testutil.RespondJSON(w, http.StatusOK, noteJSON)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+
+	out, err := Update(context.Background(), client, UpdateInput{
+		ProjectID: testProjectID,
+		SnippetID: 1,
+		NoteID:    100,
+		Body:      "Updated snippet note",
+	})
+	if err != nil {
+		t.Fatalf("Update() error: %v", err)
+	}
+	if out.ID != 100 {
+		t.Errorf("out.ID = %d, want 100", out.ID)
+	}
+}
+
+// TestUpdate_MissingProjectID verifies that Update returns a validation error when project_id is missing.
+func TestUpdate_MissingProjectID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.NotFound(w, nil)
+	}))
+	_, err := Update(context.Background(), client, UpdateInput{SnippetID: 1, NoteID: 100, Body: "x"})
+	if err == nil {
+		t.Fatal("Update() expected error for missing project_id, got nil")
+	}
+}
+
+// TestUpdate_MissingSnippetID verifies that Update returns a validation error when snippet_id is missing.
+func TestUpdate_MissingSnippetID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.NotFound(w, nil)
+	}))
+	_, err := Update(context.Background(), client, UpdateInput{ProjectID: testProjectID, NoteID: 100, Body: "x"})
+	if err == nil {
+		t.Fatal("Update() expected error for missing snippet_id, got nil")
+	}
+}
+
+// TestUpdate_MissingNoteID verifies that Update returns a validation error when note_id is missing.
+func TestUpdate_MissingNoteID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.NotFound(w, nil)
+	}))
+	_, err := Update(context.Background(), client, UpdateInput{ProjectID: testProjectID, SnippetID: 1, Body: "x"})
+	if err == nil {
+		t.Fatal("Update() expected error for missing note_id, got nil")
+	}
+}
+
+// TestUpdate_APIError verifies that Update propagates errors returned by the GitLab API.
+func TestUpdate_APIError(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		testutil.RespondJSON(w, http.StatusForbidden, `{"message":"403 Forbidden"}`)
+	}))
+	_, err := Update(context.Background(), client, UpdateInput{ProjectID: testProjectID, SnippetID: 1, NoteID: 100, Body: "x"})
+	if err == nil {
+		t.Fatal("Update() expected error for 403, got nil")
+	}
+}
+
+// TestUpdate_CancelledContext verifies that Update returns an error when the context is cancelled before the request completes.
+func TestUpdate_CancelledContext(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.NotFound(w, nil)
+	}))
+	ctx := testutil.CancelledCtx(t)
+	_, err := Update(ctx, client, UpdateInput{ProjectID: testProjectID, SnippetID: 1, NoteID: 100, Body: "x"})
+	if err == nil {
+		t.Fatal("Update() expected context error, got nil")
+	}
+}
+
+// Delete tests.
+
+// TestDelete_Success verifies that Delete deletes a snippet note on a successful GitLab API response.
+func TestDelete_Success(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodDelete && r.URL.Path == pathSnippetNote100 {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+
+	err := Delete(context.Background(), client, DeleteInput{ProjectID: testProjectID, SnippetID: 1, NoteID: 100})
+	if err != nil {
+		t.Fatalf("Delete() error: %v", err)
+	}
+}
+
+// TestDelete_MissingProjectID verifies that Delete returns a validation error when project_id is missing.
+func TestDelete_MissingProjectID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.NotFound(w, nil)
+	}))
+	err := Delete(context.Background(), client, DeleteInput{SnippetID: 1, NoteID: 100})
+	if err == nil {
+		t.Fatal("Delete() expected error for missing project_id, got nil")
+	}
+}
+
+// TestDelete_MissingSnippetID verifies that Delete returns a validation error when snippet_id is missing.
+func TestDelete_MissingSnippetID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.NotFound(w, nil)
+	}))
+	err := Delete(context.Background(), client, DeleteInput{ProjectID: testProjectID, NoteID: 100})
+	if err == nil {
+		t.Fatal("Delete() expected error for missing snippet_id, got nil")
+	}
+}
+
+// TestDelete_MissingNoteID verifies that Delete returns a validation error when note_id is missing.
+func TestDelete_MissingNoteID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.NotFound(w, nil)
+	}))
+	err := Delete(context.Background(), client, DeleteInput{ProjectID: testProjectID, SnippetID: 1})
+	if err == nil {
+		t.Fatal("Delete() expected error for missing note_id, got nil")
+	}
+}
+
+// TestDelete_APIError verifies that Delete propagates errors returned by the GitLab API.
+func TestDelete_APIError(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		testutil.RespondJSON(w, http.StatusForbidden, `{"message":"403 Forbidden"}`)
+	}))
+	err := Delete(context.Background(), client, DeleteInput{ProjectID: testProjectID, SnippetID: 1, NoteID: 100})
+	if err == nil {
+		t.Fatal("Delete() expected error for 403, got nil")
+	}
+}
+
+// TestDelete_CancelledContext verifies that Delete returns an error when the context is cancelled before the request completes.
+func TestDelete_CancelledContext(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.NotFound(w, nil)
+	}))
+	ctx := testutil.CancelledCtx(t)
+	err := Delete(ctx, client, DeleteInput{ProjectID: testProjectID, SnippetID: 1, NoteID: 100})
+	if err == nil {
+		t.Fatal("Delete() expected context error, got nil")
+	}
+}
+
+// Markdown tests.
+
+// TestFormatOutputMarkdown_Basic verifies the OutputMarkdown_Basic markdown formatter output.
+func TestFormatOutputMarkdown_Basic(t *testing.T) {
+	md := FormatOutputMarkdown(Output{
+		ID:     100,
+		Body:   "Great snippet",
+		Author: "alice",
+		System: false,
+	})
+	if !contains(md, "## Snippet Note #100") {
+		t.Error("missing header")
+	}
+	if !contains(md, "alice") {
+		t.Error("missing author")
+	}
+}
+
+// TestFormatOutputMarkdown_SystemNote verifies the OutputMarkdown_SystemNote markdown formatter output.
+func TestFormatOutputMarkdown_SystemNote(t *testing.T) {
+	md := FormatOutputMarkdown(Output{
+		ID:     101,
+		Body:   "changed the title",
+		Author: "admin",
+		System: true,
+	})
+	if !contains(md, "System note") {
+		t.Error("missing system note indicator")
+	}
+}
+
+// TestFormatListMarkdown_Empty verifies the ListMarkdown_Empty markdown formatter output.
+func TestFormatListMarkdown_Empty(t *testing.T) {
+	md := FormatListMarkdown(ListOutput{})
+	if !contains(md, "No snippet notes found") {
+		t.Error("missing empty message")
+	}
+}
+
+// TestFormatListMarkdown_WithNotes verifies the ListMarkdown_WithNotes markdown formatter output.
+func TestFormatListMarkdown_WithNotes(t *testing.T) {
+	md := FormatListMarkdown(ListOutput{
+		Notes: []Output{
+			{ID: 100, Author: "alice", System: false},
+			{ID: 101, Author: "admin", System: true},
+		},
+	})
+	if !contains(md, "| 100 |") {
+		t.Error("missing note 100 row")
+	}
+	if !contains(md, "| 101 |") {
+		t.Error("missing note 101 row")
+	}
+}
+
+func contains(s, substr string) bool {
+	return len(s) > 0 && len(substr) > 0 && containsSubstring(s, substr)
+}
+
+func containsSubstring(s, sub string) bool {
+	for i := 0; i <= len(s)-len(sub); i++ {
+		if s[i:i+len(sub)] == sub {
+			return true
+		}
+	}
+	return false
+}
+
+// toOutput coverage tests.
+
+// TestToOutput_NilTimestamps verifies that toOutput handles edge cases in the
+// GitLab response (nil timestamps or optional fields) without panicking.
+func TestToOutput_NilTimestamps(t *testing.T) {
+	// Note with no created_at or updated_at (nil time pointers in the SDK).
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && r.URL.Path == pathSnippetNote100 {
+			testutil.RespondJSON(w, http.StatusOK, `{
+				"id": 100,
+				"body": "note without timestamps",
+				"author": {"username": ""},
+				"system": false,
+				"noteable_type": "Snippet",
+				"noteable_id": 1
+			}`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	out, err := Get(context.Background(), client, GetInput{ProjectID: testProjectID, SnippetID: 1, NoteID: 100})
+	if err != nil {
+		t.Fatalf("Get() error: %v", err)
+	}
+	if out.CreatedAt != "" {
+		t.Errorf("CreatedAt = %q, want empty", out.CreatedAt)
+	}
+	if out.UpdatedAt != "" {
+		t.Errorf("UpdatedAt = %q, want empty", out.UpdatedAt)
+	}
+	if out.Author != "" {
+		t.Errorf("Author = %q, want empty", out.Author)
+	}
+}
+
+// TestList_EmptyResult verifies that List returns an empty slice (not nil) when the GitLab API returns no items.
+func TestList_EmptyResult(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		testutil.RespondJSON(w, http.StatusOK, "[]")
+	}))
+	out, err := List(context.Background(), client, ListInput{ProjectID: testProjectID, SnippetID: 1})
+	if err != nil {
+		t.Fatalf("List() error: %v", err)
+	}
+	if len(out.Notes) != 0 {
+		t.Errorf("len(Notes) = %d, want 0", len(out.Notes))
+	}
+}
+
+// TestFormatOutputMarkdown_WithUpdatedAt verifies the OutputMarkdown_WithUpdatedAt markdown formatter output.
+func TestFormatOutputMarkdown_WithUpdatedAt(t *testing.T) {
+	md := FormatOutputMarkdown(Output{
+		ID:        100,
+		Body:      "test note",
+		Author:    "bob",
+		CreatedAt: "2026-03-10T09:00:00Z",
+		UpdatedAt: "2026-03-10T10:00:00Z",
+	})
+	if !contains(md, "bob") {
+		t.Error("missing author")
+	}
+	if !contains(md, "## Snippet Note #100") {
+		t.Error("missing header")
+	}
+}

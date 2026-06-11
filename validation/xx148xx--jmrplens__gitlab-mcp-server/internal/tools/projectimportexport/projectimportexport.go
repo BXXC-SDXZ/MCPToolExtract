@@ -1,0 +1,274 @@
+package projectimportexport
+
+import (
+	"bytes"
+	"context"
+	"encoding/base64"
+	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"time"
+
+	gl "gitlab.com/gitlab-org/api/client-go/v2"
+
+	gitlabclient "github.com/jmrplens/gitlab-mcp-server/v2/internal/gitlab"
+	"github.com/jmrplens/gitlab-mcp-server/v2/internal/toolutil"
+)
+
+// ---------------------------------------------------------------------------
+// Schedule Export
+// ---------------------------------------------------------------------------.
+
+// ScheduleExportInput is the input for scheduling a project export.
+type ScheduleExportInput struct {
+	ProjectID   toolutil.StringOrInt `json:"project_id" jsonschema:"Project ID or URL-encoded path,required"`
+	Description string               `json:"description,omitempty" jsonschema:"Override the project description in the export"`
+	UploadURL   string               `json:"upload_url,omitempty" jsonschema:"URL to upload the exported project to after export completes"`
+	UploadHTTP  string               `json:"upload_http_method,omitempty" jsonschema:"HTTP method to use for the upload (PUT or POST)"`
+}
+
+// ScheduleExportOutput is the output for scheduling a project export.
+type ScheduleExportOutput struct {
+	toolutil.HintableOutput
+	Message string `json:"message"`
+}
+
+// ScheduleExport schedules an asynchronous project export.
+func ScheduleExport(ctx context.Context, client *gitlabclient.Client, input ScheduleExportInput) (ScheduleExportOutput, error) {
+	opts := &gl.ScheduleExportOptions{}
+	if input.Description != "" {
+		opts.Description = new(input.Description)
+	}
+	if input.UploadURL != "" {
+		opts.Upload = gl.ScheduleExportUploadOptions{
+			URL: new(input.UploadURL),
+		}
+		if input.UploadHTTP != "" {
+			opts.Upload.HTTPMethod = new(input.UploadHTTP)
+		}
+	}
+
+	_, err := client.GL().ProjectImportExport.ScheduleExport(string(input.ProjectID), opts, gl.WithContext(ctx))
+	if err != nil {
+		return ScheduleExportOutput{}, toolutil.WrapErrWithStatusHint("schedule_export", err, http.StatusForbidden,
+			"requires Owner role on the project; only one export at a time per project \u2014 wait for the previous to finish or use gitlab_export_status to check")
+	}
+	return ScheduleExportOutput{Message: "Export scheduled successfully"}, nil
+}
+
+// ---------------------------------------------------------------------------
+// Export Status
+// ---------------------------------------------------------------------------.
+
+// ExportStatusInput is the input for getting export status.
+type ExportStatusInput struct {
+	ProjectID toolutil.StringOrInt `json:"project_id" jsonschema:"Project ID or URL-encoded path,required"`
+}
+
+// ExportStatusOutput is the output for getting export status.
+type ExportStatusOutput struct {
+	toolutil.HintableOutput
+	ID                int64  `json:"id"`
+	Description       string `json:"description"`
+	Name              string `json:"name"`
+	NameWithNamespace string `json:"name_with_namespace"`
+	Path              string `json:"path"`
+	PathWithNamespace string `json:"path_with_namespace"`
+	CreatedAt         string `json:"created_at,omitempty"`
+	ExportStatus      string `json:"export_status"`
+	Message           string `json:"message,omitempty"`
+	APIURL            string `json:"api_url,omitempty"`
+	WebURL            string `json:"web_url,omitempty"`
+}
+
+// GetExportStatus returns the export status of a project.
+func GetExportStatus(ctx context.Context, client *gitlabclient.Client, input ExportStatusInput) (ExportStatusOutput, error) {
+	status, _, err := client.GL().ProjectImportExport.ExportStatus(string(input.ProjectID), gl.WithContext(ctx))
+	if err != nil {
+		return ExportStatusOutput{}, toolutil.WrapErrWithStatusHint("export_status", err, http.StatusNotFound,
+			"verify project_id with gitlab_project_get; export must be scheduled first via gitlab_schedule_export; status values: none, started, finished, after_export_action_failed")
+	}
+
+	out := ExportStatusOutput{
+		ID:                status.ID,
+		Description:       status.Description,
+		Name:              status.Name,
+		NameWithNamespace: status.NameWithNamespace,
+		Path:              status.Path,
+		PathWithNamespace: status.PathWithNamespace,
+		ExportStatus:      status.ExportStatus,
+		Message:           status.Message,
+	}
+	if status.CreatedAt != nil {
+		out.CreatedAt = status.CreatedAt.Format(time.RFC3339)
+	}
+	if status.Links.APIURL != "" {
+		out.APIURL = status.Links.APIURL
+	}
+	if status.Links.WebURL != "" {
+		out.WebURL = status.Links.WebURL
+	}
+	return out, nil
+}
+
+// ---------------------------------------------------------------------------
+// Export Download
+// ---------------------------------------------------------------------------.
+
+// ExportDownloadInput is the input for downloading a project export.
+type ExportDownloadInput struct {
+	ProjectID toolutil.StringOrInt `json:"project_id" jsonschema:"Project ID or URL-encoded path,required"`
+}
+
+// ExportDownloadOutput is the output for downloading a project export.
+type ExportDownloadOutput struct {
+	toolutil.HintableOutput
+	ContentBase64 string `json:"content_base64"`
+	SizeBytes     int    `json:"size_bytes"`
+}
+
+// ExportDownload downloads the finished export archive of a project as base64.
+func ExportDownload(ctx context.Context, client *gitlabclient.Client, input ExportDownloadInput) (ExportDownloadOutput, error) {
+	data, _, err := client.GL().ProjectImportExport.ExportDownload(string(input.ProjectID), gl.WithContext(ctx))
+	if err != nil {
+		return ExportDownloadOutput{}, toolutil.WrapErrWithStatusHint("export_download", err, http.StatusNotFound,
+			"export must be in 'finished' state \u2014 check gitlab_export_status first; archives are kept for 24 hours after generation")
+	}
+	return ExportDownloadOutput{
+		ContentBase64: base64.StdEncoding.EncodeToString(data),
+		SizeBytes:     len(data),
+	}, nil
+}
+
+// ---------------------------------------------------------------------------
+// Import From File
+// ---------------------------------------------------------------------------.
+
+// ImportFromFileInput is the input for importing a project from an archive file.
+type ImportFromFileInput struct {
+	FilePath      string `json:"file_path,omitempty" jsonschema:"Canonical path to a local export archive (.tar.gz) under the current working directory, OS temp directory, or GITLAB_MCP_ALLOWED_IMPORT_DIRS. Symlinks are resolved and escapes are rejected. Only one of file_path or content_base64 should be provided."`
+	ContentBase64 string `json:"content_base64,omitempty" jsonschema:"Base64-encoded export archive content. Only one of file_path or content_base64 should be provided."`
+	Namespace     string `json:"namespace,omitempty" jsonschema:"Namespace to import the project into (user or group path)"`
+	Name          string `json:"name,omitempty" jsonschema:"Name for the imported project"`
+	Path          string `json:"path,omitempty" jsonschema:"URL path for the imported project"`
+	Overwrite     *bool  `json:"overwrite,omitempty" jsonschema:"If true, overwrite an existing project with the same path"`
+}
+
+// ImportStatusOutput is the output for import operations.
+type ImportStatusOutput struct {
+	toolutil.HintableOutput
+	ID                int64  `json:"id"`
+	Description       string `json:"description"`
+	Name              string `json:"name"`
+	NameWithNamespace string `json:"name_with_namespace"`
+	Path              string `json:"path"`
+	PathWithNamespace string `json:"path_with_namespace"`
+	CreatedAt         string `json:"created_at,omitempty"`
+	ImportStatus      string `json:"import_status"`
+	ImportType        string `json:"import_type,omitempty"`
+	CorrelationID     string `json:"correlation_id,omitempty"`
+	ImportError       string `json:"import_error,omitempty"`
+}
+
+// ImportFromFile imports a project from an export archive.
+func ImportFromFile(ctx context.Context, client *gitlabclient.Client, input ImportFromFileInput) (ImportStatusOutput, error) {
+	hasFilePath := input.FilePath != ""
+	hasBase64 := input.ContentBase64 != ""
+
+	if hasFilePath && hasBase64 {
+		return ImportStatusOutput{}, toolutil.WrapErrWithMessage("import_from_file", errors.New("provide only one of file_path or content_base64, not both"))
+	}
+	if !hasFilePath && !hasBase64 {
+		return ImportStatusOutput{}, toolutil.WrapErrWithMessage("import_from_file", errors.New("one of file_path or content_base64 is required"))
+	}
+
+	var archiveReader io.Reader
+	if hasFilePath {
+		archivePath, err := toolutil.CanonicalImportArchivePath(input.FilePath)
+		if err != nil {
+			return ImportStatusOutput{}, toolutil.WrapErrWithMessage("import_from_file", err)
+		}
+		file, err := os.Open(archivePath) //#nosec G304 -- archivePath is canonicalized, extension-checked, regular-file checked, and constrained to allowed import directories.
+		if err != nil {
+			return ImportStatusOutput{}, toolutil.WrapErrWithMessage("import_from_file", fmt.Errorf("open archive: %w", err))
+		}
+		defer file.Close()
+		archiveReader = file
+	} else {
+		decoded, err := base64.StdEncoding.DecodeString(input.ContentBase64)
+		if err != nil {
+			return ImportStatusOutput{}, toolutil.WrapErrWithMessage("import_from_file", fmt.Errorf("invalid base64: %w", err))
+		}
+		archiveReader = bytes.NewReader(decoded)
+	}
+
+	opts := &gl.ImportFileOptions{}
+	if input.Namespace != "" {
+		opts.Namespace = new(input.Namespace)
+	}
+	if input.Name != "" {
+		opts.Name = new(input.Name)
+	}
+	if input.Path != "" {
+		opts.Path = new(input.Path)
+	}
+	if input.Overwrite != nil {
+		opts.Overwrite = input.Overwrite
+	}
+
+	status, _, err := client.GL().ProjectImportExport.ImportFromFile(archiveReader, opts, gl.WithContext(ctx))
+	if err != nil {
+		return ImportStatusOutput{}, toolutil.WrapErrWithStatusHint("import_from_file", err, http.StatusBadRequest,
+			"archive must be a valid GitLab project export (.tar.gz from gitlab_export_download); namespace must exist and you need create-project permission there; path must be unique unless overwrite=true")
+	}
+	return importStatusToOutput(status), nil
+}
+
+// ---------------------------------------------------------------------------
+// Import Status
+// ---------------------------------------------------------------------------.
+
+// GetImportStatusInput is the input for getting import status.
+type GetImportStatusInput struct {
+	ProjectID toolutil.StringOrInt `json:"project_id" jsonschema:"Project ID or URL-encoded path,required"`
+}
+
+// GetImportStatus returns the import status of a project.
+func GetImportStatus(ctx context.Context, client *gitlabclient.Client, input GetImportStatusInput) (ImportStatusOutput, error) {
+	status, _, err := client.GL().ProjectImportExport.ImportStatus(string(input.ProjectID), gl.WithContext(ctx))
+	if err != nil {
+		return ImportStatusOutput{}, toolutil.WrapErrWithStatusHint("import_status", err, http.StatusNotFound,
+			"verify project_id with gitlab_project_get; status values: none, scheduled, started, finished, failed; check import_error field for failure reasons")
+	}
+	return importStatusToOutput(status), nil
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------.
+
+// importStatusToOutput converts the GitLab API response to the tool output format.
+func importStatusToOutput(s *gl.ImportStatus) ImportStatusOutput {
+	out := ImportStatusOutput{
+		ID:                s.ID,
+		Description:       s.Description,
+		Name:              s.Name,
+		NameWithNamespace: s.NameWithNamespace,
+		Path:              s.Path,
+		PathWithNamespace: s.PathWithNamespace,
+		ImportStatus:      s.ImportStatus,
+		ImportType:        s.ImportType,
+		CorrelationID:     s.CorrelationID,
+		ImportError:       s.ImportError,
+	}
+	if s.CreateAt != nil {
+		out.CreatedAt = s.CreateAt.Format(time.RFC3339)
+	}
+	return out
+}
+
+// ---------------------------------------------------------------------------
+// Markdown formatters
+// ---------------------------------------------------------------------------.

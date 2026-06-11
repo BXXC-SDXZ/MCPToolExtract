@@ -1,0 +1,45 @@
+{
+  "name": "@burnishdev/server",
+  "version": "0.4.1",
+  "description": "MCP orchestration and session management for Burnish",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\""
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "typescript": "^5.7.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/danfking/burnish.git",
+    "directory": "packages/server"
+  },
+  "license": "AGPL-3.0",
+  "homepage": "https://github.com/danfking/burnish",
+  "author": "danfking",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "server",
+    "burnish"
+  ]
+}

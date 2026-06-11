@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ReNoUn — Crypto Regime Classification for Trading Agents</title>
+<meta name="description" content="Structural regime classifier for crypto markets. 100% accuracy on bounded regimes (126+ graded). MCP-native. 50 free calls/day.">
+<link rel="canonical" href="https://harrisoncollab.com/">
+<!-- Open Graph -->
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://harrisoncollab.com/">
+<meta property="og:title" content="ReNoUn — Crypto Regime Classification for Trading Agents">
+<meta property="og:description" content="100% accuracy on bounded regimes. Structural risk overlay for autonomous trading agents. MCP-native, 50 free calls/day.">
+<meta property="og:image" content="https://harrisoncollab.com/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:site_name" content="Harrison Collab">
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="ReNoUn — Crypto Regime Classification">
+<meta name="twitter:description" content="100% accuracy on bounded regimes (126+ graded). Structural risk overlay for trading agents. Free tier available.">
+<meta name="twitter:image" content="https://harrisoncollab.com/og-image.png">
+<!-- SEO -->
+<meta name="keywords" content="crypto regime classification, trading agent risk, MCP server crypto, structural analysis crypto, regime detection, bounded active unstable, position sizing AI, pre-trade risk check, ReNoUn, crypto risk overlay">
+<meta name="author" content="Luke Hall">
+<meta name="theme-color" content="#0B1D3A">
+<!-- AI Agent Discovery -->
+<link rel="alternate" type="text/markdown" href="/llms.txt" title="LLM-friendly site summary">
+<!-- Favicon -->
+<link rel="icon" type="image/png" href="logo.png">
+<link rel="apple-touch-icon" href="logo.png">
+<!-- Structured Data -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "ReNoUn",
+  "alternateName": ["ReNoUn MCP", "ReNoUn Regime Classifier"],
+  "applicationCategory": "FinanceApplication",
+  "operatingSystem": "Any",
+  "description": "Structural regime classifier for crypto markets. Classifies bounded, active, and unstable market conditions using 17-channel analysis. 100% accuracy on bounded regime predictions. Available as MCP server and REST API.",
+  "url": "https://harrisoncollab.com",
+  "downloadUrl": "https://pypi.org/project/renoun-mcp/",
+  "softwareVersion": "1.3.1",
+  "author": {"@type": "Organization", "name": "Harrison Collab", "url": "https://harrisoncollab.com"},
+  "offers": [
+    {"@type": "Offer", "price": "0", "priceCurrency": "USD", "description": "50 free API calls per day, no credit card"},
+    {"@type": "Offer", "price": "0.02", "priceCurrency": "USD", "description": "$0.02/call beyond free tier"}
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {"@type": "Question", "name": "What does ReNoUn do?", "acceptedAnswer": {"@type": "Answer", "text": "ReNoUn classifies crypto market regimes as bounded (safe to trade), active (reduce position), or unstable (avoid). It measures structural disorder in price action, not direction."}},
+    {"@type": "Question", "name": "What is 100% bounded regime accuracy?", "acceptedAnswer": {"@type": "Answer", "text": "When ReNoUn classifies a regime as bounded (proceed), it has been correct 100% of the time across 126+ graded predictions. Price stayed within the expected envelope every time."}},
+    {"@type": "Question", "name": "Is ReNoUn an MCP server?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. ReNoUn is listed on the Official MCP Registry and supports streamable-http transport. Any MCP client (Claude Desktop, etc.) can discover and connect natively."}},
+    {"@type": "Question", "name": "How much does it cost?", "acceptedAnswer": {"@type": "Answer", "text": "50 free API calls per day, no credit card required. Beyond that, $0.02 per call with automatic Stripe billing."}}
+  ]
+}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --bg: #0B1D3A;
+  --bg-card: #122649;
+  --bg-elevated: #1A3258;
+  --border: #1E3A5F;
+  --text: #E8EDF4;
+  --text-dim: #8BA3C4;
+  --text-muted: #5A7A9E;
+  --accent: #7C9A6E;
+  --accent-glow: rgba(124, 154, 110, 0.3);
+  --bounded: #7C9A6E;
+  --active: #C9956F;
+  --unstable: #C75050;
+  --radius: 12px;
+  --radius-lg: 20px;
+}
+html { scroll-behavior: smooth; font-size: 16px; }
+body {
+  font-family: 'Inter', -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+a { color: var(--accent); text-decoration: none; transition: color 0.2s; }
+a:hover { color: #9ABF8E; }
+code, .mono { font-family: 'JetBrains Mono', monospace; }
+
+/* Nav */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+  padding: 1rem 2rem;
+  display: flex; align-items: center; justify-content: space-between;
+  backdrop-filter: blur(20px);
+  background: rgba(11, 29, 58, 0.9);
+  border-bottom: 1px solid var(--border);
+}
+.nav-logo {
+  display: flex; align-items: center; gap: 0.8rem;
+  font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em;
+  color: var(--text); text-decoration: none;
+}
+.nav-logo img { width: 36px; height: 36px; border-radius: 8px; }
+.nav-links { display: flex; gap: 2rem; align-items: center; }
+.nav-links a { color: var(--text-dim); font-size: 0.875rem; font-weight: 500; }
+.nav-links a:hover { color: var(--text); }
+.nav-cta {
+  background: var(--accent) !important; color: white !important;
+  padding: 0.5rem 1.2rem; border-radius: 8px;
+  font-weight: 600; font-size: 0.85rem !important;
+}
+.nav-cta:hover { transform: translateY(-1px); box-shadow: 0 4px 20px var(--accent-glow); }
+
+/* Hero */
+.hero {
+  min-height: 100vh;
+  display: flex; flex-direction: column; justify-content: center; align-items: center;
+  text-align: center; padding: 8rem 2rem 4rem;
+  position: relative;
+}
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  padding: 0.4rem 1rem;
+  background: rgba(124, 154, 110, 0.1);
+  border: 1px solid rgba(124, 154, 110, 0.25);
+  border-radius: 100px;
+  font-size: 0.8rem; font-weight: 500; color: var(--accent);
+  margin-bottom: 2rem;
+  animation: fadeInUp 0.6s ease;
+}
+.hero-badge .dot {
+  width: 6px; height: 6px; background: var(--accent);
+  border-radius: 50%; animation: pulse 2s infinite;
+}
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+.hero h1 {
+  font-size: clamp(2.8rem, 6vw, 4.5rem);
+  font-weight: 800; letter-spacing: -0.04em; line-height: 1.05;
+  margin-bottom: 1.5rem;
+  animation: fadeInUp 0.6s ease 0.1s both;
+}
+.hero h1 .gradient {
+  background: linear-gradient(135deg, var(--bounded), var(--active));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+.hero p {
+  font-size: 1.2rem; color: var(--text-dim);
+  max-width: 640px; margin-bottom: 2.5rem;
+  animation: fadeInUp 0.6s ease 0.2s both;
+}
+.hero-actions {
+  display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center;
+  animation: fadeInUp 0.6s ease 0.3s both;
+}
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  padding: 0.8rem 1.8rem; border-radius: 10px;
+  font-weight: 600; font-size: 0.95rem;
+  transition: all 0.25s; cursor: pointer; border: none; font-family: inherit;
+}
+.btn-primary { background: var(--accent); color: white; }
+.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 30px var(--accent-glow); color: white; }
+.btn-secondary { background: var(--bg-elevated); color: var(--text); border: 1px solid var(--border); }
+.btn-secondary:hover { border-color: var(--text-muted); transform: translateY(-2px); color: var(--text); }
+
+/* Stat row */
+.hero-stats {
+  display: flex; gap: 3rem; margin-top: 3rem; flex-wrap: wrap; justify-content: center;
+  animation: fadeInUp 0.6s ease 0.4s both;
+}
+.hero-stat { text-align: center; }
+.hero-stat .val {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 2rem; font-weight: 800; color: var(--accent);
+}
+.hero-stat .val.warn { color: var(--active); }
+.hero-stat .label {
+  font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--text-muted); margin-top: 0.2rem;
+}
+
+/* Section */
+section { padding: 5rem 2rem; max-width: 1200px; margin: 0 auto; }
+.section-label {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  font-size: 0.8rem; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.1em; color: var(--accent); margin-bottom: 1rem;
+}
+.section-label::before { content: ''; width: 20px; height: 2px; background: var(--accent); }
+.section-title {
+  font-size: clamp(2rem, 4vw, 2.8rem);
+  font-weight: 800; letter-spacing: -0.03em; margin-bottom: 1rem;
+}
+.section-subtitle { font-size: 1.05rem; color: var(--text-dim); max-width: 650px; }
+
+/* Regime cards */
+.regime-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem; margin-top: 3rem;
+}
+.regime-card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 2rem;
+  transition: all 0.3s; position: relative; overflow: hidden;
+}
+.regime-card:hover { border-color: var(--text-muted); transform: translateY(-4px); }
+.regime-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+}
+.regime-card.bounded::before { background: var(--bounded); }
+.regime-card.active-r::before { background: var(--active); }
+.regime-card.unstable::before { background: var(--unstable); }
+.regime-card .regime-name {
+  font-size: 1.4rem; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 0.3rem;
+}
+.regime-card.bounded .regime-name { color: var(--bounded); }
+.regime-card.active-r .regime-name { color: var(--active); }
+.regime-card.unstable .regime-name { color: var(--unstable); }
+.regime-card .regime-action {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem;
+}
+.regime-card p { color: var(--text-dim); font-size: 0.9rem; margin-bottom: 1.2rem; }
+.regime-card .accuracy-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem; font-weight: 600;
+  padding: 0.4rem 0.8rem; border-radius: 8px;
+  display: inline-block;
+}
+.regime-card.bounded .accuracy-badge {
+  background: rgba(124, 154, 110, 0.15); color: var(--bounded);
+  border: 1px solid rgba(124, 154, 110, 0.3);
+}
+.regime-card.active-r .accuracy-badge {
+  background: rgba(201, 149, 111, 0.15); color: var(--active);
+  border: 1px solid rgba(201, 149, 111, 0.3);
+}
+.regime-card.unstable .accuracy-badge {
+  background: rgba(199, 80, 80, 0.15); color: var(--unstable);
+  border: 1px solid rgba(199, 80, 80, 0.3);
+}
+
+/* Code block */
+.code-section { margin-top: 3rem; }
+.code-block {
+  background: #0D1117; border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 1.5rem 2rem;
+  overflow-x: auto; font-size: 0.85rem; line-height: 1.8;
+}
+.code-block pre { margin: 0; color: #E6EDF3; white-space: pre; }
+.code-block .comment { color: #8B949E; }
+.code-block .string { color: #7DD3FC; }
+.code-block .keyword { color: #C084FC; }
+.code-block .fn { color: #D2A8FF; }
+
+/* MCP section */
+.mcp-banner {
+  background: linear-gradient(135deg, var(--bg-card), var(--bg-elevated));
+  border: 1px solid var(--border); border-radius: var(--radius-lg);
+  padding: 3rem; display: grid; grid-template-columns: 1fr 1fr;
+  gap: 3rem; align-items: center; margin-top: 3rem;
+}
+.mcp-banner h3 { font-size: 1.8rem; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 0.8rem; }
+.mcp-banner p { color: var(--text-dim); font-size: 0.95rem; margin-bottom: 1.2rem; }
+.mcp-badge {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: rgba(124, 154, 110, 0.1);
+  border: 1px solid rgba(124, 154, 110, 0.25);
+  border-radius: 8px; font-size: 0.8rem; font-weight: 600; color: var(--accent);
+  margin-bottom: 1rem;
+}
+.mcp-config {
+  background: #0D1117; border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 1.2rem 1.5rem;
+  font-size: 0.8rem; color: #E6EDF3; overflow-x: auto;
+}
+.mcp-config pre { margin: 0; white-space: pre; }
+
+/* Live dashboard */
+.live-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem; margin-top: 2rem;
+}
+.live-card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 1.2rem;
+  text-align: center;
+}
+.live-card .asset { font-size: 1.2rem; font-weight: 800; margin-bottom: 0.3rem; }
+.live-card .regime-tag {
+  display: inline-block; padding: 0.2rem 0.6rem;
+  border-radius: 6px; font-size: 0.7rem; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.live-card .regime-tag.bounded { background: rgba(124,154,110,0.15); color: var(--bounded); border: 1px solid rgba(124,154,110,0.3); }
+.live-card .regime-tag.active { background: rgba(201,149,111,0.15); color: var(--active); border: 1px solid rgba(201,149,111,0.3); }
+.live-card .regime-tag.unstable { background: rgba(199,80,80,0.15); color: var(--unstable); border: 1px solid rgba(199,80,80,0.3); }
+.live-card .dhs {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem; margin-top: 0.5rem; color: var(--text-dim);
+}
+.live-card .price {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;
+}
+.delay-note {
+  text-align: center; color: var(--text-muted); font-size: 0.75rem;
+  margin-top: 1rem;
+}
+
+/* Pricing */
+.pricing-row {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 1.5rem; margin-top: 2rem;
+}
+.pricing-card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 2.5rem;
+}
+.pricing-card.featured { border-color: var(--accent); }
+.pricing-card h3 { font-size: 1.2rem; font-weight: 700; margin-bottom: 0.5rem; }
+.pricing-card .price {
+  font-size: 2.5rem; font-weight: 800; color: var(--accent); margin-bottom: 0.2rem;
+}
+.pricing-card .price span { font-size: 1rem; color: var(--text-muted); font-weight: 400; }
+.pricing-card .note { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.5rem; }
+.pricing-card ul { list-style: none; margin-bottom: 1.5rem; }
+.pricing-card ul li {
+  padding: 0.4rem 0; font-size: 0.9rem; color: var(--text-dim);
+}
+.pricing-card ul li::before { content: "\2713 "; color: var(--accent); font-weight: 600; }
+
+/* CTA */
+.cta-section {
+  text-align: center; padding: 5rem 2rem;
+  max-width: 700px; margin: 0 auto;
+}
+.cta-section h2 { font-size: 2rem; font-weight: 800; margin-bottom: 1rem; }
+.cta-section p { color: var(--text-dim); font-size: 1rem; margin-bottom: 2rem; }
+.cta-code {
+  background: #0D1117; border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 1rem 1.5rem;
+  text-align: left; font-size: 0.8rem; color: #E6EDF3;
+  overflow-x: auto; margin-top: 1.5rem;
+}
+
+/* Conversation teaser */
+.convo-teaser {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 2.5rem;
+  margin-top: 3rem;
+}
+.convo-teaser h3 { font-size: 1.3rem; font-weight: 700; margin-bottom: 0.5rem; }
+.convo-teaser p { color: var(--text-dim); font-size: 0.9rem; margin-bottom: 1.2rem; }
+.convo-tools {
+  display: flex; gap: 0.8rem; flex-wrap: wrap;
+}
+.convo-tool {
+  padding: 0.4rem 0.8rem; background: var(--bg-elevated);
+  border: 1px solid var(--border); border-radius: 8px;
+  font-family: 'JetBrains Mono', monospace; font-size: 0.75rem;
+  color: var(--text-dim);
+}
+
+/* Footer */
+footer {
+  padding: 2rem; text-align: center;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted); font-size: 0.8rem;
+}
+footer a { color: var(--text-dim); margin: 0 0.75rem; }
+footer a:hover { color: var(--text); }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .regime-grid { grid-template-columns: 1fr; }
+  .mcp-banner { grid-template-columns: 1fr; }
+  .pricing-row { grid-template-columns: 1fr; }
+  .hero-stats { gap: 1.5rem; }
+  .hero h1 { font-size: 2.2rem; }
+  nav { padding: 0.8rem 1rem; }
+  .nav-links { gap: 1rem; }
+}
+</style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav>
+  <a href="/" class="nav-logo">
+    <img src="logo.png" alt="ReNoUn">
+    <span>ReNoUn</span>
+  </a>
+  <div class="nav-links">
+    <a href="#regimes">Regimes</a>
+    <a href="#mcp">MCP</a>
+    <a href="dashboard.html">Dashboard</a>
+    <a href="track-record.html">Track Record</a>
+    <a href="#pricing">Pricing</a>
+    <a href="https://github.com/98lukehall/renoun-mcp" target="_blank">GitHub</a>
+    <a href="agents.html" class="nav-cta">Get API Key</a>
+  </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="hero-badge">
+    <span class="dot"></span>
+    Listed on the Official MCP Registry
+  </div>
+  <h1>Know the regime<br><span class="gradient">before you trade.</span></h1>
+  <p>Structural regime classifier for crypto markets. One GET request returns bounded, active, or unstable — with an exposure scalar to size your position.</p>
+  <div class="hero-actions">
+    <a href="agents.html#provisionWidget" class="btn btn-primary">Get Free API Key</a>
+    <a href="#regimes" class="btn btn-secondary">How It Works</a>
+  </div>
+  <div class="hero-stats" id="heroStats">
+    <div class="hero-stat">
+      <div class="val" id="statBounded">100%</div>
+      <div class="label">Bounded Accuracy</div>
+    </div>
+    <div class="hero-stat">
+      <div class="val" id="statGraded">--</div>
+      <div class="label">Predictions Graded</div>
+    </div>
+    <div class="hero-stat">
+      <div class="val">5</div>
+      <div class="label">Assets Tracked</div>
+    </div>
+    <div class="hero-stat">
+      <div class="val">50/day</div>
+      <div class="label">Free Calls</div>
+    </div>
+  </div>
+</section>
+
+<!-- Live Snapshot -->
+<section>
+  <div class="section-label">Live Data</div>
+  <h2 class="section-title">Current Regime Snapshot</h2>
+  <p class="section-subtitle">6-hour delayed feed. <a href="agents.html">Get an API key</a> for real-time access.</p>
+  <div class="live-grid" id="liveGrid">
+    <div class="live-card"><div class="asset">Loading...</div></div>
+  </div>
+  <div class="delay-note" id="delayNote">Data loading...</div>
+</section>
+
+<!-- Regime Types -->
+<section id="regimes">
+  <div class="section-label">Classification</div>
+  <h2 class="section-title">Three regimes. One action each.</h2>
+  <p class="section-subtitle">ReNoUn measures structural disorder in price action using 17 channels. It tells you whether conditions are safe, dynamic, or fragmenting — not which way price will move.</p>
+  <div class="regime-grid">
+    <div class="regime-card bounded">
+      <div class="regime-name">Bounded</div>
+      <div class="regime-action">action: "proceed"</div>
+      <p>Price expected within envelope. Structure is healthy. Trade at full position size.</p>
+      <div class="accuracy-badge" id="boundedAccuracy">100% (126+ graded)</div>
+    </div>
+    <div class="regime-card active-r">
+      <div class="regime-name">Active</div>
+      <div class="regime-action">action: "reduce"</div>
+      <p>Dynamic conditions detected. Multiply your intended position by the <code style="color:var(--active)">exposure</code> scalar (0.0-1.0).</p>
+      <div class="accuracy-badge">Scale by exposure</div>
+    </div>
+    <div class="regime-card unstable">
+      <div class="regime-name">Unstable</div>
+      <div class="regime-action">action: "avoid"</div>
+      <p>Structure is fragmenting. Skip this trade entirely. Wait for regime transition.</p>
+      <div class="accuracy-badge">Risk flag</div>
+    </div>
+  </div>
+</section>
+
+<!-- Integration -->
+<section>
+  <div class="section-label">Integration</div>
+  <h2 class="section-title">3 lines to safer trades.</h2>
+  <p class="section-subtitle">Add a single risk check before your trade execution logic. Works with any language, any bot framework.</p>
+  <div class="code-section">
+    <div class="code-block"><pre><span class="keyword">import</span> requests
+
+r = requests.get(<span class="string">"https://api.harrisoncollab.com/v1/regime/live/BTCUSDT"</span>,
+                  headers={<span class="string">"Authorization"</span>: <span class="string">"Bearer rn_agent_YOUR_KEY"</span>})
+regime = r.json()
+
+<span class="keyword">if</span> regime[<span class="string">"action"</span>] == <span class="string">"avoid"</span>:
+    <span class="fn">skip_trade</span>()                                    <span class="comment"># unstable — stay out</span>
+<span class="keyword">elif</span> regime[<span class="string">"action"</span>] == <span class="string">"reduce"</span>:
+    <span class="fn">execute</span>(size=intended * regime[<span class="string">"exposure"</span>])     <span class="comment"># active — scale down</span>
+<span class="keyword">else</span>:
+    <span class="fn">execute</span>(size=intended)                          <span class="comment"># bounded — full size</span></pre></div>
+  </div>
+</section>
+
+<!-- MCP Registry -->
+<section id="mcp">
+  <div class="section-label">MCP Native</div>
+  <h2 class="section-title">On the Official MCP Registry.</h2>
+  <p class="section-subtitle">Any MCP client can discover and connect to ReNoUn natively. Zero integration code needed.</p>
+  <div class="mcp-banner">
+    <div>
+      <div class="mcp-badge">registry.modelcontextprotocol.io</div>
+      <h3>io.github.98lukehall/renoun</h3>
+      <p>Streamable HTTP transport. 9 tools exposed including <code>renoun_finance_analyze</code>, <code>regime_live</code>, <code>regime_batch</code>, and 6 conversation analysis tools.</p>
+      <a href="https://registry.modelcontextprotocol.io" class="btn btn-primary" target="_blank">View on Registry</a>
+    </div>
+    <div>
+      <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:0.5rem;">Claude Desktop / MCP Client Config:</div>
+      <div class="mcp-config"><pre>{
+  "mcpServers": {
+    "renoun": {
+      "type": "streamable-http",
+      "url": "https://api.harrisoncollab.com/mcp",
+      "headers": {
+        "Authorization": "Bearer rn_agent_YOUR_KEY"
+      }
+    }
+  }
+}</pre></div>
+    </div>
+  </div>
+</section>
+
+<!-- Per-Regime Accuracy -->
+<section>
+  <div class="section-label">Track Record</div>
+  <h2 class="section-title">Every prediction graded. Publicly.</h2>
+  <p class="section-subtitle">No other crypto signal service publishes every call with a timestamp and a pass/fail grade. Most won't even tell you their hit rate. We grade every prediction against the 1-hour actual price outcome — no cherry-picking, no hiding losses.</p>
+  <div class="regime-grid" style="margin-top:2rem;">
+    <div class="regime-card bounded">
+      <div style="font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);margin-bottom:0.5rem;">Bounded Regimes</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:2.5rem;font-weight:800;color:var(--bounded);" id="accBounded">100%</div>
+      <div style="font-size:0.85rem;color:var(--text-dim);margin-top:0.3rem;" id="accBoundedN">126+ of 126+ correct</div>
+      <p style="margin-top:0.8rem;">When ReNoUn says it's safe to trade, it's right every time.</p>
+    </div>
+    <div class="regime-card active-r">
+      <div style="font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);margin-bottom:0.5rem;">Active Regimes</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:2.5rem;font-weight:800;color:var(--active);" id="accActive">--</div>
+      <div style="font-size:0.85rem;color:var(--text-dim);margin-top:0.3rem;" id="accActiveN">grading in progress</div>
+      <p style="margin-top:0.8rem;">Active regimes recommend position scaling via the exposure scalar.</p>
+    </div>
+    <div class="regime-card unstable">
+      <div style="font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);margin-bottom:0.5rem;">Unstable Regimes</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:2.5rem;font-weight:800;color:var(--unstable);">N/A</div>
+      <div style="font-size:0.85rem;color:var(--text-dim);margin-top:0.3rem;">Risk flag, not a prediction</div>
+      <p style="margin-top:0.8rem;">Unstable is a warning to stay out. It's not graded as a directional call.</p>
+    </div>
+  </div>
+  <div style="text-align:center;margin-top:2rem;">
+    <a href="https://x.com/98lukehall" target="_blank" style="color:var(--text-dim);font-size:0.85rem;">Live signal feed on X</a>
+    <span style="color:var(--text-muted);margin:0 0.5rem;">&middot;</span>
+    <a href="dashboard.html" style="color:var(--text-dim);font-size:0.85rem;">Full dashboard (6h delayed)</a>
+  </div>
+</section>
+
+<!-- Pricing -->
+<section id="pricing">
+  <div class="section-label">Pricing</div>
+  <h2 class="section-title">Free to start. Pay as you grow.</h2>
+  <div class="pricing-row">
+    <div class="pricing-card">
+      <h3>Free Tier</h3>
+      <div class="price">$0</div>
+      <div class="note">50 calls/day, no credit card</div>
+      <ul>
+        <li>All regime endpoints (live, batch, custom OHLCV)</li>
+        <li>Stability estimates (halflife, urgency)</li>
+        <li>MCP transport access</li>
+        <li>Provision via API — no signup form</li>
+      </ul>
+      <a href="agents.html" class="btn btn-secondary" style="width:100%;justify-content:center;">Get Free Key</a>
+    </div>
+    <div class="pricing-card featured">
+      <h3>Metered</h3>
+      <div class="price">$0.02<span>/call</span></div>
+      <div class="note">Beyond 50 free calls, up to 10,000/day</div>
+      <ul>
+        <li>Everything in Free</li>
+        <li>Automatic Stripe billing</li>
+        <li>Webhook alerts on regime shifts</li>
+        <li>Priority rate limits (1,000/hour)</li>
+      </ul>
+      <a href="agents.html" class="btn btn-primary" style="width:100%;justify-content:center;">Start Building</a>
+    </div>
+  </div>
+</section>
+
+<!-- Conversation Analysis (background) -->
+<section>
+  <div class="section-label">Also Available</div>
+  <h2 class="section-title">Conversation structural analysis.</h2>
+  <p class="section-subtitle">The same 17-channel engine also analyzes AI conversations — detecting stuck loops, breakthroughs, and convergence patterns.</p>
+  <div class="convo-teaser">
+    <h3>9 MCP Tools</h3>
+    <p>Full structural analysis, health checks, session comparison, longitudinal tracking, real-time steering, alignment classification, and adaptive recovery analysis.</p>
+    <div class="convo-tools">
+      <span class="convo-tool">renoun_analyze</span>
+      <span class="convo-tool">renoun_health_check</span>
+      <span class="convo-tool">renoun_compare</span>
+      <span class="convo-tool">renoun_steer</span>
+      <span class="convo-tool">renoun_agent_monitor</span>
+      <span class="convo-tool">renoun_alignment_classify</span>
+      <span class="convo-tool">renoun_recovery_analyze</span>
+      <span class="convo-tool">renoun_pattern_query</span>
+      <span class="convo-tool">renoun_finance_analyze</span>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<div class="cta-section">
+  <h2>Get started in 10 seconds.</h2>
+  <p>Provision a free API key. No signup form, no credit card. Just a POST request.</p>
+  <a href="agents.html" class="btn btn-primary">Provision Free Key</a>
+  <div class="cta-code"><pre>curl -X POST https://api.harrisoncollab.com/v1/keys/provision \
+  -H "Content-Type: application/json" \
+  -d '{"email": "you@example.com", "agent_name": "my-bot"}'</pre></div>
+</div>
+
+<!-- Footer -->
+<footer>
+  <div>
+    <a href="dashboard.html">Dashboard</a>
+    <a href="agents.html">Agents</a>
+    <a href="https://github.com/98lukehall/renoun-mcp" target="_blank">GitHub</a>
+    <a href="https://registry.modelcontextprotocol.io" target="_blank">MCP Registry</a>
+    <a href="https://x.com/98lukehall" target="_blank">X / Twitter</a>
+  </div>
+  <p style="margin-top:0.75rem;">ReNoUn measures structural regimes, not price direction. Not financial advice. Patent Pending #63/923,592.</p>
+  <p style="margin-top:0.3rem;">&copy; 2026 Harrison Collab. Built by <a href="https://x.com/98lukehall">Luke Hall</a>.</p>
+</footer>
+
+<script>
+// Load live data from signals_public.json
+const REGIME_MAP = {
+  'CLOSED_LOOP': 'bounded', 'HIGH_SYMMETRY': 'bounded', 'SURFACE_VARIATION': 'bounded',
+  'CONVERGENCE': 'active', 'DIP_AND_RECOVERY': 'active', 'PATTERN_BREAK': 'active',
+  'SCATTERING': 'unstable', 'REPEATED_DISRUPTION': 'unstable', 'NOMINAL': 'bounded'
+};
+
+function formatPrice(p) {
+  if (!p) return '';
+  if (p >= 1000) return '$' + p.toLocaleString('en-US', {maximumFractionDigits: 0});
+  if (p >= 1) return '$' + p.toFixed(2);
+  return '$' + p.toFixed(4);
+}
+
+async function loadLiveData() {
+  try {
+    const resp = await fetch('signals_public.json?t=' + Date.now());
+    if (!resp.ok) return;
+    const data = await resp.json();
+    const latest = data.latest || {};
+    const assets = ['BTC', 'ETH', 'SOL', 'XRP', 'DOGE'];
+
+    // Live grid
+    const grid = document.getElementById('liveGrid');
+    grid.innerHTML = assets.filter(a => latest[a]).map(a => {
+      const d = latest[a];
+      const regime = REGIME_MAP[d.constellation] || 'bounded';
+      return `<div class="live-card">
+        <div class="asset">${a}</div>
+        <span class="regime-tag ${regime}">${regime}</span>
+        <div class="dhs">DHS ${d.dhs.toFixed(2)}</div>
+        <div class="price">${formatPrice(d.price)}</div>
+      </div>`;
+    }).join('');
+
+    // Delay note
+    if (data.delayed_until) {
+      const d = new Date(data.delayed_until);
+      document.getElementById('delayNote').textContent =
+        '6-hour delayed. Data as of ' + d.toLocaleString('en-US', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit', hour12:false });
+    }
+
+    // Stats
+    if (data.scores && data.scores.summary) {
+      const s = data.scores.summary;
+      document.getElementById('statGraded').textContent = s.total_graded || '--';
+
+      // Compute bounded accuracy from constellation data
+      const bc = s.by_constellation || {};
+      let boundedCorrect = 0, boundedTotal = 0;
+      ['HIGH_SYMMETRY', 'SURFACE_VARIATION', 'CLOSED_LOOP'].forEach(c => {
+        if (bc[c]) { boundedCorrect += bc[c].correct; boundedTotal += bc[c].total; }
+      });
+      if (boundedTotal > 0) {
+        const pct = Math.round((boundedCorrect / boundedTotal) * 100);
+        document.getElementById('statBounded').textContent = pct + '%';
+        document.getElementById('accBounded').textContent = pct + '%';
+        document.getElementById('accBoundedN').textContent = boundedCorrect + ' of ' + boundedTotal + ' correct';
+        document.getElementById('boundedAccuracy').textContent = pct + '% (' + boundedCorrect + '/' + boundedTotal + ')';
+      }
+
+      // Active accuracy
+      let activeCorrect = 0, activeTotal = 0;
+      ['CONVERGENCE', 'DIP_AND_RECOVERY', 'PATTERN_BREAK'].forEach(c => {
+        if (bc[c]) { activeCorrect += bc[c].correct; activeTotal += bc[c].total; }
+      });
+      if (activeTotal > 0) {
+        const pct = Math.round((activeCorrect / activeTotal) * 100);
+        document.getElementById('accActive').textContent = pct + '%';
+        document.getElementById('accActiveN').textContent = activeCorrect + ' of ' + activeTotal + ' correct';
+      }
+    }
+  } catch (e) {}
+}
+
+loadLiveData();
+setInterval(loadLiveData, 300000);
+</script>
+<script>fetch('https://api.harrisoncollab.com/v1/analytics/pageview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({page:'index'})}).catch(()=>{});</script>
+</body>
+</html>

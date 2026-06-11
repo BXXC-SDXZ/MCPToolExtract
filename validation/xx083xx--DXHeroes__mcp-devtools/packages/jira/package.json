@@ -1,0 +1,34 @@
+{
+	"name": "@mcp-devtools/jira",
+	"version": "0.2.6",
+	"description": "Talk to Jira - MCP Server",
+	"private": false,
+	"bin": {
+		"mcp-jira": "./build/index.js"
+	},
+	"files": [
+		"build"
+	],
+	"type": "module",
+	"scripts": {
+		"build": "tsc && shx chmod +x build/*.js",
+		"prepare": "pnpm run build",
+		"watch": "tsc --watch",
+		"inspector": "npx @modelcontextprotocol/inspector build/index.js"
+	},
+	"dependencies": {
+		"@mcp-devtools/http-client": "workspace:*",
+		"@modelcontextprotocol/sdk": "1.6.1",
+		"qs": "^6.12.0",
+		"zod": "^3.22.4"
+	},
+	"devDependencies": {
+		"@mcp-devtools/typescript-config": "workspace:*",
+		"@types/node": "^22.13.9",
+		"@types/qs": "^6.9.14",
+		"rollup": "^4.35.0",
+		"rollup-plugin-typescript2": "^0.36.0",
+		"shx": "^0.3.4",
+		"typescript": "^5.8.2"
+	}
+}

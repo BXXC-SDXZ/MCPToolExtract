@@ -1,0 +1,7155 @@
+// projects_test.go contains unit tests for GitLab project operations
+// (create, get, list, delete, update). Tests use httptest to mock the GitLab
+// API and verify both success and error paths including pagination.
+package projects
+
+import (
+	"context"
+	"encoding/base64"
+	"encoding/json"
+	"io"
+	"net/http"
+	"os"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+	gl "gitlab.com/gitlab-org/api/client-go/v2"
+
+	gitlabclient "github.com/jmrplens/gitlab-mcp-server/v2/internal/gitlab"
+	"github.com/jmrplens/gitlab-mcp-server/v2/internal/testutil"
+	"github.com/jmrplens/gitlab-mcp-server/v2/internal/toolutil"
+)
+
+// Test endpoint paths and fixture values used across project operation tests.
+const (
+	errExpectedValidation = "expected validation error"
+	pathProjects          = "/api/v4/projects"
+	testRepoName          = "my-repo"
+	pathProject42         = "/api/v4/projects/42"
+	testRenamedRepo       = "renamed-repo"
+	fmtProjectListErr     = "List() unexpected error: %v"
+
+	fmtUnexpErr           = "unexpected error: %v"
+	errEmptyProjID        = "expected error for empty project_id, got nil"
+	errExpectedAPI        = "expected API error"
+	testHookURL           = "https://example.com/hook"
+	errExpectedCtxErr     = "expected context error"
+	errExpectedNonEmptyMD = "expected non-empty markdown"
+	errEmptyHookID        = "expected error for empty hook_id, got nil"
+	errEmptyUserID        = "expected error for empty user_id, got nil"
+
+	pathProject42Hooks = "/api/v4/projects/42/hooks"
+	pathProject42Hook1 = "/api/v4/projects/42/hooks/1"
+	pathProject42Forks = "/api/v4/projects/42/forks"
+	pathProject42Fork  = "/api/v4/projects/42/fork"
+
+	testPrivate         = "private"
+	testPublic          = "public"
+	testSortAsc         = "asc"
+	testBranchDevelop   = "develop"
+	testUserJohn        = "john"
+	testUserJdoe        = "jdoe"
+	testForkA           = "fork-a"
+	testMyProject       = "myproject"
+	testMyHook          = "my-hook"
+	testMyGroup         = "my-group"
+	testAccessDeveloper = "Developer"
+	testMyFork          = "my-fork"
+	testProjectID9999   = "9999"
+	testHookName        = "test-hook"
+	testCommitRegex     = `^(feat|fix|docs):`
+	testAlice           = "Alice"
+	testBob             = "Bob"
+	testDate20260101    = "2026-01-01"
+	testSuccess         = "success"
+	testPathNS          = "jmrplens/my-repo"
+
+	errVisibilityNotSet  = "Visibility not set"
+	fmtLenProjectsWant1  = "len(Projects) = %d, want 1"
+	fmtIDWant1           = "ID = %d, want 1"
+	fmtNameWantQ         = "Name = %q, want %q"
+	fmtDeleteStatusWantQ = "Delete() status = %q, want %q"
+
+	fmtGetUnexpErr    = "Get() unexpected error: %v"
+	fmtDeleteUnexpErr = "Delete() unexpected error: %v"
+	fmtLenGroupsWant1 = "len(Groups) = %d, want 1"
+
+	testDate20260410  = "2026-04-10"
+	testDate20260601  = "2026-06-01"
+	testImportURL     = "https://github.com/example/repo.git"
+	testSuggestionMsg = "Apply suggestion"
+	testHookURL2      = "https://example.com/hook2"
+	testProjectName   = "my-project"
+	testDescProject   = "A test project"
+	testProjA         = "proj-a"
+	testProjB         = "proj-b"
+	testPermRemoved   = "Permanently removed"
+	mdOpenIssues      = "Open Issues"
+	mdHTTPClone       = "HTTP Clone"
+	mdSSHClone        = "SSH Clone"
+
+	headerXTotal      = "X-Total"
+	headerXTotalPages = "X-Total-Pages"
+	headerXPage       = "X-Page"
+	headerXPerPage    = "X-Per-Page"
+)
+
+func assertJSONKeys(t *testing.T, body string, keys ...string) {
+	t.Helper()
+
+	var payload map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(body), &payload); err != nil {
+		t.Fatalf("request body is not valid JSON: %v", err)
+	}
+	for _, key := range keys {
+		if _, ok := payload[key]; !ok {
+			t.Errorf("request body missing field %q", key)
+		}
+	}
+}
+
+// TestProjectCreate_Success verifies that Create creates a project and
+// returns the correct ID, name, path, and visibility. The mock returns
+// HTTP 201 with a valid project JSON response.
+func TestProjectCreate_Success(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == pathProjects {
+			testutil.RespondJSON(w, http.StatusCreated, `{"id":42,"name":"my-repo","path_with_namespace":"jmrplens/my-repo","visibility":"private","default_branch":"main","web_url":"https://gitlab.example.com/jmrplens/my-repo","description":""}`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+
+	out, err := Create(context.Background(), client, CreateInput{
+		Name:                 testRepoName,
+		Visibility:           testPrivate,
+		InitializeWithReadme: true,
+	})
+	if err != nil {
+		t.Fatalf("Create() unexpected error: %v", err)
+	}
+	if out.ID != 42 {
+		t.Errorf("out.ID = %d, want 42", out.ID)
+	}
+	if out.Name != testRepoName {
+		t.Errorf("out.Name = %q, want %q", out.Name, testRepoName)
+	}
+	if out.PathWithNamespace != testPathNS {
+		t.Errorf("out.PathWithNamespace = %q, want %q", out.PathWithNamespace, testPathNS)
+	}
+	if out.Visibility != testPrivate {
+		t.Errorf("out.Visibility = %q, want %q", out.Visibility, testPrivate)
+	}
+}
+
+// TestProjectCreateName_Conflict verifies that Create returns an error
+// when the GitLab API reports the project name is already taken (HTTP 400).
+func TestProjectCreateName_Conflict(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		testutil.RespondJSON(w, http.StatusBadRequest, `{"message":{"name":["has already been taken"]}}`)
+	}))
+
+	_, err := Create(context.Background(), client, CreateInput{Name: "existing-repo"})
+	if err == nil {
+		t.Fatal("Create() expected error for duplicate name, got nil")
+	}
+}
+
+// TestProjectCreate_EmptyName verifies that Create returns an error
+// when called with an empty project name.
+func TestProjectCreate_EmptyName(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "bad request", http.StatusBadRequest)
+	}))
+
+	_, err := Create(context.Background(), client, CreateInput{Name: ""})
+	if err == nil {
+		t.Fatal("Create() expected error for empty name, got nil")
+	}
+}
+
+// TestProjectGet_Success verifies that Get retrieves a project by its
+// ID and correctly maps all output fields including description.
+func TestProjectGet_Success(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == pathProject42 {
+			testutil.RespondJSON(w, http.StatusOK, `{"id":42,"name":"my-repo","path_with_namespace":"jmrplens/my-repo","visibility":"private","default_branch":"main","web_url":"https://gitlab.example.com/jmrplens/my-repo","description":"A test repo"}`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+
+	out, err := Get(context.Background(), client, GetInput{ProjectID: "42"})
+	if err != nil {
+		t.Fatalf(fmtGetUnexpErr, err)
+	}
+	if out.ID != 42 {
+		t.Errorf("out.ID = %d, want 42", out.ID)
+	}
+	if out.Description != "A test repo" {
+		t.Errorf("out.Description = %q, want %q", out.Description, "A test repo")
+	}
+}
+
+// TestProjectGet_NotFound verifies that Get returns an error when the
+// requested project does not exist. The mock returns HTTP 404.
+func TestProjectGet_NotFound(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		testutil.RespondJSON(w, http.StatusNotFound, `{"message":"404 Project Not Found"}`)
+	}))
+
+	_, err := Get(context.Background(), client, GetInput{ProjectID: testProjectID9999})
+	if err == nil {
+		t.Fatal("Get() expected error for non-existent project, got nil")
+	}
+}
+
+// TestProjectList_Success verifies that List returns multiple projects
+// with correct names from a mocked GitLab API response.
+func TestProjectList_Success(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == pathProjects {
+			testutil.AssertRequestMethod(t, r, http.MethodGet)
+			testutil.AssertQueryParam(t, r, "owned", "true")
+			testutil.RespondJSON(w, http.StatusOK, `[{"id":1,"name":"repo-a","path_with_namespace":"jmrplens/repo-a","visibility":"private","default_branch":"main","web_url":"https://gitlab.example.com/jmrplens/repo-a","description":""},{"id":2,"name":"repo-b","path_with_namespace":"jmrplens/repo-b","visibility":"public","default_branch":"main","web_url":"https://gitlab.example.com/jmrplens/repo-b","description":""}]`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+
+	out, err := List(context.Background(), client, ListInput{Owned: true})
+	if err != nil {
+		t.Fatalf(fmtProjectListErr, err)
+	}
+	if len(out.Projects) != 2 {
+		t.Errorf("len(out.Projects) = %d, want 2", len(out.Projects))
+	}
+	if out.Projects[0].Name != "repo-a" {
+		t.Errorf("out.Projects[0].Name = %q, want %q", out.Projects[0].Name, "repo-a")
+	}
+}
+
+// TestProjectList_Empty verifies that List handles an empty API
+// response gracefully, returning zero projects without error.
+func TestProjectList_Empty(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		testutil.RespondJSON(w, http.StatusOK, `[]`)
+	}))
+
+	out, err := List(context.Background(), client, ListInput{})
+	if err != nil {
+		t.Fatalf("List() unexpected error for empty list: %v", err)
+	}
+	if len(out.Projects) != 0 {
+		t.Errorf("len(out.Projects) = %d, want 0", len(out.Projects))
+	}
+}
+
+// TestProjectList_IncludePendingDelete verifies that List sends
+// the include_pending_delete query parameter and returns projects with
+// marked_for_deletion_on field populated.
+func TestProjectList_IncludePendingDelete(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == pathProjects {
+			if got := r.URL.Query().Get("include_pending_delete"); got != "true" {
+				t.Errorf("query param include_pending_delete = %q, want %q", got, "true")
+			}
+			testutil.RespondJSON(w, http.StatusOK, `[
+				{"id":1,"name":"active-repo","path_with_namespace":"jmrplens/active-repo","visibility":"private","default_branch":"main","web_url":"https://gitlab.example.com/jmrplens/active-repo"},
+				{"id":2,"name":"pending-delete-repo","path_with_namespace":"jmrplens/pending-delete-repo","visibility":"private","default_branch":"main","web_url":"https://gitlab.example.com/jmrplens/pending-delete-repo","marked_for_deletion_on":"2026-04-10"}
+			]`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+
+	includePending := true
+	out, err := List(context.Background(), client, ListInput{
+		Owned:                true,
+		IncludePendingDelete: &includePending,
+	})
+	if err != nil {
+		t.Fatalf(fmtProjectListErr, err)
+	}
+	if len(out.Projects) != 2 {
+		t.Errorf("len(out.Projects) = %d, want 2", len(out.Projects))
+	}
+	if out.Projects[1].MarkedForDeletionOn != testDate20260410 {
+		t.Errorf("out.Projects[1].MarkedForDeletionOn = %q, want %q", out.Projects[1].MarkedForDeletionOn, testDate20260410)
+	}
+	if out.Projects[0].MarkedForDeletionOn != "" {
+		t.Errorf("out.Projects[0].MarkedForDeletionOn = %q, want empty", out.Projects[0].MarkedForDeletionOn)
+	}
+}
+
+// TestProjectGet_MarkedForDeletion verifies that Get correctly
+// returns the marked_for_deletion_on field for projects scheduled for deletion.
+func TestProjectGet_MarkedForDeletion(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && r.URL.Path == pathProject42 {
+			testutil.RespondJSON(w, http.StatusOK, `{"id":42,"name":"doomed-repo","path_with_namespace":"jmrplens/doomed-repo","visibility":"private","default_branch":"main","web_url":"https://gitlab.example.com/jmrplens/doomed-repo","marked_for_deletion_on":"2026-04-15"}`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+
+	out, err := Get(context.Background(), client, GetInput{ProjectID: "42"})
+	if err != nil {
+		t.Fatalf(fmtGetUnexpErr, err)
+	}
+	if out.MarkedForDeletionOn != "2026-04-15" {
+		t.Errorf("Get() MarkedForDeletionOn = %q, want %q", out.MarkedForDeletionOn, "15 Apr 2026")
+	}
+}
+
+// TestProjectList_PaginationQueryParamsAndMetadata verifies that List
+// forwards page/per_page query parameters and correctly parses all pagination
+// metadata (Page, PerPage, TotalItems, TotalPages, NextPage, PrevPage).
+func TestProjectList_PaginationQueryParamsAndMetadata(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == pathProjects {
+			if got := r.URL.Query().Get("page"); got != "2" {
+				t.Errorf("query param page = %q, want %q", got, "2")
+			}
+			if got := r.URL.Query().Get("per_page"); got != "5" {
+				t.Errorf("query param per_page = %q, want %q", got, "5")
+			}
+
+			testutil.RespondJSONWithPagination(w, http.StatusOK,
+				`[{"id":6,"name":"repo-f","path_with_namespace":"user/repo-f","visibility":"private","default_branch":"main","web_url":"https://gitlab.example.com/user/repo-f","description":""}]`,
+				testutil.PaginationHeaders{
+					Page:       "2",
+					PerPage:    "5",
+					Total:      "11",
+					TotalPages: "3",
+					NextPage:   "3",
+					PrevPage:   "1",
+				})
+			return
+		}
+		http.NotFound(w, r)
+	}))
+
+	out, err := List(context.Background(), client, ListInput{
+		PaginationInput: toolutil.PaginationInput{Page: 2, PerPage: 5},
+	})
+	if err != nil {
+		t.Fatalf(fmtProjectListErr, err)
+	}
+	if len(out.Projects) != 1 {
+		t.Fatalf("len(out.Projects) = %d, want 1", len(out.Projects))
+	}
+	assertPaginationFields(t, out.Pagination, toolutil.PaginationOutput{
+		Page:       2,
+		PerPage:    5,
+		TotalItems: 11,
+		TotalPages: 3,
+		NextPage:   3,
+		PrevPage:   1,
+	})
+}
+
+// assertPaginationFields is a test helper that compares all fields of a
+// [toolutil.PaginationOutput] against expected values and reports mismatches.
+func assertPaginationFields(t *testing.T, got, want toolutil.PaginationOutput) {
+	t.Helper()
+	if got.Page != want.Page {
+		t.Errorf("Pagination.Page = %d, want %d", got.Page, want.Page)
+	}
+	if got.PerPage != want.PerPage {
+		t.Errorf("Pagination.PerPage = %d, want %d", got.PerPage, want.PerPage)
+	}
+	if got.TotalItems != want.TotalItems {
+		t.Errorf("Pagination.TotalItems = %d, want %d", got.TotalItems, want.TotalItems)
+	}
+	if got.TotalPages != want.TotalPages {
+		t.Errorf("Pagination.TotalPages = %d, want %d", got.TotalPages, want.TotalPages)
+	}
+	if got.NextPage != want.NextPage {
+		t.Errorf("Pagination.NextPage = %d, want %d", got.NextPage, want.NextPage)
+	}
+	if got.PrevPage != want.PrevPage {
+		t.Errorf("Pagination.PrevPage = %d, want %d", got.PrevPage, want.PrevPage)
+	}
+}
+
+// TestProjectDelete_Success verifies that Delete removes a project
+// without error. The mock returns HTTP 202 Accepted and then 404 on subsequent
+// GET (project permanently deleted, not delayed).
+func TestProjectDelete_Success(t *testing.T) {
+	deleted := false
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodDelete && r.URL.Path == pathProject42 {
+			deleted = true
+			w.WriteHeader(http.StatusAccepted)
+			return
+		}
+		if r.Method == http.MethodGet && r.URL.Path == pathProject42 && deleted {
+			testutil.RespondJSON(w, http.StatusNotFound, `{"message":"404 Project Not Found"}`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+
+	out, err := Delete(context.Background(), client, DeleteInput{ProjectID: "42"})
+	if err != nil {
+		t.Errorf(fmtDeleteUnexpErr, err)
+	}
+	if out.Status != testSuccess {
+		t.Errorf(fmtDeleteStatusWantQ, out.Status, testSuccess)
+	}
+	if !out.PermanentlyRemoved {
+		t.Errorf("Delete() permanently_removed = false, want true")
+	}
+}
+
+// TestProjectDelete_DelayedDeletion verifies that Delete correctly
+// reports when a project is scheduled for delayed deletion rather than
+// being immediately removed.
+func TestProjectDelete_DelayedDeletion(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodDelete && r.URL.Path == pathProject42 {
+			w.WriteHeader(http.StatusAccepted)
+			return
+		}
+		if r.Method == http.MethodGet && r.URL.Path == pathProject42 {
+			testutil.RespondJSON(w, http.StatusOK, `{"id":42,"name":"my-repo","path_with_namespace":"jmrplens/my-repo","visibility":"private","default_branch":"main","web_url":"https://gitlab.example.com/jmrplens/my-repo","marked_for_deletion_on":"2026-04-10"}`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+
+	out, err := Delete(context.Background(), client, DeleteInput{ProjectID: "42"})
+	if err != nil {
+		t.Fatalf(fmtDeleteUnexpErr, err)
+	}
+	if out.Status != "scheduled" {
+		t.Errorf(fmtDeleteStatusWantQ, out.Status, "scheduled")
+	}
+	if out.MarkedForDeletionOn != testDate20260410 {
+		t.Errorf("Delete() marked_for_deletion_on = %q, want %q", out.MarkedForDeletionOn, testDate20260410)
+	}
+	if out.PermanentlyRemoved {
+		t.Errorf("Delete() permanently_removed = true, want false")
+	}
+}
+
+// TestProjectDelete_PermanentlyRemove verifies that Delete sends
+// the permanently_remove option when requested.
+func TestProjectDelete_PermanentlyRemove(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodDelete && r.URL.Path == pathProject42 {
+			if err := r.ParseForm(); err == nil {
+				if r.Form.Get("permanently_remove") == "" {
+					t.Error("expected permanently_remove parameter to be set")
+				}
+			}
+			w.WriteHeader(http.StatusAccepted)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+
+	out, err := Delete(context.Background(), client, DeleteInput{
+		ProjectID:         "42",
+		PermanentlyRemove: true,
+		FullPath:          testPathNS,
+	})
+	if err != nil {
+		t.Fatalf(fmtDeleteUnexpErr, err)
+	}
+	if out.Status != testSuccess {
+		t.Errorf(fmtDeleteStatusWantQ, out.Status, testSuccess)
+	}
+	if !out.PermanentlyRemoved {
+		t.Errorf("Delete() permanently_removed = false, want true")
+	}
+}
+
+// TestProjectDelete_PermanentlyRemoveTwoStep verifies permanent deletion retries
+// through GitLab's mark-then-remove flow.
+//
+// The first DELETE returns GitLab's "must be marked for deletion first" error;
+// the handler should mark the project, retry permanent removal, and report a
+// permanently removed result after three delete calls.
+func TestProjectDelete_PermanentlyRemoveTwoStep(t *testing.T) {
+	calls := 0
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodDelete || r.URL.Path != pathProject42 {
+			http.NotFound(w, r)
+			return
+		}
+		calls++
+		switch calls {
+		case 1:
+			testutil.RespondJSON(w, http.StatusBadRequest, `{"message":"project must be marked for deletion first"}`)
+		case 2, 3:
+			w.WriteHeader(http.StatusAccepted)
+		default:
+			t.Fatalf("unexpected delete call %d", calls)
+		}
+	}))
+
+	out, err := Delete(context.Background(), client, DeleteInput{ProjectID: "42", PermanentlyRemove: true, FullPath: testPathNS})
+	if err != nil {
+		t.Fatalf(fmtDeleteUnexpErr, err)
+	}
+	if calls != 3 {
+		t.Fatalf("delete calls = %d, want 3", calls)
+	}
+	if !out.PermanentlyRemoved {
+		t.Fatal("Delete() permanently_removed = false, want true")
+	}
+}
+
+// TestProjectDelete_NotFound verifies that Delete returns an error
+// when the target project does not exist. The mock returns HTTP 404.
+func TestProjectDelete_NotFound(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		testutil.RespondJSON(w, http.StatusNotFound, `{"message":"404 Project Not Found"}`)
+	}))
+
+	_, err := Delete(context.Background(), client, DeleteInput{ProjectID: testProjectID9999})
+	if err == nil {
+		t.Fatal("Delete() expected error for non-existent project, got nil")
+	}
+}
+
+// TestProjectDelete_EmptyID verifies that Delete returns an error
+// when project_id is empty.
+func TestProjectDelete_EmptyID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatal("should not make API call with empty project_id")
+	}))
+
+	_, err := Delete(context.Background(), client, DeleteInput{ProjectID: ""})
+	if err == nil {
+		t.Fatal("Delete() expected error for empty project_id, got nil")
+	}
+}
+
+// TestProjectDelete_AlreadyMarked verifies that Delete returns a helpful
+// message instead of a raw error when the project is already scheduled
+// for deletion.
+func TestProjectDelete_AlreadyMarked(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		testutil.RespondJSON(w, http.StatusBadRequest, `{"message":"Project has already been marked for deletion"}`)
+	}))
+
+	out, err := Delete(context.Background(), client, DeleteInput{ProjectID: "42"})
+	if err != nil {
+		t.Fatalf("Delete() expected no error for already-marked project, got: %v", err)
+	}
+	if out.Status != "already_scheduled" {
+		t.Errorf("Delete() Status = %q, want %q", out.Status, "already_scheduled")
+	}
+	if !strings.Contains(out.Message, "permanently_remove=true") {
+		t.Error("Delete() Message should suggest permanently_remove=true")
+	}
+	if !strings.Contains(out.Message, "gitlab_project_restore") {
+		t.Error("Delete() Message should suggest gitlab_project_restore")
+	}
+}
+
+// TestProjectRestore_Success verifies that Restore restores a project
+// that was marked for deletion.
+func TestProjectRestore_Success(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == "/api/v4/projects/42/restore" {
+			testutil.RespondJSON(w, http.StatusOK, `{"id":42,"name":"my-repo","path_with_namespace":"jmrplens/my-repo","visibility":"private","default_branch":"main","web_url":"https://gitlab.example.com/jmrplens/my-repo"}`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+
+	out, err := Restore(context.Background(), client, RestoreInput{ProjectID: "42"})
+	if err != nil {
+		t.Fatalf("Restore() unexpected error: %v", err)
+	}
+	if out.ID != 42 {
+		t.Errorf("Restore() ID = %d, want 42", out.ID)
+	}
+	if out.Name != testRepoName {
+		t.Errorf("Restore() Name = %q, want %q", out.Name, testRepoName)
+	}
+}
+
+// TestProjectRestore_NotFound verifies that Restore returns an error
+// when the project does not exist.
+func TestProjectRestore_NotFound(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		testutil.RespondJSON(w, http.StatusNotFound, `{"message":"404 Project Not Found"}`)
+	}))
+
+	_, err := Restore(context.Background(), client, RestoreInput{ProjectID: testProjectID9999})
+	if err == nil {
+		t.Fatal("Restore() expected error for non-existent project, got nil")
+	}
+}
+
+// TestProjectRestore_EmptyID verifies that Restore returns an error
+// when project_id is empty.
+func TestProjectRestore_EmptyID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatal("should not make API call with empty project_id")
+	}))
+
+	_, err := Restore(context.Background(), client, RestoreInput{ProjectID: ""})
+	if err == nil {
+		t.Fatal("Restore() expected error for empty project_id, got nil")
+	}
+}
+
+// TestProjectUpdate_Success verifies that Update renames a project and
+// changes its visibility. The mock returns the updated project JSON.
+func TestProjectUpdate_Success(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPut && r.URL.Path == pathProject42 {
+			testutil.RespondJSON(w, http.StatusOK, `{"id":42,"name":"renamed-repo","path_with_namespace":"jmrplens/renamed-repo","visibility":"public","default_branch":"main","web_url":"https://gitlab.example.com/jmrplens/renamed-repo","description":"Updated"}`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+
+	out, err := Update(context.Background(), client, UpdateInput{
+		ProjectID:  "42",
+		Name:       testRenamedRepo,
+		Visibility: testPublic,
+	})
+	if err != nil {
+		t.Fatalf("Update() unexpected error: %v", err)
+	}
+	if out.Visibility != testPublic {
+		t.Errorf("out.Visibility = %q, want %q", out.Visibility, testPublic)
+	}
+	if out.Name != testRenamedRepo {
+		t.Errorf("out.Name = %q, want %q", out.Name, testRenamedRepo)
+	}
+}
+
+// TestProjectCreate_ContextCancelled verifies that Create returns an
+// error immediately when the context is already canceled, without making
+// an API call.
+func TestProjectCreate_ContextCancelled(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		testutil.RespondJSON(w, http.StatusCreated, `{}`)
+	}))
+
+	ctx := testutil.CancelledCtx(t)
+
+	_, err := Create(ctx, client, CreateInput{Name: "ignored"})
+	if err == nil {
+		t.Fatal("Create() expected error for canceled context, got nil")
+	}
+}
+
+// TestProjectHandlers_ContextCancelled verifies project handlers return context
+// cancellation errors without dispatching HTTP requests.
+//
+// The table covers read, write, hook, approval-rule, fork, avatar,
+// housekeeping, and user-project paths. A failing mock handler ensures each
+// operation observes the cancelled context before touching GitLab.
+func TestProjectHandlers_ContextCancelled(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatalf("API should not be called with canceled context: %s %s", r.Method, r.URL.Path)
+	}))
+	ctx := testutil.CancelledCtx(t)
+	content := base64.StdEncoding.EncodeToString([]byte("avatar-data"))
+
+	tests := []struct {
+		name string
+		call func(context.Context) error
+	}{
+		{name: "get", call: func(ctx context.Context) error { _, err := Get(ctx, client, GetInput{ProjectID: "42"}); return err }},
+		{name: "list", call: func(ctx context.Context) error { _, err := List(ctx, client, ListInput{}); return err }},
+		{name: "delete", call: func(ctx context.Context) error {
+			_, err := Delete(ctx, client, DeleteInput{ProjectID: "42"})
+			return err
+		}},
+		{name: "restore", call: func(ctx context.Context) error {
+			_, err := Restore(ctx, client, RestoreInput{ProjectID: "42"})
+			return err
+		}},
+		{name: "update", call: func(ctx context.Context) error {
+			_, err := Update(ctx, client, UpdateInput{ProjectID: "42"})
+			return err
+		}},
+		{name: "fork", call: func(ctx context.Context) error { _, err := Fork(ctx, client, ForkInput{ProjectID: "42"}); return err }},
+		{name: "archive", call: func(ctx context.Context) error {
+			_, err := Archive(ctx, client, ArchiveInput{ProjectID: "42"})
+			return err
+		}},
+		{name: "unarchive", call: func(ctx context.Context) error {
+			_, err := Unarchive(ctx, client, UnarchiveInput{ProjectID: "42"})
+			return err
+		}},
+		{name: "transfer", call: func(ctx context.Context) error {
+			_, err := Transfer(ctx, client, TransferInput{ProjectID: "42", Namespace: "target"})
+			return err
+		}},
+		{name: "list forks", call: func(ctx context.Context) error {
+			_, err := ListForks(ctx, client, ListForksInput{ProjectID: "42"})
+			return err
+		}},
+		{name: "get languages", call: func(ctx context.Context) error {
+			_, err := GetLanguages(ctx, client, GetLanguagesInput{ProjectID: "42"})
+			return err
+		}},
+		{name: "list hooks", call: func(ctx context.Context) error {
+			_, err := ListHooks(ctx, client, ListHooksInput{ProjectID: "42"})
+			return err
+		}},
+		{name: "get hook", call: func(ctx context.Context) error {
+			_, err := GetHook(ctx, client, GetHookInput{ProjectID: "42", HookID: 1})
+			return err
+		}},
+		{name: "add hook", call: func(ctx context.Context) error {
+			_, err := AddHook(ctx, client, AddHookInput{ProjectID: "42", URL: testHookURL})
+			return err
+		}},
+		{name: "edit hook", call: func(ctx context.Context) error {
+			_, err := EditHook(ctx, client, EditHookInput{ProjectID: "42", HookID: 1, URL: testHookURL})
+			return err
+		}},
+		{name: "delete hook", call: func(ctx context.Context) error {
+			return DeleteHook(ctx, client, DeleteHookInput{ProjectID: "42", HookID: 1})
+		}},
+		{name: "trigger test hook", call: func(ctx context.Context) error {
+			_, err := TriggerTestHook(ctx, client, TriggerTestHookInput{ProjectID: "42", HookID: 1, Event: "push_events"})
+			return err
+		}},
+		{name: "list approval rules", call: func(ctx context.Context) error {
+			_, err := ListApprovalRules(ctx, client, ListApprovalRulesInput{ProjectID: "42"})
+			return err
+		}},
+		{name: "get approval rule", call: func(ctx context.Context) error {
+			_, err := GetApprovalRule(ctx, client, GetApprovalRuleInput{ProjectID: "42", RuleID: 1})
+			return err
+		}},
+		{name: "create approval rule", call: func(ctx context.Context) error {
+			_, err := CreateApprovalRule(ctx, client, CreateApprovalRuleInput{ProjectID: "42", Name: "rule"})
+			return err
+		}},
+		{name: "update approval rule", call: func(ctx context.Context) error {
+			_, err := UpdateApprovalRule(ctx, client, UpdateApprovalRuleInput{ProjectID: "42", RuleID: 1})
+			return err
+		}},
+		{name: "delete approval rule", call: func(ctx context.Context) error {
+			return DeleteApprovalRule(ctx, client, DeleteApprovalRuleInput{ProjectID: "42", RuleID: 1})
+		}},
+		{name: "create fork relation", call: func(ctx context.Context) error {
+			_, err := CreateForkRelation(ctx, client, CreateForkRelationInput{ProjectID: "42", ForkedFromID: 24})
+			return err
+		}},
+		{name: "upload avatar", call: func(ctx context.Context) error {
+			_, err := UploadAvatar(ctx, client, UploadAvatarInput{ProjectID: "42", Filename: "avatar.png", ContentBase64: content})
+			return err
+		}},
+		{name: "download avatar", call: func(ctx context.Context) error {
+			_, err := DownloadAvatar(ctx, client, DownloadAvatarInput{ProjectID: "42"})
+			return err
+		}},
+		{name: "start housekeeping", call: func(ctx context.Context) error {
+			return StartHousekeeping(ctx, client, StartHousekeepingInput{ProjectID: "42"})
+		}},
+		{name: "create for user", call: func(ctx context.Context) error {
+			_, err := CreateForUser(ctx, client, CreateForUserInput{UserID: 1, Name: "project"})
+			return err
+		}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := tt.call(ctx); err == nil {
+				t.Fatal(errExpectedCtxErr)
+			}
+		})
+	}
+}
+
+// TestProjectHandlers_StatusSpecificErrors verifies project handlers propagate
+// representative GitLab HTTP failures.
+//
+// Each table case returns a status code associated with a specific operation,
+// including forbidden, not found, bad request, conflict, and unprocessable
+// entity responses. The test expects errors for every case, preserving
+// operation-specific wrapping and hints.
+func TestProjectHandlers_StatusSpecificErrors(t *testing.T) {
+	tests := []struct {
+		name   string
+		status int
+		call   func(*gitlabclient.Client) error
+	}{
+		{name: "create forbidden", status: http.StatusForbidden, call: func(client *gitlabclient.Client) error {
+			_, err := Create(context.Background(), client, CreateInput{Name: "project"})
+			return err
+		}},
+		{name: "get forbidden", status: http.StatusForbidden, call: func(client *gitlabclient.Client) error {
+			_, err := Get(context.Background(), client, GetInput{ProjectID: "42"})
+			return err
+		}},
+		{name: "list forbidden", status: http.StatusForbidden, call: func(client *gitlabclient.Client) error {
+			_, err := List(context.Background(), client, ListInput{})
+			return err
+		}},
+		{name: "restore unprocessable", status: http.StatusUnprocessableEntity, call: func(client *gitlabclient.Client) error {
+			_, err := Restore(context.Background(), client, RestoreInput{ProjectID: "42"})
+			return err
+		}},
+		{name: "fork forbidden", status: http.StatusForbidden, call: func(client *gitlabclient.Client) error {
+			_, err := Fork(context.Background(), client, ForkInput{ProjectID: "42"})
+			return err
+		}},
+		{name: "archive forbidden", status: http.StatusForbidden, call: func(client *gitlabclient.Client) error {
+			_, err := Archive(context.Background(), client, ArchiveInput{ProjectID: "42"})
+			return err
+		}},
+		{name: "unarchive forbidden", status: http.StatusForbidden, call: func(client *gitlabclient.Client) error {
+			_, err := Unarchive(context.Background(), client, UnarchiveInput{ProjectID: "42"})
+			return err
+		}},
+		{name: "transfer forbidden", status: http.StatusForbidden, call: func(client *gitlabclient.Client) error {
+			_, err := Transfer(context.Background(), client, TransferInput{ProjectID: "42", Namespace: "target"})
+			return err
+		}},
+		{name: "transfer not found", status: http.StatusNotFound, call: func(client *gitlabclient.Client) error {
+			_, err := Transfer(context.Background(), client, TransferInput{ProjectID: "42", Namespace: "target"})
+			return err
+		}},
+		{name: "transfer bad request", status: http.StatusBadRequest, call: func(client *gitlabclient.Client) error {
+			_, err := Transfer(context.Background(), client, TransferInput{ProjectID: "42", Namespace: "target"})
+			return err
+		}},
+		{name: "transfer unprocessable", status: http.StatusUnprocessableEntity, call: func(client *gitlabclient.Client) error {
+			_, err := Transfer(context.Background(), client, TransferInput{ProjectID: "42", Namespace: "target"})
+			return err
+		}},
+		{name: "list forks not found", status: http.StatusNotFound, call: func(client *gitlabclient.Client) error {
+			_, err := ListForks(context.Background(), client, ListForksInput{ProjectID: "42"})
+			return err
+		}},
+		{name: "list hooks forbidden", status: http.StatusForbidden, call: func(client *gitlabclient.Client) error {
+			_, err := ListHooks(context.Background(), client, ListHooksInput{ProjectID: "42"})
+			return err
+		}},
+		{name: "list user projects not found", status: http.StatusNotFound, call: func(client *gitlabclient.Client) error {
+			_, err := ListUserProjects(context.Background(), client, ListUserProjectsInput{UserID: "alice"})
+			return err
+		}},
+		{name: "list user contributed projects not found", status: http.StatusNotFound, call: func(client *gitlabclient.Client) error {
+			_, err := ListUserContributedProjects(context.Background(), client, ListUserContributedProjectsInput{UserID: "alice"})
+			return err
+		}},
+		{name: "list user starred projects not found", status: http.StatusNotFound, call: func(client *gitlabclient.Client) error {
+			_, err := ListUserStarredProjects(context.Background(), client, ListUserStarredProjectsInput{UserID: "alice"})
+			return err
+		}},
+		{name: "add hook bad request", status: http.StatusBadRequest, call: func(client *gitlabclient.Client) error {
+			_, err := AddHook(context.Background(), client, AddHookInput{ProjectID: "42", URL: testHookURL})
+			return err
+		}},
+		{name: "edit hook bad request", status: http.StatusBadRequest, call: func(client *gitlabclient.Client) error {
+			_, err := EditHook(context.Background(), client, EditHookInput{ProjectID: "42", HookID: 1, URL: testHookURL})
+			return err
+		}},
+		{name: "trigger test hook bad request", status: http.StatusBadRequest, call: func(client *gitlabclient.Client) error {
+			_, err := TriggerTestHook(context.Background(), client, TriggerTestHookInput{ProjectID: "42", HookID: 1, Event: "push_events"})
+			return err
+		}},
+		{name: "trigger test hook not found", status: http.StatusNotFound, call: func(client *gitlabclient.Client) error {
+			_, err := TriggerTestHook(context.Background(), client, TriggerTestHookInput{ProjectID: "42", HookID: 1, Event: "push_events"})
+			return err
+		}},
+		{name: "share group bad request", status: http.StatusBadRequest, call: func(client *gitlabclient.Client) error {
+			_, err := ShareProjectWithGroup(context.Background(), client, ShareProjectInput{ProjectID: "42", GroupID: 1, GroupAccess: 30, ExpiresAt: testDate20260101})
+			return err
+		}},
+		{name: "get push rules forbidden", status: http.StatusForbidden, call: func(client *gitlabclient.Client) error {
+			_, err := GetPushRules(context.Background(), client, GetPushRulesInput{ProjectID: "42"})
+			return err
+		}},
+		{name: "add push rule bad request", status: http.StatusBadRequest, call: func(client *gitlabclient.Client) error {
+			_, err := AddPushRule(context.Background(), client, AddPushRuleInput{ProjectID: "42"})
+			return err
+		}},
+		{name: "add push rule forbidden", status: http.StatusForbidden, call: func(client *gitlabclient.Client) error {
+			_, err := AddPushRule(context.Background(), client, AddPushRuleInput{ProjectID: "42"})
+			return err
+		}},
+		{name: "edit push rule bad request", status: http.StatusBadRequest, call: func(client *gitlabclient.Client) error {
+			_, err := EditPushRule(context.Background(), client, EditPushRuleInput{ProjectID: "42"})
+			return err
+		}},
+		{name: "edit push rule not found", status: http.StatusNotFound, call: func(client *gitlabclient.Client) error {
+			_, err := EditPushRule(context.Background(), client, EditPushRuleInput{ProjectID: "42"})
+			return err
+		}},
+		{name: "create fork relation conflict", status: http.StatusConflict, call: func(client *gitlabclient.Client) error {
+			_, err := CreateForkRelation(context.Background(), client, CreateForkRelationInput{ProjectID: "42", ForkedFromID: 24})
+			return err
+		}},
+		{name: "upload avatar bad request", status: http.StatusBadRequest, call: func(client *gitlabclient.Client) error {
+			_, err := UploadAvatar(context.Background(), client, UploadAvatarInput{ProjectID: "42", Filename: "avatar.png", ContentBase64: base64.StdEncoding.EncodeToString([]byte("avatar"))})
+			return err
+		}},
+		{name: "upload avatar forbidden", status: http.StatusForbidden, call: func(client *gitlabclient.Client) error {
+			_, err := UploadAvatar(context.Background(), client, UploadAvatarInput{ProjectID: "42", Filename: "avatar.png", ContentBase64: base64.StdEncoding.EncodeToString([]byte("avatar"))})
+			return err
+		}},
+		{name: "start housekeeping conflict", status: http.StatusConflict, call: func(client *gitlabclient.Client) error {
+			return StartHousekeeping(context.Background(), client, StartHousekeepingInput{ProjectID: "42"})
+		}},
+		{name: "create for user forbidden", status: http.StatusForbidden, call: func(client *gitlabclient.Client) error {
+			_, err := CreateForUser(context.Background(), client, CreateForUserInput{UserID: 1, Name: "project"})
+			return err
+		}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				testutil.RespondJSON(w, tt.status, `{"message":"boom"}`)
+			}))
+			if err := tt.call(client); err == nil {
+				t.Fatal(errExpectedAPI)
+			}
+		})
+	}
+}
+
+// TestProjectHandlers_ValidationErrors verifies project handlers reject missing
+// required inputs before making API calls.
+//
+// The table covers missing project IDs and missing hook key fields. The mock
+// handler fails on any request, proving validation protects GitLab from malformed
+// calls.
+func TestProjectHandlers_ValidationErrors(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatalf("API should not be called for validation errors: %s %s", r.Method, r.URL.Path)
+	}))
+
+	tests := []struct {
+		name string
+		call func() error
+	}{
+		{name: "get missing project", call: func() error {
+			_, err := Get(context.Background(), client, GetInput{})
+			return err
+		}},
+		{name: "update missing project", call: func() error {
+			_, err := Update(context.Background(), client, UpdateInput{})
+			return err
+		}},
+		{name: "delete custom header missing key", call: func() error {
+			return DeleteCustomHeader(context.Background(), client, DeleteCustomHeaderInput{ProjectID: "42", HookID: 1})
+		}},
+		{name: "delete webhook URL variable missing key", call: func() error {
+			return DeleteWebhookURLVariable(context.Background(), client, DeleteWebhookURLVariableInput{ProjectID: "42", HookID: 1})
+		}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := tt.call(); err == nil {
+				t.Fatal(errExpectedValidation)
+			}
+		})
+	}
+}
+
+// TestBuildUpdateOpts_MergeRequestTitleRegexOptions verifies project update
+// options include merge request title regex settings.
+//
+// The test builds update options with a regex and description, then checks both
+// pointers are populated with the requested values. This protects Premium push
+// rule metadata from being dropped during option conversion.
+func TestBuildUpdateOpts_MergeRequestTitleRegexOptions(t *testing.T) {
+	opts := buildUpdateOpts(UpdateInput{
+		MergeRequestTitleRegex:            testCommitRegex,
+		MergeRequestTitleRegexDescription: "Conventional commits",
+	})
+	if opts.MergeRequestTitleRegex == nil || *opts.MergeRequestTitleRegex != testCommitRegex {
+		t.Fatalf("MergeRequestTitleRegex = %v, want %q", opts.MergeRequestTitleRegex, testCommitRegex)
+	}
+	if opts.MergeRequestTitleRegexDescription == nil || *opts.MergeRequestTitleRegexDescription != "Conventional commits" {
+		t.Fatalf("MergeRequestTitleRegexDescription = %v", opts.MergeRequestTitleRegexDescription)
+	}
+}
+
+// TestProjectGet_SuccessEnrichedFields verifies that Get maps all enriched
+// fields including namespace, topics, timestamps, clone URLs, and counters.
+func TestProjectGet_SuccessEnrichedFields(t *testing.T) {
+	richJSON := `{
+		"id":42,"name":"my-repo","path_with_namespace":"jmrplens/my-repo",
+		"visibility":"private","default_branch":"main",
+		"web_url":"https://gitlab.example.com/jmrplens/my-repo",
+		"description":"A test repo","archived":true,"empty_repo":false,
+		"forks_count":5,"star_count":12,"open_issues_count":3,
+		"http_url_to_repo":"https://gitlab.example.com/jmrplens/my-repo.git",
+		"ssh_url_to_repo":"git@gitlab.example.com:jmrplens/my-repo.git",
+		"namespace":{"full_path":"jmrplens"},
+		"topics":["go","mcp","gitlab"],
+		"created_at":"2026-01-15T10:00:00Z",
+		"last_activity_at":"2026-06-01T14:30:00Z"
+	}`
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		testutil.RespondJSON(w, http.StatusOK, richJSON)
+	}))
+
+	out, err := Get(context.Background(), client, GetInput{ProjectID: "42"})
+	if err != nil {
+		t.Fatalf(fmtGetUnexpErr, err)
+	}
+	if !out.Archived {
+		t.Error("out.Archived = false, want true")
+	}
+	if out.ForksCount != 5 {
+		t.Errorf("out.ForksCount = %d, want 5", out.ForksCount)
+	}
+	if out.StarCount != 12 {
+		t.Errorf("out.StarCount = %d, want 12", out.StarCount)
+	}
+	if out.OpenIssuesCount != 3 {
+		t.Errorf("out.OpenIssuesCount = %d, want 3", out.OpenIssuesCount)
+	}
+	if out.HTTPURLToRepo != "https://gitlab.example.com/jmrplens/my-repo.git" {
+		t.Errorf("out.HTTPURLToRepo = %q, want HTTPS clone URL", out.HTTPURLToRepo)
+	}
+	if out.SSHURLToRepo != "git@gitlab.example.com:jmrplens/my-repo.git" {
+		t.Errorf("out.SSHURLToRepo = %q, want SSH clone URL", out.SSHURLToRepo)
+	}
+	if out.Namespace != "jmrplens" {
+		t.Errorf("out.Namespace = %q, want %q", out.Namespace, "jmrplens")
+	}
+	if len(out.Topics) != 3 {
+		t.Errorf("len(out.Topics) = %d, want 3", len(out.Topics))
+	}
+	if out.CreatedAt == "" {
+		t.Error("out.CreatedAt is empty, want timestamp")
+	}
+	if out.LastActivityAt == "" {
+		t.Error("out.LastActivityAt is empty, want timestamp")
+	}
+}
+
+// TestProjectListInput_EnrichedFilters verifies new list filters (archived, order_by,
+// sort, topic) are forwarded as query parameters.
+func TestProjectListInput_EnrichedFilters(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		if got := q.Get("archived"); got != "true" {
+			t.Errorf("query param archived = %q, want %q", got, "true")
+		}
+		if got := q.Get("order_by"); got != "name" {
+			t.Errorf("query param order_by = %q, want %q", got, "name")
+		}
+		if got := q.Get("sort"); got != testSortAsc {
+			t.Errorf("query param sort = %q, want %q", got, testSortAsc)
+		}
+		if got := q.Get("topic"); got != "go" {
+			t.Errorf("query param topic = %q, want %q", got, "go")
+		}
+		testutil.RespondJSON(w, http.StatusOK, `[]`)
+	}))
+
+	archived := true
+	_, err := List(context.Background(), client, ListInput{
+		Archived: &archived,
+		OrderBy:  "name",
+		Sort:     testSortAsc,
+		Topic:    "go",
+	})
+	if err != nil {
+		t.Fatalf(fmtProjectListErr, err)
+	}
+}
+
+// TestProjectCreate_EnrichedFeatureOpts verifies that Create passes the
+// new feature fields to the API.
+func TestProjectCreate_EnrichedFeatureOpts(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == pathProjects {
+			var body map[string]any
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				t.Fatalf("failed to decode request body: %v", err)
+			}
+			assertCreateFeatureBody(t, body)
+			testutil.RespondJSON(w, http.StatusCreated, `{"id":99,"name":"feature-proj","path_with_namespace":"ns/feature-proj","visibility":"private","default_branch":"main","web_url":"https://gitlab.example.com/ns/feature-proj","description":""}`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+
+	ciForward := true
+	sharedRunners := true
+	publicBuilds := false
+	packages := true
+	_, err := Create(context.Background(), client, CreateInput{
+		Name:                         "feature-proj",
+		ImportURL:                    testImportURL,
+		BuildTimeout:                 3600,
+		CIForwardDeploymentEnabled:   &ciForward,
+		SharedRunnersEnabled:         &sharedRunners,
+		PublicBuilds:                 &publicBuilds,
+		PackagesEnabled:              &packages,
+		PackageRegistryAccessLevel:   "enabled",
+		SuggestionCommitMessage:      testSuggestionMsg,
+		PagesAccessLevel:             testPrivate,
+		ContainerRegistryAccessLevel: "enabled",
+		SnippetsAccessLevel:          testPrivate,
+	})
+	if err != nil {
+		t.Fatalf("Create() unexpected error: %v", err)
+	}
+}
+
+// assertCreateFeatureBody checks create feature body invariants for tests.
+func assertCreateFeatureBody(t *testing.T, body map[string]any) {
+	t.Helper()
+	assertCreateFeatureBodyCI(t, body)
+	assertCreateFeatureBodyAccess(t, body)
+}
+
+// assertCreateFeatureBodyCI checks create feature body CI invariants for tests.
+func assertCreateFeatureBodyCI(t *testing.T, body map[string]any) {
+	t.Helper()
+	if v, ok := body["import_url"].(string); !ok || v != testImportURL {
+		t.Errorf("import_url = %v, want %q", body["import_url"], testImportURL)
+	}
+	if v, ok := body["build_timeout"].(float64); !ok || int64(v) != 3600 {
+		t.Errorf("build_timeout = %v, want 3600", body["build_timeout"])
+	}
+	if v, ok := body["shared_runners_enabled"].(bool); !ok || !v {
+		t.Errorf("shared_runners_enabled = %v, want true", body["shared_runners_enabled"])
+	}
+	if v, ok := body["public_jobs"].(bool); !ok || v {
+		t.Errorf("public_jobs = %v, want false", body["public_jobs"])
+	}
+}
+
+// assertCreateFeatureBodyAccess checks create feature body access invariants for tests.
+func assertCreateFeatureBodyAccess(t *testing.T, body map[string]any) {
+	t.Helper()
+	if v, ok := body["packages_enabled"].(bool); !ok || !v {
+		t.Errorf("packages_enabled = %v, want true", body["packages_enabled"])
+	}
+	if v, ok := body["package_registry_access_level"].(string); !ok || v != "enabled" {
+		t.Errorf("package_registry_access_level = %v, want %q", body["package_registry_access_level"], "enabled")
+	}
+	if v, ok := body["suggestion_commit_message"].(string); !ok || v != testSuggestionMsg {
+		t.Errorf("suggestion_commit_message = %v, want %q", body["suggestion_commit_message"], testSuggestionMsg)
+	}
+	if v, ok := body["pages_access_level"].(string); !ok || v != testPrivate {
+		t.Errorf("pages_access_level = %v, want %q", body["pages_access_level"], testPrivate)
+	}
+	if v, ok := body["container_registry_access_level"].(string); !ok || v != "enabled" {
+		t.Errorf("container_registry_access_level = %v, want %q", body["container_registry_access_level"], "enabled")
+	}
+	if v, ok := body["snippets_access_level"].(string); !ok || v != testPrivate {
+		t.Errorf("snippets_access_level = %v, want %q", body["snippets_access_level"], testPrivate)
+	}
+}
+
+// TestProjectList_EnrichedFilterOpts verifies that List passes new filter
+// fields (WithProgrammingLanguage, IDAfter, IDBefore) as query parameters.
+func TestProjectList_EnrichedFilterOpts(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == pathProjects {
+			q := r.URL.Query()
+			if got := q.Get("with_programming_language"); got != "Go" {
+				t.Errorf("query param with_programming_language = %q, want %q", got, "Go")
+			}
+			if got := q.Get("id_after"); got != "100" {
+				t.Errorf("query param id_after = %q, want %q", got, "100")
+			}
+			if got := q.Get("id_before"); got != "500" {
+				t.Errorf("query param id_before = %q, want %q", got, "500")
+			}
+			testutil.RespondJSON(w, http.StatusOK, `[]`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+
+	_, err := List(context.Background(), client, ListInput{
+		WithProgrammingLanguage: "Go",
+		IDAfter:                 100,
+		IDBefore:                500,
+	})
+	if err != nil {
+		t.Fatalf(fmtProjectListErr, err)
+	}
+}
+
+// TestProjectGet_EnrichedOutputFields verifies that Get maps the enriched
+// output fields: ContainerRegistryEnabled, SharedRunnersEnabled, PublicBuilds,
+// SnippetsEnabled, PackagesEnabled, BuildTimeout, SuggestionCommitMessage,
+// ComplianceFrameworks, ImportURL.
+func TestProjectGet_EnrichedOutputFields(t *testing.T) {
+	richJSON := `{
+		"id":42,"name":"my-repo","path_with_namespace":"jmrplens/my-repo",
+		"visibility":"private","default_branch":"main",
+		"web_url":"https://gitlab.example.com/jmrplens/my-repo",
+		"description":"A test repo",
+		"container_registry_enabled":true,
+		"container_registry_access_level":"enabled",
+		"shared_runners_enabled":true,
+		"public_builds":false,
+		"snippets_enabled":true,
+		"snippets_access_level":"enabled",
+		"packages_enabled":true,
+		"package_registry_access_level":"enabled",
+		"build_timeout":7200,
+		"suggestion_commit_message":"Apply suggestion to %{file_path}",
+		"compliance_frameworks":["SOC2","HIPAA"],
+		"import_url":"https://github.com/upstream/repo.git"
+	}`
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == pathProject42 {
+			testutil.RespondJSON(w, http.StatusOK, richJSON)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+
+	out, err := Get(context.Background(), client, GetInput{ProjectID: "42"})
+	if err != nil {
+		t.Fatalf(fmtGetUnexpErr, err)
+	}
+	if !out.ContainerRegistryEnabled {
+		t.Error("out.ContainerRegistryEnabled = false, want true")
+	}
+	if !out.SharedRunnersEnabled {
+		t.Error("out.SharedRunnersEnabled = false, want true")
+	}
+	if out.PublicBuilds {
+		t.Error("out.PublicBuilds = true, want false")
+	}
+	if !out.SnippetsEnabled {
+		t.Error("out.SnippetsEnabled = false, want true")
+	}
+	if !out.PackagesEnabled {
+		t.Error("out.PackagesEnabled = false, want true")
+	}
+	if out.PackageRegistryAccessLevel != "enabled" {
+		t.Errorf("out.PackageRegistryAccessLevel = %q, want %q", out.PackageRegistryAccessLevel, "enabled")
+	}
+	if out.BuildTimeout != 7200 {
+		t.Errorf("out.BuildTimeout = %d, want 7200", out.BuildTimeout)
+	}
+	if out.SuggestionCommitMessage != "Apply suggestion to %{file_path}" {
+		t.Errorf("out.SuggestionCommitMessage = %q, want %q", out.SuggestionCommitMessage, "Apply suggestion to %{file_path}")
+	}
+	if len(out.ComplianceFrameworks) != 2 || out.ComplianceFrameworks[0] != "SOC2" {
+		t.Errorf("out.ComplianceFrameworks = %v, want [SOC2 HIPAA]", out.ComplianceFrameworks)
+	}
+	if out.ImportURL != "https://github.com/upstream/repo.git" {
+		t.Errorf("out.ImportURL = %q, want %q", out.ImportURL, "https://github.com/upstream/repo.git")
+	}
+}
+
+// TestProjectGet_MergeRequestTitleRegex verifies that the MergeRequestTitleRegex
+// and MergeRequestTitleRegexDescription fields are correctly mapped from the API.
+func TestProjectGet_MergeRequestTitleRegex(t *testing.T) {
+	mrTitleJSON := `{
+		"id":42,"name":"my-repo","path_with_namespace":"jmrplens/my-repo",
+		"visibility":"private","default_branch":"main",
+		"web_url":"https://gitlab.example.com/jmrplens/my-repo",
+		"description":"A test repo",
+		"merge_request_title_regex":"^(feat|fix):",
+		"merge_request_title_regex_description":"MR title must start with feat: or fix:"
+	}`
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == pathProject42 {
+			testutil.RespondJSON(w, http.StatusOK, mrTitleJSON)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+
+	out, err := Get(context.Background(), client, GetInput{ProjectID: "42"})
+	if err != nil {
+		t.Fatalf(fmtGetUnexpErr, err)
+	}
+	if out.MergeRequestTitleRegex != "^(feat|fix):" {
+		t.Errorf("MergeRequestTitleRegex = %q, want %q", out.MergeRequestTitleRegex, "^(feat|fix):")
+	}
+	if out.MergeRequestTitleRegexDescription != "MR title must start with feat: or fix:" {
+		t.Errorf("MergeRequestTitleRegexDescription = %q, want %q", out.MergeRequestTitleRegexDescription, "MR title must start with feat: or fix:")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Fork
+// ---------------------------------------------------------------------------.
+
+// TestProjectFork_Success verifies ProjectFork when success.
+func TestProjectFork_Success(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == pathProject42Fork {
+			testutil.RespondJSON(w, http.StatusCreated, `{"id":99,"name":"my-fork","path":"my-fork","path_with_namespace":"user/my-fork","visibility":"private","web_url":"https://gitlab.example.com/user/my-fork","default_branch":"main"}`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+
+	out, err := Fork(context.Background(), client, ForkInput{ProjectID: "42", Name: testMyFork})
+	if err != nil {
+		t.Fatalf("Fork() unexpected error: %v", err)
+	}
+	if out.ID != 99 {
+		t.Errorf("ID = %d, want 99", out.ID)
+	}
+	if out.Name != testMyFork {
+		t.Errorf(fmtNameWantQ, out.Name, testMyFork)
+	}
+}
+
+// TestProjectFork_EmptyProjectID verifies ProjectFork when empty project ID.
+func TestProjectFork_EmptyProjectID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		testutil.RespondJSON(w, http.StatusOK, `{}`)
+	}))
+	_, err := Fork(context.Background(), client, ForkInput{})
+	if err == nil {
+		t.Fatal(errEmptyProjID)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Star / Unstar
+// ---------------------------------------------------------------------------.
+
+// TestProjectStar_Success verifies ProjectStar when success.
+func TestProjectStar_Success(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == "/api/v4/projects/42/star" {
+			testutil.RespondJSON(w, http.StatusCreated, `{"id":42,"name":"myproject","path":"myproject","path_with_namespace":"user/myproject","visibility":"private","web_url":"https://gitlab.example.com/user/myproject","default_branch":"main","star_count":5}`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+
+	out, err := Star(context.Background(), client, StarInput{ProjectID: "42"})
+	if err != nil {
+		t.Fatalf("Star() unexpected error: %v", err)
+	}
+	if out.StarCount != 5 {
+		t.Errorf("StarCount = %d, want 5", out.StarCount)
+	}
+}
+
+// TestProjectStar_EOFFallsBackToGet verifies that Star recovers from the
+// GitLab star endpoint closing the connection without a response.
+//
+// The test hijacks and closes the POST /projects/:id/star connection, then
+// expects the handler to fetch the project with GET /projects/:id and return
+// the refreshed star count. This protects clients from losing a successful
+// GitLab star operation when the API response body is unavailable.
+func TestProjectStar_EOFFallsBackToGet(t *testing.T) {
+	starCalled := false
+	getCalled := false
+	callOrder := make([]string, 0, 2)
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v4/projects/42/star":
+			starCalled = true
+			callOrder = append(callOrder, "star")
+			hijacker, ok := w.(http.Hijacker)
+			if !ok {
+				t.Fatal("response writer does not support hijacking")
+			}
+			conn, _, err := hijacker.Hijack()
+			if err != nil {
+				t.Fatalf("hijack response: %v", err)
+			}
+			_ = conn.Close()
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v4/projects/42":
+			getCalled = true
+			callOrder = append(callOrder, "get")
+			testutil.RespondJSON(w, http.StatusOK, `{"id":42,"name":"myproject","path":"myproject","path_with_namespace":"user/myproject","visibility":"private","web_url":"https://gitlab.example.com/user/myproject","default_branch":"main","star_count":6}`)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+
+	out, err := Star(context.Background(), client, StarInput{ProjectID: "42"})
+	if err != nil {
+		t.Fatalf("Star() unexpected error: %v", err)
+	}
+	if !starCalled || !getCalled {
+		t.Fatalf("starCalled=%t getCalled=%t, want both true", starCalled, getCalled)
+	}
+	if len(callOrder) != 2 || callOrder[0] != "star" || callOrder[1] != "get" {
+		t.Fatalf("callOrder=%v, want [star get]", callOrder)
+	}
+	if out.StarCount != 6 {
+		t.Errorf("StarCount = %d, want 6", out.StarCount)
+	}
+}
+
+// TestProjectStar_EmptyProjectID verifies ProjectStar when empty project ID.
+func TestProjectStar_EmptyProjectID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		testutil.RespondJSON(w, http.StatusOK, `{}`)
+	}))
+	_, err := Star(context.Background(), client, StarInput{})
+	if err == nil {
+		t.Fatal(errEmptyProjID)
+	}
+}
+
+// TestProjectUnstar_Success verifies ProjectUnstar when success.
+func TestProjectUnstar_Success(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == "/api/v4/projects/42/unstar" {
+			testutil.RespondJSON(w, http.StatusOK, `{"id":42,"name":"myproject","path":"myproject","path_with_namespace":"user/myproject","visibility":"private","web_url":"https://gitlab.example.com/user/myproject","default_branch":"main","star_count":4}`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+
+	out, err := Unstar(context.Background(), client, UnstarInput{ProjectID: "42"})
+	if err != nil {
+		t.Fatalf("Unstar() unexpected error: %v", err)
+	}
+	if out.StarCount != 4 {
+		t.Errorf("StarCount = %d, want 4", out.StarCount)
+	}
+}
+
+// TestProjectUnstar_EmptyProjectID verifies ProjectUnstar when empty project ID.
+func TestProjectUnstar_EmptyProjectID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		testutil.RespondJSON(w, http.StatusOK, `{}`)
+	}))
+	_, err := Unstar(context.Background(), client, UnstarInput{})
+	if err == nil {
+		t.Fatal(errEmptyProjID)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Archive / Unarchive
+// ---------------------------------------------------------------------------.
+
+// TestProjectArchive_Success verifies ProjectArchive when success.
+func TestProjectArchive_Success(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == "/api/v4/projects/42/archive" {
+			testutil.RespondJSON(w, http.StatusCreated, `{"id":42,"name":"myproject","path":"myproject","path_with_namespace":"user/myproject","visibility":"private","web_url":"https://gitlab.example.com/user/myproject","default_branch":"main","archived":true}`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+
+	out, err := Archive(context.Background(), client, ArchiveInput{ProjectID: "42"})
+	if err != nil {
+		t.Fatalf("Archive() unexpected error: %v", err)
+	}
+	if !out.Archived {
+		t.Error("Archived = false, want true")
+	}
+}
+
+// TestProjectArchive_EmptyProjectID verifies ProjectArchive when empty project ID.
+func TestProjectArchive_EmptyProjectID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		testutil.RespondJSON(w, http.StatusOK, `{}`)
+	}))
+	_, err := Archive(context.Background(), client, ArchiveInput{})
+	if err == nil {
+		t.Fatal(errEmptyProjID)
+	}
+}
+
+// TestProjectUnarchive_Success verifies ProjectUnarchive when success.
+func TestProjectUnarchive_Success(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == "/api/v4/projects/42/unarchive" {
+			testutil.RespondJSON(w, http.StatusCreated, `{"id":42,"name":"myproject","path":"myproject","path_with_namespace":"user/myproject","visibility":"private","web_url":"https://gitlab.example.com/user/myproject","default_branch":"main","archived":false}`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+
+	out, err := Unarchive(context.Background(), client, UnarchiveInput{ProjectID: "42"})
+	if err != nil {
+		t.Fatalf("Unarchive() unexpected error: %v", err)
+	}
+	if out.Archived {
+		t.Error("Archived = true, want false")
+	}
+}
+
+// TestProjectUnarchive_EmptyProjectID verifies ProjectUnarchive when empty project ID.
+func TestProjectUnarchive_EmptyProjectID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		testutil.RespondJSON(w, http.StatusOK, `{}`)
+	}))
+	_, err := Unarchive(context.Background(), client, UnarchiveInput{})
+	if err == nil {
+		t.Fatal(errEmptyProjID)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Transfer
+// ---------------------------------------------------------------------------.
+
+// TestProjectTransfer_Success verifies ProjectTransfer when success.
+func TestProjectTransfer_Success(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPut && r.URL.Path == "/api/v4/projects/42/transfer" {
+			testutil.RespondJSON(w, http.StatusOK, `{"id":42,"name":"myproject","path":"myproject","path_with_namespace":"newns/myproject","visibility":"private","web_url":"https://gitlab.example.com/newns/myproject","default_branch":"main"}`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+
+	out, err := Transfer(context.Background(), client, TransferInput{ProjectID: "42", Namespace: "newns"})
+	if err != nil {
+		t.Fatalf("Transfer() unexpected error: %v", err)
+	}
+	if out.PathWithNamespace != "newns/myproject" {
+		t.Errorf("PathWithNamespace = %q, want %q", out.PathWithNamespace, "newns/myproject")
+	}
+}
+
+// TestProjectTransfer_EmptyProjectID verifies ProjectTransfer when empty project ID.
+func TestProjectTransfer_EmptyProjectID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		testutil.RespondJSON(w, http.StatusOK, `{}`)
+	}))
+	_, err := Transfer(context.Background(), client, TransferInput{Namespace: "ns"})
+	if err == nil {
+		t.Fatal(errEmptyProjID)
+	}
+}
+
+// TestProjectTransfer_EmptyNamespace verifies ProjectTransfer when empty namespace.
+func TestProjectTransfer_EmptyNamespace(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		testutil.RespondJSON(w, http.StatusOK, `{}`)
+	}))
+	_, err := Transfer(context.Background(), client, TransferInput{ProjectID: "42"})
+	if err == nil {
+		t.Fatal("expected error for empty namespace, got nil")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// ListForks
+// ---------------------------------------------------------------------------.
+
+// TestProjectListForks_Success verifies ProjectListForks when success.
+func TestProjectListForks_Success(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && r.URL.Path == pathProject42Forks {
+			w.Header().Set(headerXTotal, "2")
+			w.Header().Set(headerXTotalPages, "1")
+			w.Header().Set(headerXPage, "1")
+			w.Header().Set(headerXPerPage, "20")
+			testutil.RespondJSON(w, http.StatusOK, `[{"id":100,"name":"fork-a","path":"fork-a","path_with_namespace":"alice/fork-a","visibility":"private","web_url":"https://gitlab.example.com/alice/fork-a","default_branch":"main"},{"id":101,"name":"fork-b","path":"fork-b","path_with_namespace":"bob/fork-b","visibility":"internal","web_url":"https://gitlab.example.com/bob/fork-b","default_branch":"main"}]`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+
+	out, err := ListForks(context.Background(), client, ListForksInput{ProjectID: "42"})
+	if err != nil {
+		t.Fatalf("ListForks() unexpected error: %v", err)
+	}
+	if len(out.Forks) != 2 {
+		t.Fatalf("len(Forks) = %d, want 2", len(out.Forks))
+	}
+	if out.Forks[0].Name != testForkA {
+		t.Errorf("Forks[0].Name = %q, want %q", out.Forks[0].Name, testForkA)
+	}
+}
+
+// TestProjectListForks_EmptyProjectID verifies ProjectListForks when empty project ID.
+func TestProjectListForks_EmptyProjectID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		testutil.RespondJSON(w, http.StatusOK, `[]`)
+	}))
+	_, err := ListForks(context.Background(), client, ListForksInput{})
+	if err == nil {
+		t.Fatal(errEmptyProjID)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// GetLanguages
+// ---------------------------------------------------------------------------.
+
+// TestProjectGetLanguages_Success verifies ProjectGetLanguages when success.
+func TestProjectGetLanguages_Success(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && r.URL.Path == "/api/v4/projects/42/languages" {
+			testutil.RespondJSON(w, http.StatusOK, `{"Go":85.5,"Shell":10.2,"Makefile":4.3}`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+
+	out, err := GetLanguages(context.Background(), client, GetLanguagesInput{ProjectID: "42"})
+	if err != nil {
+		t.Fatalf("GetLanguages() unexpected error: %v", err)
+	}
+	if len(out.Languages) != 3 {
+		t.Fatalf("len(Languages) = %d, want 3", len(out.Languages))
+	}
+	found := false
+	for _, l := range out.Languages {
+		if l.Name == "Go" {
+			found = true
+			if l.Percentage < 85.0 || l.Percentage > 86.0 {
+				t.Errorf("Go percentage = %.1f, want ~85.5", l.Percentage)
+			}
+		}
+	}
+	if !found {
+		t.Error("expected Go language in output")
+	}
+}
+
+// TestProjectGetLanguages_EmptyProjectID verifies ProjectGetLanguages when empty project ID.
+func TestProjectGetLanguages_EmptyProjectID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		testutil.RespondJSON(w, http.StatusOK, `{}`)
+	}))
+	_, err := GetLanguages(context.Background(), client, GetLanguagesInput{})
+	if err == nil {
+		t.Fatal(errEmptyProjID)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// ListHooks
+// ---------------------------------------------------------------------------.
+
+// hookJSON stores the package-level hook JSON state.
+var hookJSON = `{"id":1,"url":"https://example.com/hook","name":"my-hook","project_id":42,"push_events":true,"issues_events":false,"merge_requests_events":true,"tag_push_events":false,"note_events":true,"job_events":false,"pipeline_events":true,"wiki_page_events":false,"deployment_events":false,"releases_events":true,"milestone_events":true,"feature_flag_events":true,"resource_deploy_token_events":true,"vulnerability_events":true,"enable_ssl_verification":true,"disabled_until":"2026-01-02T00:00:00Z","url_variables":[{"key":"env","value":"prod"}],"custom_headers":[null,{"key":"X-Env","value":"prod"}],"token_present":true,"signing_token_present":true,"created_at":"2026-01-01T00:00:00Z"}`
+
+// TestProjectListHooks_Success verifies ProjectListHooks when success.
+func TestProjectListHooks_Success(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && r.URL.Path == pathProject42Hooks {
+			w.Header().Set(headerXTotal, "1")
+			w.Header().Set(headerXTotalPages, "1")
+			w.Header().Set(headerXPage, "1")
+			w.Header().Set(headerXPerPage, "20")
+			testutil.RespondJSON(w, http.StatusOK, "["+hookJSON+"]")
+			return
+		}
+		http.NotFound(w, r)
+	}))
+
+	out, err := ListHooks(context.Background(), client, ListHooksInput{ProjectID: "42"})
+	if err != nil {
+		t.Fatalf("ListHooks() unexpected error: %v", err)
+	}
+	if len(out.Hooks) != 1 {
+		t.Fatalf("len(Hooks) = %d, want 1", len(out.Hooks))
+	}
+	assertProjectHookOutput(t, out.Hooks[0])
+	encodedHook, err := json.Marshal(out.Hooks[0])
+	if err != nil {
+		t.Fatalf("marshal hook output: %v", err)
+	}
+	if strings.Contains(string(encodedHook), `"value"`) || strings.Contains(string(encodedHook), "prod") {
+		t.Fatalf("hook output exposed secret-bearing values: %s", encodedHook)
+	}
+}
+
+func assertProjectHookOutput(t *testing.T, hook HookOutput) {
+	t.Helper()
+	if hook.URL != testHookURL || !hook.PushEvents || !hook.EnableSSLVerification {
+		t.Fatalf("hook core fields = %+v, want URL, push events, and SSL verification", hook)
+	}
+	if !hook.TokenPresent || !hook.SigningTokenPresent {
+		t.Error("expected token presence flags to be true")
+	}
+	if !hook.MilestoneEvents || !hook.FeatureFlagEvents || !hook.VulnerabilityEvents || !hook.ResourceDeployTokenEvents {
+		t.Error("expected milestone, feature flag, vulnerability, and resource deploy token events to be true")
+	}
+	if hook.DisabledUntil == "" {
+		t.Error("DisabledUntil is empty, want timestamp")
+	}
+	if len(hook.URLVariables) != 1 || hook.URLVariables[0].Key != "env" {
+		t.Fatalf("unexpected URL variables: %+v", hook.URLVariables)
+	}
+	if len(hook.CustomHeaders) != 1 || hook.CustomHeaders[0].Key != "X-Env" {
+		t.Fatalf("unexpected custom headers: %+v", hook.CustomHeaders)
+	}
+}
+
+// TestProjectHookCustomHeadersToOutput_SkipsNilEntries verifies custom hook
+// header conversion drops nil entries while preserving real keys.
+//
+// The first assertion keeps a single non-nil header after a nil entry; the second
+// expects nil when every source entry is nil. This prevents empty redacted header
+// rows from appearing in hook output.
+func TestProjectHookCustomHeadersToOutput_SkipsNilEntries(t *testing.T) {
+	headers := projectHookCustomHeadersToOutput([]*gl.HookCustomHeader{
+		nil,
+		{Key: "X-Env", Value: "prod"},
+	})
+	if len(headers) != 1 || headers[0].Key != "X-Env" {
+		t.Fatalf("unexpected custom headers: %+v", headers)
+	}
+
+	if out := projectHookCustomHeadersToOutput([]*gl.HookCustomHeader{nil}); out != nil {
+		t.Fatalf("expected nil when all custom headers are nil, got %+v", out)
+	}
+}
+
+// TestDoProjectHookRequest_NewRequestError verifies request construction errors
+// are returned before the GitLab client attempts an HTTP call.
+func TestDoProjectHookRequest_NewRequestError(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		t.Fatal("handler should not be called when request construction fails")
+	}))
+
+	_, resp, err := doProjectHookRequest[projectHookAPI](context.Background(), client, "bad method", pathProject42Hooks, nil)
+	if err == nil {
+		t.Fatal("expected request construction error")
+	}
+	if resp != nil {
+		t.Fatalf("response = %+v, want nil", resp)
+	}
+}
+
+// TestProjectListHooks_EmptyProjectID verifies ProjectListHooks when empty project ID.
+func TestProjectListHooks_EmptyProjectID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		testutil.RespondJSON(w, http.StatusOK, `[]`)
+	}))
+	_, err := ListHooks(context.Background(), client, ListHooksInput{})
+	if err == nil {
+		t.Fatal(errEmptyProjID)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// GetHook
+// ---------------------------------------------------------------------------.
+
+// TestProjectGetHook_Success verifies ProjectGetHook when success.
+func TestProjectGetHook_Success(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && r.URL.Path == pathProject42Hook1 {
+			testutil.RespondJSON(w, http.StatusOK, hookJSON)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+
+	out, err := GetHook(context.Background(), client, GetHookInput{ProjectID: "42", HookID: 1})
+	if err != nil {
+		t.Fatalf("GetHook() unexpected error: %v", err)
+	}
+	if out.ID != 1 {
+		t.Errorf(fmtIDWant1, out.ID)
+	}
+	if !out.ResourceDeployTokenEvents {
+		t.Error("ResourceDeployTokenEvents = false, want true")
+	}
+	if out.Name != testMyHook {
+		t.Errorf(fmtNameWantQ, out.Name, testMyHook)
+	}
+	if !out.TokenPresent || !out.SigningTokenPresent {
+		t.Error("expected token presence flags to be true")
+	}
+}
+
+// TestProjectGetHook_EmptyProjectID verifies ProjectGetHook when empty project ID.
+func TestProjectGetHook_EmptyProjectID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		testutil.RespondJSON(w, http.StatusOK, `{}`)
+	}))
+	_, err := GetHook(context.Background(), client, GetHookInput{HookID: 1})
+	if err == nil {
+		t.Fatal(errEmptyProjID)
+	}
+}
+
+// TestProjectGetHook_EmptyHookID verifies ProjectGetHook when empty hook ID.
+func TestProjectGetHook_EmptyHookID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		testutil.RespondJSON(w, http.StatusOK, `{}`)
+	}))
+	_, err := GetHook(context.Background(), client, GetHookInput{ProjectID: "42"})
+	if err == nil {
+		t.Fatal(errEmptyHookID)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// AddHook
+// ---------------------------------------------------------------------------.
+
+// TestProjectAddHook_Success verifies ProjectAddHook when success.
+func TestProjectAddHook_Success(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == pathProject42Hooks {
+			testutil.RespondJSON(w, http.StatusCreated, hookJSON)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+
+	out, err := AddHook(context.Background(), client, AddHookInput{
+		ProjectID: "42",
+		URL:       testHookURL,
+		HookOptionsInput: HookOptionsInput{
+			PushEvents: new(true),
+		},
+	})
+	if err != nil {
+		t.Fatalf("AddHook() unexpected error: %v", err)
+	}
+	if out.URL != testHookURL {
+		t.Errorf("URL = %q, want %q", out.URL, testHookURL)
+	}
+}
+
+// TestProjectAddHook_EmptyProjectID verifies ProjectAddHook when empty project ID.
+func TestProjectAddHook_EmptyProjectID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		testutil.RespondJSON(w, http.StatusOK, `{}`)
+	}))
+	_, err := AddHook(context.Background(), client, AddHookInput{URL: "https://example.com"})
+	if err == nil {
+		t.Fatal(errEmptyProjID)
+	}
+}
+
+// TestProjectAddHook_EmptyURL verifies ProjectAddHook when empty URL.
+func TestProjectAddHook_EmptyURL(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		testutil.RespondJSON(w, http.StatusOK, `{}`)
+	}))
+	_, err := AddHook(context.Background(), client, AddHookInput{ProjectID: "42"})
+	if err == nil {
+		t.Fatal("expected error for empty url, got nil")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// EditHook
+// ---------------------------------------------------------------------------.
+
+// TestProjectEditHook_Success verifies ProjectEditHook when success.
+func TestProjectEditHook_Success(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPut && r.URL.Path == pathProject42Hook1 {
+			testutil.RespondJSON(w, http.StatusOK, hookJSON)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+
+	out, err := EditHook(context.Background(), client, EditHookInput{ProjectID: "42", HookID: 1, URL: testHookURL})
+	if err != nil {
+		t.Fatalf("EditHook() unexpected error: %v", err)
+	}
+	if out.ID != 1 {
+		t.Errorf(fmtIDWant1, out.ID)
+	}
+}
+
+// TestProjectEditHook_EmptyProjectID verifies ProjectEditHook when empty project ID.
+func TestProjectEditHook_EmptyProjectID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		testutil.RespondJSON(w, http.StatusOK, `{}`)
+	}))
+	_, err := EditHook(context.Background(), client, EditHookInput{HookID: 1})
+	if err == nil {
+		t.Fatal(errEmptyProjID)
+	}
+}
+
+// TestProjectEditHook_EmptyHookID verifies ProjectEditHook when empty hook ID.
+func TestProjectEditHook_EmptyHookID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		testutil.RespondJSON(w, http.StatusOK, `{}`)
+	}))
+	_, err := EditHook(context.Background(), client, EditHookInput{ProjectID: "42"})
+	if err == nil {
+		t.Fatal(errEmptyHookID)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// DeleteHook
+// ---------------------------------------------------------------------------.
+
+// TestProjectDeleteHook_Success verifies ProjectDeleteHook when success.
+func TestProjectDeleteHook_Success(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodDelete && r.URL.Path == pathProject42Hook1 {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+
+	err := DeleteHook(context.Background(), client, DeleteHookInput{ProjectID: "42", HookID: 1})
+	if err != nil {
+		t.Fatalf("DeleteHook() unexpected error: %v", err)
+	}
+}
+
+// TestProjectDeleteHook_EmptyProjectID verifies ProjectDeleteHook when empty project ID.
+func TestProjectDeleteHook_EmptyProjectID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	err := DeleteHook(context.Background(), client, DeleteHookInput{HookID: 1})
+	if err == nil {
+		t.Fatal(errEmptyProjID)
+	}
+}
+
+// TestProjectDeleteHook_EmptyHookID verifies ProjectDeleteHook when empty hook ID.
+func TestProjectDeleteHook_EmptyHookID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	err := DeleteHook(context.Background(), client, DeleteHookInput{ProjectID: "42"})
+	if err == nil {
+		t.Fatal(errEmptyHookID)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// TriggerTestHook
+// ---------------------------------------------------------------------------.
+
+// TestProjectTriggerTestHook_Success verifies ProjectTriggerTestHook when success.
+func TestProjectTriggerTestHook_Success(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == "/api/v4/projects/42/hooks/1/test/push_events" {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+
+	out, err := TriggerTestHook(context.Background(), client, TriggerTestHookInput{ProjectID: "42", HookID: 1, Event: "push_events"})
+	if err != nil {
+		t.Fatalf("TriggerTestHook() unexpected error: %v", err)
+	}
+	if out.Message == "" {
+		t.Error("expected non-empty message")
+	}
+}
+
+// TestProjectTriggerTestHook_EmptyProjectID verifies ProjectTriggerTestHook when empty project ID.
+func TestProjectTriggerTestHook_EmptyProjectID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	_, err := TriggerTestHook(context.Background(), client, TriggerTestHookInput{HookID: 1, Event: "push_events"})
+	if err == nil {
+		t.Fatal(errEmptyProjID)
+	}
+}
+
+// TestProjectTriggerTestHook_EmptyEvent verifies ProjectTriggerTestHook when empty event.
+func TestProjectTriggerTestHook_EmptyEvent(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	_, err := TriggerTestHook(context.Background(), client, TriggerTestHookInput{ProjectID: "42", HookID: 1})
+	if err == nil {
+		t.Fatal("expected error for empty event, got nil")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// ListUserProjects
+// ---------------------------------------------------------------------------.
+
+// TestProjectListUserProjects_Success verifies ProjectListUserProjects when success.
+func TestProjectListUserProjects_Success(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && r.URL.Path == "/api/v4/users/jdoe/projects" {
+			w.Header().Set(headerXTotal, "1")
+			w.Header().Set(headerXTotalPages, "1")
+			w.Header().Set(headerXPage, "1")
+			w.Header().Set(headerXPerPage, "20")
+			testutil.RespondJSON(w, http.StatusOK, `[{"id":42,"name":"my-project","path_with_namespace":"jdoe/my-project"}]`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	out, err := ListUserProjects(context.Background(), client, ListUserProjectsInput{UserID: testUserJdoe})
+	if err != nil {
+		t.Fatalf(fmtUnexpErr, err)
+	}
+	if len(out.Projects) != 1 {
+		t.Fatalf(fmtLenProjectsWant1, len(out.Projects))
+	}
+	if out.Projects[0].Name != testProjectName {
+		t.Errorf(fmtNameWantQ, out.Projects[0].Name, testProjectName)
+	}
+}
+
+// TestProjectListUserProjects_EmptyUserID verifies ProjectListUserProjects when empty user ID.
+func TestProjectListUserProjects_EmptyUserID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		testutil.RespondJSON(w, http.StatusOK, `[]`)
+	}))
+	_, err := ListUserProjects(context.Background(), client, ListUserProjectsInput{})
+	if err == nil {
+		t.Fatal(errEmptyUserID)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// ListProjectUsers
+// ---------------------------------------------------------------------------.
+
+// TestProjectListProjectUsers_Success verifies ProjectListProjectUsers when success.
+func TestProjectListProjectUsers_Success(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && r.URL.Path == "/api/v4/projects/42/users" {
+			w.Header().Set(headerXTotal, "1")
+			w.Header().Set(headerXTotalPages, "1")
+			w.Header().Set(headerXPage, "1")
+			w.Header().Set(headerXPerPage, "20")
+			testutil.RespondJSON(w, http.StatusOK, `[{"id":10,"name":"Jane Doe","username":"jdoe","state":"active","web_url":"https://gl.example.com/jdoe"}]`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	out, err := ListProjectUsers(context.Background(), client, ListProjectUsersInput{ProjectID: "42"})
+	if err != nil {
+		t.Fatalf(fmtUnexpErr, err)
+	}
+	if len(out.Users) != 1 {
+		t.Fatalf("len(Users) = %d, want 1", len(out.Users))
+	}
+	if out.Users[0].Username != testUserJdoe {
+		t.Errorf("Username = %q, want %q", out.Users[0].Username, testUserJdoe)
+	}
+}
+
+// TestProjectListProjectUsers_EmptyProjectID verifies ProjectListProjectUsers when empty project ID.
+func TestProjectListProjectUsers_EmptyProjectID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		testutil.RespondJSON(w, http.StatusOK, `[]`)
+	}))
+	_, err := ListProjectUsers(context.Background(), client, ListProjectUsersInput{})
+	if err == nil {
+		t.Fatal(errEmptyProjID)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// ListProjectGroups
+// ---------------------------------------------------------------------------.
+
+// TestProjectListProjectGroups_Success verifies ProjectListProjectGroups when success.
+func TestProjectListProjectGroups_Success(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && r.URL.Path == "/api/v4/projects/42/groups" {
+			w.Header().Set(headerXTotal, "1")
+			w.Header().Set(headerXTotalPages, "1")
+			w.Header().Set(headerXPage, "1")
+			w.Header().Set(headerXPerPage, "20")
+			testutil.RespondJSON(w, http.StatusOK, `[{"id":5,"name":"my-group","full_name":"My Group","full_path":"my-group","web_url":"https://gl.example.com/groups/my-group"}]`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	out, err := ListProjectGroups(context.Background(), client, ListProjectGroupsInput{ProjectID: "42"})
+	if err != nil {
+		t.Fatalf(fmtUnexpErr, err)
+	}
+	if len(out.Groups) != 1 {
+		t.Fatalf(fmtLenGroupsWant1, len(out.Groups))
+	}
+	if out.Groups[0].FullPath != testMyGroup {
+		t.Errorf("FullPath = %q, want %q", out.Groups[0].FullPath, testMyGroup)
+	}
+}
+
+// TestProjectListProjectGroups_EmptyProjectID verifies ProjectListProjectGroups when empty project ID.
+func TestProjectListProjectGroups_EmptyProjectID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		testutil.RespondJSON(w, http.StatusOK, `[]`)
+	}))
+	_, err := ListProjectGroups(context.Background(), client, ListProjectGroupsInput{})
+	if err == nil {
+		t.Fatal(errEmptyProjID)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// ListProjectStarrers
+// ---------------------------------------------------------------------------.
+
+// TestProjectListStarrers_Success verifies ProjectListStarrers when success.
+func TestProjectListStarrers_Success(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && r.URL.Path == "/api/v4/projects/42/starrers" {
+			w.Header().Set(headerXTotal, "1")
+			w.Header().Set(headerXTotalPages, "1")
+			w.Header().Set(headerXPage, "1")
+			w.Header().Set(headerXPerPage, "20")
+			testutil.RespondJSON(w, http.StatusOK, `[{"starred_since":"2026-01-15T10:00:00Z","user":{"id":10,"name":"Jane Doe","username":"jdoe","state":"active"}}]`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	out, err := ListProjectStarrers(context.Background(), client, ListProjectStarrersInput{ProjectID: "42"})
+	if err != nil {
+		t.Fatalf(fmtUnexpErr, err)
+	}
+	if len(out.Starrers) != 1 {
+		t.Fatalf("len(Starrers) = %d, want 1", len(out.Starrers))
+	}
+	if out.Starrers[0].User.Username != testUserJdoe {
+		t.Errorf("Username = %q, want %q", out.Starrers[0].User.Username, testUserJdoe)
+	}
+	if out.Starrers[0].StarredSince == "" {
+		t.Error("StarredSince is empty, expected date string")
+	}
+}
+
+// TestProjectListStarrers_EmptyProjectID verifies ProjectListStarrers when empty project ID.
+func TestProjectListStarrers_EmptyProjectID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		testutil.RespondJSON(w, http.StatusOK, `[]`)
+	}))
+	_, err := ListProjectStarrers(context.Background(), client, ListProjectStarrersInput{})
+	if err == nil {
+		t.Fatal(errEmptyProjID)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// ShareProjectWithGroup
+// ---------------------------------------------------------------------------.
+
+// TestProjectShare_WithGroupSuccess verifies ProjectShare when with group success.
+func TestProjectShare_WithGroupSuccess(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == "/api/v4/projects/42/share" {
+			w.WriteHeader(http.StatusCreated)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	out, err := ShareProjectWithGroup(context.Background(), client, ShareProjectInput{
+		ProjectID:   "42",
+		GroupID:     5,
+		GroupAccess: 30,
+	})
+	if err != nil {
+		t.Fatalf(fmtUnexpErr, err)
+	}
+	if out.Message == "" {
+		t.Error("expected non-empty message")
+	}
+}
+
+// TestProjectShare_WithGroupEmptyProjectID verifies ProjectShare when with group empty project ID.
+func TestProjectShare_WithGroupEmptyProjectID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusCreated)
+	}))
+	_, err := ShareProjectWithGroup(context.Background(), client, ShareProjectInput{GroupID: 5, GroupAccess: 30})
+	if err == nil {
+		t.Fatal(errEmptyProjID)
+	}
+}
+
+// TestProjectShare_WithGroupEmptyGroupID verifies ProjectShare when with group empty group ID.
+func TestProjectShare_WithGroupEmptyGroupID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusCreated)
+	}))
+	_, err := ShareProjectWithGroup(context.Background(), client, ShareProjectInput{ProjectID: "42", GroupAccess: 30})
+	if err == nil {
+		t.Fatal("expected error for empty group_id, got nil")
+	}
+}
+
+// TestProjectShare_WithGroupEmptyGroupAccess verifies ProjectShare when with group empty group access.
+func TestProjectShare_WithGroupEmptyGroupAccess(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusCreated)
+	}))
+	_, err := ShareProjectWithGroup(context.Background(), client, ShareProjectInput{ProjectID: "42", GroupID: 5})
+	if err == nil {
+		t.Fatal("expected error for empty group_access, got nil")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// DeleteSharedProjectFromGroup
+// ---------------------------------------------------------------------------.
+
+// TestProjectDeleteSharedGroup_Success verifies ProjectDeleteSharedGroup when success.
+func TestProjectDeleteSharedGroup_Success(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodDelete && r.URL.Path == "/api/v4/projects/42/share/5" {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	err := DeleteSharedProjectFromGroup(context.Background(), client, DeleteSharedGroupInput{ProjectID: "42", GroupID: 5})
+	if err != nil {
+		t.Fatalf(fmtUnexpErr, err)
+	}
+}
+
+// TestProjectDeleteSharedGroup_EmptyProjectID verifies ProjectDeleteSharedGroup when empty project ID.
+func TestProjectDeleteSharedGroup_EmptyProjectID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	err := DeleteSharedProjectFromGroup(context.Background(), client, DeleteSharedGroupInput{GroupID: 5})
+	if err == nil {
+		t.Fatal(errEmptyProjID)
+	}
+}
+
+// TestProjectDeleteSharedGroup_EmptyGroupID verifies ProjectDeleteSharedGroup when empty group ID.
+func TestProjectDeleteSharedGroup_EmptyGroupID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	err := DeleteSharedProjectFromGroup(context.Background(), client, DeleteSharedGroupInput{ProjectID: "42"})
+	if err == nil {
+		t.Fatal("expected error for empty group_id, got nil")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// ListInvitedGroups
+// ---------------------------------------------------------------------------.
+
+// TestProjectListInvitedGroups_Success verifies ProjectListInvitedGroups when success.
+func TestProjectListInvitedGroups_Success(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && r.URL.Path == "/api/v4/projects/42/invited_groups" {
+			w.Header().Set(headerXTotal, "1")
+			w.Header().Set(headerXTotalPages, "1")
+			w.Header().Set(headerXPage, "1")
+			w.Header().Set(headerXPerPage, "20")
+			testutil.RespondJSON(w, http.StatusOK, `[{"id":7,"name":"invited-grp","full_name":"Invited Group","full_path":"invited-grp"}]`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	out, err := ListInvitedGroups(context.Background(), client, ListInvitedGroupsInput{ProjectID: "42"})
+	if err != nil {
+		t.Fatalf(fmtUnexpErr, err)
+	}
+	if len(out.Groups) != 1 {
+		t.Fatalf(fmtLenGroupsWant1, len(out.Groups))
+	}
+	if out.Groups[0].FullPath != "invited-grp" {
+		t.Errorf("FullPath = %q, want %q", out.Groups[0].FullPath, "invited-grp")
+	}
+}
+
+// TestProjectListInvitedGroups_EmptyProjectID verifies ProjectListInvitedGroups when empty project ID.
+func TestProjectListInvitedGroups_EmptyProjectID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		testutil.RespondJSON(w, http.StatusOK, `[]`)
+	}))
+	_, err := ListInvitedGroups(context.Background(), client, ListInvitedGroupsInput{})
+	if err == nil {
+		t.Fatal(errEmptyProjID)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// ListUserContributedProjects tests
+// ---------------------------------------------------------------------------.
+
+// TestListUserContributedProjects_Success verifies ListUserContributedProjects when success.
+func TestListUserContributedProjects_Success(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v4/users/john/contributed_projects" {
+			testutil.RespondJSON(w, http.StatusOK, `[{"id":10,"name":"contrib-proj","path_with_namespace":"john/contrib-proj","visibility":"public","web_url":"https://gitlab.example.com/john/contrib-proj"}]`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+
+	out, err := ListUserContributedProjects(context.Background(), client, ListUserContributedProjectsInput{
+		UserID: testUserJohn,
+	})
+	if err != nil {
+		t.Fatalf(fmtUnexpErr, err)
+	}
+	if len(out.Projects) != 1 {
+		t.Fatalf(fmtLenProjectsWant1, len(out.Projects))
+	}
+	if out.Projects[0].Name != "contrib-proj" {
+		t.Errorf(fmtNameWantQ, out.Projects[0].Name, "contrib-proj")
+	}
+}
+
+// TestListUserContributedProjects_EmptyUserID verifies ListUserContributedProjects when empty user ID.
+func TestListUserContributedProjects_EmptyUserID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		testutil.RespondJSON(w, http.StatusOK, `[]`)
+	}))
+	_, err := ListUserContributedProjects(context.Background(), client, ListUserContributedProjectsInput{})
+	if err == nil {
+		t.Fatal(errEmptyUserID)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// ListUserStarredProjects tests
+// ---------------------------------------------------------------------------.
+
+// TestListUserStarredProjects_Success verifies ListUserStarredProjects when success.
+func TestListUserStarredProjects_Success(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v4/users/jane/starred_projects" {
+			testutil.RespondJSON(w, http.StatusOK, `[{"id":20,"name":"starred-proj","path_with_namespace":"jane/starred-proj","visibility":"internal","web_url":"https://gitlab.example.com/jane/starred-proj"}]`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+
+	out, err := ListUserStarredProjects(context.Background(), client, ListUserStarredProjectsInput{
+		UserID: "jane",
+	})
+	if err != nil {
+		t.Fatalf(fmtUnexpErr, err)
+	}
+	if len(out.Projects) != 1 {
+		t.Fatalf(fmtLenProjectsWant1, len(out.Projects))
+	}
+	if out.Projects[0].Name != "starred-proj" {
+		t.Errorf(fmtNameWantQ, out.Projects[0].Name, "starred-proj")
+	}
+}
+
+// TestListUserStarredProjects_EmptyUserID verifies ListUserStarredProjects when empty user ID.
+func TestListUserStarredProjects_EmptyUserID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		testutil.RespondJSON(w, http.StatusOK, `[]`)
+	}))
+	_, err := ListUserStarredProjects(context.Background(), client, ListUserStarredProjectsInput{})
+	if err == nil {
+		t.Fatal(errEmptyUserID)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Push Rules tests
+// ---------------------------------------------------------------------------.
+
+const (
+	// pathPushRules42 identifies the path push rules 42 constant used by this package.
+	pathPushRules42 = "/api/v4/projects/42/push_rule"
+	// pushRuleJSON identifies the push rule JSON constant used by this package.
+	pushRuleJSON = `{
+		"id": 1,
+		"project_id": 42,
+		"commit_message_regex": "^(feat|fix|docs):",
+		"commit_message_negative_regex": "WIP",
+		"branch_name_regex": "^(main|release/.*)$",
+		"deny_delete_tag": true,
+		"member_check": false,
+		"prevent_secrets": true,
+		"author_email_regex": "@example\\.com$",
+		"file_name_regex": "",
+		"max_file_size": 10,
+		"commit_committer_check": true,
+		"commit_committer_name_check": false,
+		"reject_unsigned_commits": false,
+		"reject_non_dco_commits": false,
+		"created_at": "2026-01-01T00:00:00Z"
+	}`
+)
+
+// TestGetPushRules_Success verifies GetPushRules when success.
+func TestGetPushRules_Success(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && r.URL.Path == pathPushRules42 {
+			testutil.RespondJSON(w, http.StatusOK, pushRuleJSON)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+
+	out, err := GetPushRules(context.Background(), client, GetPushRulesInput{ProjectID: "42"})
+	if err != nil {
+		t.Fatalf(fmtUnexpErr, err)
+	}
+	if out.ID != 1 {
+		t.Errorf(fmtIDWant1, out.ID)
+	}
+	if out.ProjectID != 42 {
+		t.Errorf("ProjectID = %d, want 42", out.ProjectID)
+	}
+	if out.CommitMessageRegex != testCommitRegex {
+		t.Errorf("CommitMessageRegex = %q, want %q", out.CommitMessageRegex, testCommitRegex)
+	}
+	if !out.DenyDeleteTag {
+		t.Error("DenyDeleteTag = false, want true")
+	}
+	if !out.PreventSecrets {
+		t.Error("PreventSecrets = false, want true")
+	}
+	if out.MaxFileSize != 10 {
+		t.Errorf("MaxFileSize = %d, want 10", out.MaxFileSize)
+	}
+}
+
+// TestGetPushRules_EmptyProjectID verifies GetPushRules when empty project ID.
+func TestGetPushRules_EmptyProjectID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		testutil.RespondJSON(w, http.StatusOK, pushRuleJSON)
+	}))
+	_, err := GetPushRules(context.Background(), client, GetPushRulesInput{})
+	if err == nil {
+		t.Fatal(errEmptyProjID)
+	}
+}
+
+// TestAddPushRule_Success verifies AddPushRule when success.
+func TestAddPushRule_Success(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == pathPushRules42 {
+			testutil.RespondJSON(w, http.StatusCreated, pushRuleJSON)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+
+	out, err := AddPushRule(context.Background(), client, AddPushRuleInput{
+		ProjectID:          "42",
+		CommitMessageRegex: testCommitRegex,
+		PreventSecrets:     new(true),
+		DenyDeleteTag:      new(true),
+		MaxFileSize:        new(int64(10)),
+	})
+	if err != nil {
+		t.Fatalf(fmtUnexpErr, err)
+	}
+	if out.ID != 1 {
+		t.Errorf(fmtIDWant1, out.ID)
+	}
+	if out.CommitMessageRegex != testCommitRegex {
+		t.Errorf("CommitMessageRegex = %q, want %q", out.CommitMessageRegex, testCommitRegex)
+	}
+}
+
+// TestAddPushRule_EmptyProjectID verifies AddPushRule when empty project ID.
+func TestAddPushRule_EmptyProjectID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		testutil.RespondJSON(w, http.StatusCreated, pushRuleJSON)
+	}))
+	_, err := AddPushRule(context.Background(), client, AddPushRuleInput{})
+	if err == nil {
+		t.Fatal(errEmptyProjID)
+	}
+}
+
+// TestEditPushRule_Success verifies EditPushRule when success.
+func TestEditPushRule_Success(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPut && r.URL.Path == pathPushRules42 {
+			testutil.RespondJSON(w, http.StatusOK, pushRuleJSON)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+
+	newRegex := "^(feat|fix|docs|refactor):"
+	out, err := EditPushRule(context.Background(), client, EditPushRuleInput{
+		ProjectID:          "42",
+		CommitMessageRegex: &newRegex,
+	})
+	if err != nil {
+		t.Fatalf(fmtUnexpErr, err)
+	}
+	if out.ID != 1 {
+		t.Errorf(fmtIDWant1, out.ID)
+	}
+}
+
+// TestEditPushRule_EmptyProjectID verifies EditPushRule when empty project ID.
+func TestEditPushRule_EmptyProjectID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		testutil.RespondJSON(w, http.StatusOK, pushRuleJSON)
+	}))
+	_, err := EditPushRule(context.Background(), client, EditPushRuleInput{})
+	if err == nil {
+		t.Fatal(errEmptyProjID)
+	}
+}
+
+// TestAddPushRule_RequiresRuleSetting verifies AddPushRule rejects calls that
+// GitLab would reject because they contain no actual push rule setting.
+func TestAddPushRule_RequiresRuleSetting(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		t.Fatalf("API should not be called for missing push rule settings: %s %s", r.Method, r.URL.Path)
+	}))
+
+	_, err := AddPushRule(context.Background(), client, AddPushRuleInput{ProjectID: "42"})
+	if err == nil {
+		t.Fatal(errExpectedAPI)
+	}
+	message := err.Error()
+	for _, want := range []string{"at least one push rule setting", "params.commit_message_regex", "reject_unsigned_commits"} {
+		if !strings.Contains(message, want) {
+			t.Fatalf("error = %q, want %q", message, want)
+		}
+	}
+}
+
+// ----- branch coverage -----
+
+// TestAddPushRule_HTTPErrorHints covers the two status-aware error
+// branches in AddPushRule. The 422/400 branch must surface the
+// "push rules already exist" / "invalid regex" hint, while a 403 must
+// surface the "Maintainer/Owner role and Premium/Ultimate licensing"
+// hint. Without these tests both error paths were dead branches despite
+// being part of the documented behavior of the handler.
+func TestAddPushRule_HTTPErrorHints(t *testing.T) {
+	tests := []struct {
+		name       string
+		status     int
+		wantSubstr string
+	}{
+		{
+			name:       "422 returns push rules conflict hint",
+			status:     http.StatusUnprocessableEntity,
+			wantSubstr: "push rules already exist",
+		},
+		{
+			name:       "400 returns push rules conflict hint",
+			status:     http.StatusBadRequest,
+			wantSubstr: "push rules already exist",
+		},
+		{
+			name:       "403 returns licensing hint",
+			status:     http.StatusForbidden,
+			wantSubstr: "Maintainer/Owner role",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method == http.MethodPost && r.URL.Path == pathPushRules42 {
+					testutil.RespondJSON(w, tt.status, `{"message":"rejected"}`)
+					return
+				}
+				t.Errorf("unexpected path: %s", r.URL.Path)
+			}))
+
+			_, err := AddPushRule(context.Background(), client, AddPushRuleInput{
+				ProjectID:          "42",
+				CommitMessageRegex: testCommitRegex,
+			})
+			if err == nil {
+				t.Fatal("expected error for HTTP failure, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantSubstr) {
+				t.Fatalf("err = %q, want it to contain %q", err.Error(), tt.wantSubstr)
+			}
+		})
+	}
+}
+
+// TestDeletePushRule_Success verifies DeletePushRule when success.
+func TestDeletePushRule_Success(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodDelete && r.URL.Path == pathPushRules42 {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+
+	err := DeletePushRule(context.Background(), client, DeletePushRuleInput{ProjectID: "42"})
+	if err != nil {
+		t.Fatalf(fmtUnexpErr, err)
+	}
+}
+
+// TestDeletePushRule_EmptyProjectID verifies DeletePushRule when empty project ID.
+func TestDeletePushRule_EmptyProjectID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	err := DeletePushRule(context.Background(), client, DeletePushRuleInput{})
+	if err == nil {
+		t.Fatal(errEmptyProjID)
+	}
+}
+
+// TestGetPushRules_NotFound verifies GetPushRules when not found.
+func TestGetPushRules_NotFound(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && r.URL.Path == pathPushRules42 {
+			testutil.RespondJSON(w, http.StatusNotFound, `{"message":"404 Not Found"}`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+
+	_, err := GetPushRules(context.Background(), client, GetPushRulesInput{ProjectID: "42"})
+	if err == nil {
+		t.Fatal("expected error for 404, got nil")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// FormatPushRuleMarkdown test
+// ---------------------------------------------------------------------------.
+
+// TestFormatPushRuleMarkdown verifies FormatPushRuleMarkdown.
+func TestFormatPushRuleMarkdown(t *testing.T) {
+	out := PushRuleOutput{
+		ID:                 1,
+		ProjectID:          42,
+		CommitMessageRegex: "^feat:",
+		DenyDeleteTag:      true,
+		PreventSecrets:     true,
+		MaxFileSize:        10,
+	}
+	md := FormatPushRuleMarkdown(out)
+	if md == "" {
+		t.Fatal(errExpectedNonEmptyMD)
+	}
+	if !strings.Contains(md, "Push Rule") {
+		t.Error("markdown should contain 'Push Rule'")
+	}
+	if !strings.Contains(md, "^feat:") {
+		t.Error("markdown should contain commit message regex")
+	}
+}
+
+// TestAccessLevelName covers AccessLevelName with table-driven subtests.
+func TestAccessLevelName(t *testing.T) {
+	tests := []struct {
+		level int
+		want  string
+	}{
+		{10, "Guest"},
+		{20, "Reporter"},
+		{30, "Developer"},
+		{40, "Maintainer"},
+		{50, "Owner"},
+		{99, "Level 99"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.want, func(t *testing.T) {
+			got := accessLevelName(tc.level)
+			if got != tc.want {
+				t.Errorf("accessLevelName(%d) = %q, want %q", tc.level, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestFormatShareProjectMarkdown verifies FormatShareProjectMarkdown.
+func TestFormatShareProjectMarkdown(t *testing.T) {
+	out := ShareProjectOutput{
+		Message:     "Project 42 shared with group 5 as Developer",
+		GroupID:     5,
+		GroupAccess: 30,
+		AccessRole:  testAccessDeveloper,
+	}
+	md := FormatShareProjectMarkdown(out)
+	if !strings.Contains(md, "## Project Shared") {
+		t.Error("expected markdown header")
+	}
+	if !strings.Contains(md, testAccessDeveloper) {
+		t.Error("expected role name 'Developer' in markdown")
+	}
+	if !strings.Contains(md, "5") {
+		t.Error("expected group ID in markdown")
+	}
+	if strings.Contains(md, "access level 30") {
+		t.Error("should not contain raw numeric access level")
+	}
+}
+
+// TestFormatShareProjectMarkdown_Minimal verifies FormatShareProjectMarkdown when minimal.
+func TestFormatShareProjectMarkdown_Minimal(t *testing.T) {
+	out := ShareProjectOutput{
+		Message: "Project shared",
+	}
+	md := FormatShareProjectMarkdown(out)
+	if !strings.Contains(md, "## Project Shared") {
+		t.Error("expected markdown header")
+	}
+	if strings.Contains(md, "| Field |") {
+		t.Error("should not contain table when GroupID is zero")
+	}
+}
+
+// TestShareProjectOutput_ContainsRoleName verifies ShareProjectOutput when contains role name.
+func TestShareProjectOutput_ContainsRoleName(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == "/api/v4/projects/42/share" {
+			w.WriteHeader(http.StatusCreated)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	out, err := ShareProjectWithGroup(context.Background(), client, ShareProjectInput{
+		ProjectID:   "42",
+		GroupID:     5,
+		GroupAccess: 30,
+	})
+	if err != nil {
+		t.Fatalf(fmtUnexpErr, err)
+	}
+	if out.AccessRole != testAccessDeveloper {
+		t.Errorf("expected AccessRole=Developer, got %q", out.AccessRole)
+	}
+	if out.GroupID != 5 {
+		t.Errorf("expected GroupID=5, got %d", out.GroupID)
+	}
+	if out.GroupAccess != 30 {
+		t.Errorf("expected GroupAccess=30, got %d", out.GroupAccess)
+	}
+	if strings.Contains(out.Message, "access level 30") {
+		t.Error("message should not contain raw 'access level 30'")
+	}
+	if !strings.Contains(out.Message, testAccessDeveloper) {
+		t.Error("message should contain role name 'Developer'")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Format function coverage tests
+// ---------------------------------------------------------------------------.
+
+// TestFormatMarkdown verifies FormatMarkdown.
+func TestFormatMarkdown(t *testing.T) {
+	protectMRPipelines := true
+	out := Output{
+		ID:                                1,
+		Name:                              "test-project",
+		PathWithNamespace:                 "group/test-project",
+		Visibility:                        testPrivate,
+		DefaultBranch:                     "main",
+		Description:                       testDescProject,
+		Namespace:                         "group",
+		Archived:                          true,
+		ForksCount:                        5,
+		StarCount:                         10,
+		OpenIssuesCount:                   3,
+		Topics:                            []string{"go", "mcp"},
+		CreatedAt:                         "2026-01-01T00:00:00Z",
+		WebURL:                            "https://gitlab.example.com/group/test-project",
+		HTTPURLToRepo:                     "https://gitlab.example.com/group/test-project.git",
+		SSHURLToRepo:                      "git@gitlab.example.com:group/test-project.git",
+		MergeRequestTitleRegex:            `^(feat|fix):`,
+		MergeRequestTitleRegexDescription: "Conventional MR titles",
+		ProtectMergeRequestPipelines:      &protectMRPipelines,
+	}
+	md := FormatMarkdown(out)
+	for _, want := range []string{"test-project", "group/test-project", testPrivate, "main", testDescProject, "group", "Archived", "Forks", "Stars", mdOpenIssues, "go, mcp", "1 Jan 2026", mdHTTPClone, mdSSHClone, "MR Title Regex", "Conventional MR titles", "Protected MR Pipelines"} {
+		if !strings.Contains(md, want) {
+			t.Errorf("FormatMarkdown missing %q", want)
+		}
+	}
+}
+
+// TestFormatProjectNotFound verifies the rich Markdown result for project 404s.
+func TestFormatProjectNotFound(t *testing.T) {
+	result := formatProjectNotFound(projectNotFoundOutput{Identifier: "group%2Fmissing"})
+	if result == nil || !result.IsError {
+		t.Fatalf("formatProjectNotFound() = %#v, want error result", result)
+	}
+	if len(result.Content) == 0 {
+		t.Fatal("expected not-found result content")
+	}
+	content := result.Content[0].(*mcp.TextContent).Text
+	for _, want := range []string{"Project", "Not Found", "group%2Fmissing", "gitlab_project_list"} {
+		if !strings.Contains(content, want) {
+			t.Errorf("not-found markdown missing %q", want)
+		}
+	}
+}
+
+// TestFormatTriggerTestHookMarkdown verifies webhook test trigger Markdown.
+func TestFormatTriggerTestHookMarkdown(t *testing.T) {
+	md := FormatTriggerTestHookMarkdown(TriggerTestHookOutput{Message: "Hook executed"})
+	if !strings.Contains(md, "Hook executed") {
+		t.Fatalf("FormatTriggerTestHookMarkdown() = %q, want message", md)
+	}
+}
+
+// TestFormatMarkdown_Minimal verifies FormatMarkdown when minimal.
+func TestFormatMarkdown_Minimal(t *testing.T) {
+	out := Output{ID: 1, Name: "minimal", Visibility: testPublic}
+	md := FormatMarkdown(out)
+	if !strings.Contains(md, "minimal") {
+		t.Error("FormatMarkdown missing project name")
+	}
+}
+
+// TestFormatDeleteMarkdown covers FormatDeleteMarkdown with table-driven subtests.
+func TestFormatDeleteMarkdown(t *testing.T) {
+	tests := []struct {
+		name string
+		out  DeleteOutput
+		want []string
+	}{
+		{
+			name: "permanently_removed",
+			out:  DeleteOutput{Status: testSuccess, Message: "deleted", PermanentlyRemoved: true},
+			want: []string{testSuccess, "deleted", testPermRemoved},
+		},
+		{
+			name: "scheduled_deletion",
+			out:  DeleteOutput{Status: testSuccess, Message: "scheduled", MarkedForDeletionOn: testDate20260601},
+			want: []string{testSuccess, "scheduled", testDate20260601},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			md := FormatDeleteMarkdown(tt.out)
+			for _, w := range tt.want {
+				if !strings.Contains(md, w) {
+					t.Errorf("FormatDeleteMarkdown missing %q", w)
+				}
+			}
+		})
+	}
+}
+
+// TestFormatListMarkdown verifies FormatListMarkdown.
+func TestFormatListMarkdown(t *testing.T) {
+	t.Run("with_projects", func(t *testing.T) {
+		out := ListOutput{
+			Projects: []Output{
+				{ID: 1, Name: testProjA, PathWithNamespace: "g/proj-a", Visibility: testPublic, StarCount: 5},
+				{ID: 2, Name: testProjB, PathWithNamespace: "g/proj-b", Visibility: testPrivate, Archived: true},
+			},
+			Pagination: toolutil.PaginationOutput{TotalItems: 2},
+		}
+		md := FormatListMarkdown(out)
+		for _, w := range []string{"Projects (2)", testProjA, testProjB, testPublic, testPrivate} {
+			if !strings.Contains(md, w) {
+				t.Errorf("FormatListMarkdown missing %q", w)
+			}
+		}
+	})
+	t.Run("empty", func(t *testing.T) {
+		md := FormatListMarkdown(ListOutput{})
+		if !strings.Contains(md, "No projects found") {
+			t.Error("expected 'No projects found' message")
+		}
+	})
+}
+
+// TestFormatListForksMarkdown verifies FormatListForksMarkdown.
+func TestFormatListForksMarkdown(t *testing.T) {
+	t.Run("with_forks", func(t *testing.T) {
+		out := ListForksOutput{
+			Forks:      []Output{{ID: 10, Name: "fork-1", PathWithNamespace: "u/fork-1", Visibility: "internal"}},
+			Pagination: toolutil.PaginationOutput{TotalItems: 1},
+		}
+		md := FormatListForksMarkdown(out)
+		if !strings.Contains(md, "fork-1") {
+			t.Error("missing fork name")
+		}
+	})
+	t.Run("empty", func(t *testing.T) {
+		md := FormatListForksMarkdown(ListForksOutput{})
+		if !strings.Contains(md, "No forks found") {
+			t.Error("expected 'No forks found' message")
+		}
+	})
+}
+
+// TestFormatLanguagesMarkdown verifies FormatLanguagesMarkdown.
+func TestFormatLanguagesMarkdown(t *testing.T) {
+	t.Run("with_languages", func(t *testing.T) {
+		out := LanguagesOutput{
+			Languages: []LanguageEntry{
+				{Name: "Go", Percentage: 85.5},
+				{Name: "Shell", Percentage: 14.5},
+			},
+		}
+		md := FormatLanguagesMarkdown(out)
+		if !strings.Contains(md, "Go") || !strings.Contains(md, "85.5%") {
+			t.Error("missing language data")
+		}
+	})
+	t.Run("empty", func(t *testing.T) {
+		md := FormatLanguagesMarkdown(LanguagesOutput{})
+		if !strings.Contains(md, "No languages detected") {
+			t.Error("expected 'No languages detected' message")
+		}
+	})
+}
+
+// TestFormatListHooksMarkdown verifies FormatListHooksMarkdown.
+func TestFormatListHooksMarkdown(t *testing.T) {
+	t.Run("with_hooks", func(t *testing.T) {
+		out := ListHooksOutput{
+			Hooks: []HookOutput{
+				{ID: 1, URL: testHookURL, PushEvents: true},
+			},
+			Pagination: toolutil.PaginationOutput{TotalItems: 1},
+		}
+		md := FormatListHooksMarkdown(out)
+		if !strings.Contains(md, "example.com/hook") {
+			t.Error("missing hook URL")
+		}
+	})
+	t.Run("empty", func(t *testing.T) {
+		md := FormatListHooksMarkdown(ListHooksOutput{})
+		if !strings.Contains(md, "No webhooks found") {
+			t.Error("expected 'No webhooks found' message")
+		}
+	})
+}
+
+// TestFormatHookMarkdown verifies FormatHookMarkdown.
+func TestFormatHookMarkdown(t *testing.T) {
+	out := HookOutput{
+		ID:                    1,
+		URL:                   testHookURL,
+		Name:                  testHookName,
+		ProjectID:             42,
+		PushEvents:            true,
+		IssuesEvents:          true,
+		MergeRequestsEvents:   true,
+		EnableSSLVerification: true,
+	}
+	md := FormatHookMarkdown(out)
+	for _, w := range []string{"test-hook", "example.com/hook", "Push", "Issues", "Merge Requests"} {
+		if !strings.Contains(md, w) {
+			t.Errorf("FormatHookMarkdown missing %q", w)
+		}
+	}
+}
+
+// TestFormatListProjectUsersMarkdown verifies FormatListProjectUsersMarkdown.
+func TestFormatListProjectUsersMarkdown(t *testing.T) {
+	t.Run("with_users", func(t *testing.T) {
+		out := ListProjectUsersOutput{
+			Users: []ProjectUserOutput{
+				{ID: 1, Username: testUserJohn, Name: "John Doe", State: "active", WebURL: "https://gitlab.example.com/john"},
+			},
+			Pagination: toolutil.PaginationOutput{TotalItems: 1},
+		}
+		md := FormatListProjectUsersMarkdown(out)
+		if !strings.Contains(md, testUserJohn) || !strings.Contains(md, "John Doe") {
+			t.Error("missing user data")
+		}
+	})
+	t.Run("empty", func(t *testing.T) {
+		md := FormatListProjectUsersMarkdown(ListProjectUsersOutput{})
+		if !strings.Contains(md, "No users found") {
+			t.Error("expected 'No users found' message")
+		}
+	})
+}
+
+// TestFormatListProjectGroupsMarkdown verifies FormatListProjectGroupsMarkdown.
+func TestFormatListProjectGroupsMarkdown(t *testing.T) {
+	t.Run("with_groups", func(t *testing.T) {
+		out := ListProjectGroupsOutput{
+			Groups: []ProjectGroupOutput{
+				{ID: 1, Name: "devs", FullPath: "company/devs"},
+			},
+			Pagination: toolutil.PaginationOutput{TotalItems: 1},
+		}
+		md := FormatListProjectGroupsMarkdown(out)
+		if !strings.Contains(md, "devs") || !strings.Contains(md, "company/devs") {
+			t.Error("missing group data")
+		}
+	})
+	t.Run("empty", func(t *testing.T) {
+		md := FormatListProjectGroupsMarkdown(ListProjectGroupsOutput{})
+		if !strings.Contains(md, "No groups found") {
+			t.Error("expected 'No groups found' message")
+		}
+	})
+}
+
+// TestFormatListStarrersMarkdown verifies FormatListStarrersMarkdown.
+func TestFormatListStarrersMarkdown(t *testing.T) {
+	t.Run("with_starrers", func(t *testing.T) {
+		out := ListProjectStarrersOutput{
+			Starrers: []StarrerOutput{
+				{StarredSince: testDate20260101, User: ProjectUserOutput{ID: 1, Username: "jane", Name: "Jane Doe"}},
+			},
+			Pagination: toolutil.PaginationOutput{TotalItems: 1},
+		}
+		md := FormatListStarrersMarkdown(out)
+		if !strings.Contains(md, "jane") || !strings.Contains(md, "1 Jan 2026") {
+			t.Error("missing starrer data")
+		}
+	})
+	t.Run("empty", func(t *testing.T) {
+		md := FormatListStarrersMarkdown(ListProjectStarrersOutput{})
+		if !strings.Contains(md, "No starrers found") {
+			t.Error("expected 'No starrers found' message")
+		}
+	})
+}
+
+// ---------------------------------------------------------------------------
+// Option builder coverage — exercising branches
+// ---------------------------------------------------------------------------.
+
+// TestFork_WithAllOptions verifies Fork when with all options.
+func TestFork_WithAllOptions(t *testing.T) {
+	var capturedBody string
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == pathProject42Fork {
+			body, err := io.ReadAll(r.Body)
+			if err != nil {
+				t.Fatalf("read request body: %v", err)
+			}
+			capturedBody = string(body)
+			testutil.RespondJSON(w, http.StatusCreated, `{"id":100,"name":"my-fork","path_with_namespace":"user/my-fork","visibility":"private","web_url":"https://gitlab.example.com/user/my-fork"}`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+
+	out, err := Fork(context.Background(), client, ForkInput{
+		ProjectID:                     "42",
+		Name:                          testMyFork,
+		Path:                          testMyFork,
+		NamespaceID:                   10,
+		NamespacePath:                 "user",
+		Description:                   "fork desc",
+		Visibility:                    testPrivate,
+		Branches:                      "main",
+		MergeRequestDefaultTargetSelf: new(true),
+	})
+	if err != nil {
+		t.Fatalf(fmtUnexpErr, err)
+	}
+	if out.Name != testMyFork {
+		t.Errorf(fmtNameWantQ, out.Name, testMyFork)
+	}
+	for _, want := range []string{"name", "path", "namespace_id", "namespace_path", "description", "visibility", "branches", "mr_default_target_self"} {
+		if !strings.Contains(capturedBody, want) {
+			t.Errorf("request body missing field %q", want)
+		}
+	}
+}
+
+// TestListForks_WithFilters verifies ListForks when with filters.
+func TestListForks_WithFilters(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == pathProject42Forks {
+			testutil.RespondJSON(w, http.StatusOK, `[{"id":100,"name":"fork-1","path_with_namespace":"user/fork-1","visibility":"public","web_url":"https://example.com/fork-1"}]`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+
+	out, err := ListForks(context.Background(), client, ListForksInput{
+		ProjectID:  "42",
+		Owned:      true,
+		Search:     "fork",
+		Visibility: testPublic,
+		OrderBy:    "name",
+		Sort:       testSortAsc,
+	})
+	if err != nil {
+		t.Fatalf(fmtUnexpErr, err)
+	}
+	if len(out.Forks) != 1 {
+		t.Fatalf("len(Forks) = %d, want 1", len(out.Forks))
+	}
+}
+
+// TestAddHook_WithAllEvents verifies AddHook when with all events.
+func TestAddHook_WithAllEvents(t *testing.T) {
+	var capturedBody string
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == pathProject42Hooks {
+			body, err := io.ReadAll(r.Body)
+			if err != nil {
+				t.Fatalf("read request body: %v", err)
+			}
+			capturedBody = string(body)
+			testutil.RespondJSON(w, http.StatusCreated, `{"id":1,"url":"https://example.com/hook","project_id":42,"push_events":true,"issues_events":true,"merge_requests_events":true,"tag_push_events":true,"note_events":true,"confidential_note_events":true,"job_events":true,"pipeline_events":true,"wiki_page_events":true,"deployment_events":true,"releases_events":true,"milestone_events":true,"feature_flag_events":true,"emoji_events":true,"resource_access_token_events":true,"resource_deploy_token_events":true,"vulnerability_events":true,"token_present":true,"signing_token_present":true}`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+
+	out, err := AddHook(context.Background(), client, AddHookInput{
+		ProjectID: "42",
+		URL:       testHookURL,
+		HookOptionsInput: HookOptionsInput{
+			Name:                      "full-hook",
+			Description:               "all events",
+			Token:                     "secret",
+			SigningToken:              "signing-secret",
+			PushEvents:                new(true),
+			PushEventsBranchFilter:    "main",
+			IssuesEvents:              new(true),
+			ConfidentialIssuesEvents:  new(true),
+			MergeRequestsEvents:       new(true),
+			TagPushEvents:             new(true),
+			NoteEvents:                new(true),
+			ConfidentialNoteEvents:    new(true),
+			JobEvents:                 new(true),
+			PipelineEvents:            new(true),
+			WikiPageEvents:            new(true),
+			DeploymentEvents:          new(true),
+			ReleasesEvents:            new(true),
+			MilestoneEvents:           new(true),
+			FeatureFlagEvents:         new(true),
+			EmojiEvents:               new(true),
+			ResourceAccessTokenEvents: new(true),
+			ResourceDeployTokenEvents: new(true),
+			VulnerabilityEvents:       new(true),
+			EnableSSLVerification:     new(true),
+			CustomWebhookTemplate:     "tpl",
+			BranchFilterStrategy:      "all",
+		},
+	})
+	if err != nil {
+		t.Fatalf(fmtUnexpErr, err)
+	}
+	if out.ID != 1 {
+		t.Errorf(fmtIDWant1, out.ID)
+	}
+	assertJSONKeys(
+		t, capturedBody,
+		"url",
+		"token",
+		"signing_token",
+		"push_events_branch_filter",
+		"custom_webhook_template",
+		"branch_filter_strategy",
+		"emoji_events",
+		"resource_access_token_events",
+		"resource_deploy_token_events",
+		"milestone_events",
+		"feature_flag_events",
+		"vulnerability_events",
+	)
+}
+
+// TestEditHook_WithAllEvents verifies EditHook when with all events.
+func TestEditHook_WithAllEvents(t *testing.T) {
+	var capturedBody string
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPut && r.URL.Path == pathProject42Hook1 {
+			body, err := io.ReadAll(r.Body)
+			if err != nil {
+				t.Fatalf("read request body: %v", err)
+			}
+			capturedBody = string(body)
+			testutil.RespondJSON(w, http.StatusOK, `{"id":1,"url":"https://example.com/hook-updated","project_id":42,"push_events":true}`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+
+	out, err := EditHook(context.Background(), client, EditHookInput{
+		ProjectID: "42",
+		HookID:    1,
+		URL:       "https://example.com/hook-updated",
+		HookOptionsInput: HookOptionsInput{
+			Name:                      "updated-hook",
+			Description:               "updated",
+			Token:                     "new-secret",
+			SigningToken:              "new-signing-secret",
+			PushEvents:                new(true),
+			PushEventsBranchFilter:    testBranchDevelop,
+			IssuesEvents:              new(false),
+			ConfidentialIssuesEvents:  new(false),
+			MergeRequestsEvents:       new(true),
+			TagPushEvents:             new(true),
+			NoteEvents:                new(true),
+			ConfidentialNoteEvents:    new(false),
+			JobEvents:                 new(true),
+			PipelineEvents:            new(true),
+			WikiPageEvents:            new(false),
+			DeploymentEvents:          new(true),
+			ReleasesEvents:            new(false),
+			MilestoneEvents:           new(true),
+			FeatureFlagEvents:         new(false),
+			EmojiEvents:               new(true),
+			ResourceAccessTokenEvents: new(false),
+			ResourceDeployTokenEvents: new(true),
+			VulnerabilityEvents:       new(true),
+			EnableSSLVerification:     new(false),
+			CustomWebhookTemplate:     "new-tpl",
+			BranchFilterStrategy:      "regex",
+		},
+	})
+	if err != nil {
+		t.Fatalf(fmtUnexpErr, err)
+	}
+	if out.URL != "https://example.com/hook-updated" {
+		t.Errorf("URL = %q, want updated URL", out.URL)
+	}
+	assertJSONKeys(
+		t, capturedBody,
+		"url",
+		"token",
+		"signing_token",
+		"push_events_branch_filter",
+		"custom_webhook_template",
+		"branch_filter_strategy",
+		"emoji_events",
+		"resource_deploy_token_events",
+		"milestone_events",
+		"feature_flag_events",
+		"vulnerability_events",
+	)
+}
+
+// ---------------------------------------------------------------------------
+// FormatMarkdown tests
+// ---------------------------------------------------------------------------.
+
+// TestFormatMarkdown_FullFields verifies FormatMarkdown when full fields.
+func TestFormatMarkdown_FullFields(t *testing.T) {
+	p := Output{
+		ID:                42,
+		Name:              testProjectName,
+		PathWithNamespace: "ns/my-project",
+		Visibility:        testPublic,
+		DefaultBranch:     "main",
+		Description:       testDescProject,
+		Namespace:         "ns",
+		Archived:          true,
+		ForksCount:        5,
+		StarCount:         10,
+		OpenIssuesCount:   3,
+		Topics:            []string{"go", "mcp"},
+		CreatedAt:         "2026-01-01T00:00:00Z",
+		WebURL:            "https://gitlab.example.com/ns/my-project",
+		HTTPURLToRepo:     "https://gitlab.example.com/ns/my-project.git",
+		SSHURLToRepo:      "git@gitlab.example.com:ns/my-project.git",
+	}
+	md := FormatMarkdown(p)
+	for _, want := range []string{
+		"## Project: my-project",
+		"42",
+		"ns/my-project",
+		testPublic,
+		"main",
+		testDescProject,
+		"Namespace",
+		"Archived",
+		"Forks",
+		"Stars",
+		mdOpenIssues,
+		"go, mcp",
+		"1 Jan 2026",
+		mdHTTPClone,
+		mdSSHClone,
+	} {
+		if !strings.Contains(md, want) {
+			t.Errorf("FormatMarkdown missing %q", want)
+		}
+	}
+}
+
+// TestFormatMarkdown_MinimalFields verifies FormatMarkdown when minimal fields.
+func TestFormatMarkdown_MinimalFields(t *testing.T) {
+	p := Output{
+		ID:                1,
+		Name:              "bare",
+		PathWithNamespace: "ns/bare",
+		Visibility:        testPrivate,
+		DefaultBranch:     "main",
+		WebURL:            "https://gitlab.example.com/ns/bare",
+	}
+	md := FormatMarkdown(p)
+	if md == "" {
+		t.Fatal(errExpectedNonEmptyMD)
+	}
+	// Optional fields should NOT appear
+	for _, absent := range []string{"Namespace", "Archived", "Forks", "Stars", mdOpenIssues, "Topics", mdHTTPClone, mdSSHClone} {
+		if strings.Contains(md, absent) {
+			t.Errorf("FormatMarkdown should not contain %q for minimal output", absent)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// FormatDeleteMarkdown tests
+// ---------------------------------------------------------------------------.
+
+// TestFormatDeleteMarkdown_PermanentlyRemoved verifies FormatDeleteMarkdown when permanently removed.
+func TestFormatDeleteMarkdown_PermanentlyRemoved(t *testing.T) {
+	out := DeleteOutput{
+		Status:             testSuccess,
+		Message:            "Project deleted",
+		PermanentlyRemoved: true,
+	}
+	md := FormatDeleteMarkdown(out)
+	for _, want := range []string{"Project Deletion", testSuccess, "Project deleted", testPermRemoved} {
+		if !strings.Contains(md, want) {
+			t.Errorf("FormatDeleteMarkdown missing %q", want)
+		}
+	}
+}
+
+// TestFormatDeleteMarkdown_MarkedForDeletion verifies FormatDeleteMarkdown when marked for deletion.
+func TestFormatDeleteMarkdown_MarkedForDeletion(t *testing.T) {
+	out := DeleteOutput{
+		Status:              "scheduled",
+		Message:             "marked for deletion",
+		MarkedForDeletionOn: testDate20260601,
+	}
+	md := FormatDeleteMarkdown(out)
+	if !strings.Contains(md, testDate20260601) {
+		t.Error("FormatDeleteMarkdown should contain deletion date")
+	}
+	if strings.Contains(md, testPermRemoved) {
+		t.Error("FormatDeleteMarkdown should not contain permanently removed for scheduled")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// FormatListMarkdown tests
+// ---------------------------------------------------------------------------.
+
+// TestFormatListMarkdown_WithProjects verifies FormatListMarkdown projects for with.
+func TestFormatListMarkdown_WithProjects(t *testing.T) {
+	out := ListOutput{
+		Projects: []Output{
+			{ID: 1, Name: testProjA, PathWithNamespace: "ns/proj-a", Visibility: testPublic, StarCount: 5},
+			{ID: 2, Name: testProjB, PathWithNamespace: "ns/proj-b", Visibility: testPrivate, Archived: true},
+		},
+		Pagination: toolutil.PaginationOutput{TotalItems: 2},
+	}
+	md := FormatListMarkdown(out)
+	for _, want := range []string{"Projects (2)", testProjA, testProjB, testPublic, testPrivate} {
+		if !strings.Contains(md, want) {
+			t.Errorf("FormatListMarkdown missing %q", want)
+		}
+	}
+}
+
+// TestFormatListMarkdown_Empty verifies FormatListMarkdown when empty.
+func TestFormatListMarkdown_Empty(t *testing.T) {
+	out := ListOutput{
+		Projects:   []Output{},
+		Pagination: toolutil.PaginationOutput{TotalItems: 0},
+	}
+	md := FormatListMarkdown(out)
+	if !strings.Contains(md, "No projects found") {
+		t.Error("FormatListMarkdown should say no projects found for empty list")
+	}
+}
+
+// TestFormatListMarkdown_ClickableProjectLinks verifies that project names
+// in the list are rendered as clickable Markdown links [name](weburl).
+func TestFormatListMarkdown_ClickableProjectLinks(t *testing.T) {
+	out := ListOutput{
+		Projects: []Output{
+			{
+				ID: 1, Name: "My Project", PathWithNamespace: "ns/my-project",
+				Visibility: testPublic, WebURL: "https://gitlab.example.com/ns/my-project",
+			},
+		},
+		Pagination: toolutil.PaginationOutput{TotalItems: 1},
+	}
+	md := FormatListMarkdown(out)
+	if !strings.Contains(md, "[My Project](https://gitlab.example.com/ns/my-project)") {
+		t.Errorf("expected clickable project name link, got:\n%s", md)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// FormatListForksMarkdown tests
+// ---------------------------------------------------------------------------.
+
+// TestFormatListForksMarkdown_WithForks verifies FormatListForksMarkdown when with forks.
+func TestFormatListForksMarkdown_WithForks(t *testing.T) {
+	out := ListForksOutput{
+		Forks: []Output{
+			{ID: 10, Name: testForkA, PathWithNamespace: "user/fork-a", Visibility: testPublic, StarCount: 2},
+		},
+		Pagination: toolutil.PaginationOutput{TotalItems: 1},
+	}
+	md := FormatListForksMarkdown(out)
+	for _, want := range []string{"Project Forks (1)", testForkA, "user/fork-a", testPublic} {
+		if !strings.Contains(md, want) {
+			t.Errorf("FormatListForksMarkdown missing %q", want)
+		}
+	}
+}
+
+// TestFormatListForksMarkdown_Empty verifies FormatListForksMarkdown when empty.
+func TestFormatListForksMarkdown_Empty(t *testing.T) {
+	out := ListForksOutput{
+		Forks:      []Output{},
+		Pagination: toolutil.PaginationOutput{TotalItems: 0},
+	}
+	md := FormatListForksMarkdown(out)
+	if !strings.Contains(md, "No forks found") {
+		t.Error("FormatListForksMarkdown should say no forks found for empty list")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// FormatLanguagesMarkdown tests
+// ---------------------------------------------------------------------------.
+
+// TestFormatLanguagesMarkdown_WithLanguages verifies FormatLanguagesMarkdown when with languages.
+func TestFormatLanguagesMarkdown_WithLanguages(t *testing.T) {
+	out := LanguagesOutput{
+		Languages: []LanguageEntry{
+			{Name: "Go", Percentage: 72.5},
+			{Name: "Shell", Percentage: 27.5},
+		},
+	}
+	md := FormatLanguagesMarkdown(out)
+	for _, want := range []string{"Project Languages", "Go", "72.5%", "Shell", "27.5%"} {
+		if !strings.Contains(md, want) {
+			t.Errorf("FormatLanguagesMarkdown missing %q", want)
+		}
+	}
+}
+
+// TestFormatLanguagesMarkdown_Empty verifies FormatLanguagesMarkdown when empty.
+func TestFormatLanguagesMarkdown_Empty(t *testing.T) {
+	out := LanguagesOutput{Languages: []LanguageEntry{}}
+	md := FormatLanguagesMarkdown(out)
+	if !strings.Contains(md, "No languages detected") {
+		t.Error("FormatLanguagesMarkdown should indicate no languages")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// FormatListHooksMarkdown tests
+// ---------------------------------------------------------------------------.
+
+// TestFormatListHooksMarkdown_WithHooks verifies FormatListHooksMarkdown when with hooks.
+func TestFormatListHooksMarkdown_WithHooks(t *testing.T) {
+	out := ListHooksOutput{
+		Hooks: []HookOutput{
+			{ID: 1, URL: testHookURL, Name: testMyHook, PushEvents: true, MergeRequestsEvents: true, EnableSSLVerification: true},
+			{ID: 2, URL: testHookURL2, PipelineEvents: true},
+		},
+		Pagination: toolutil.PaginationOutput{TotalItems: 2},
+	}
+	md := FormatListHooksMarkdown(out)
+	for _, want := range []string{"Project Webhooks (2)", "my-hook", testHookURL, testHookURL2} {
+		if !strings.Contains(md, want) {
+			t.Errorf("FormatListHooksMarkdown missing %q", want)
+		}
+	}
+}
+
+// TestFormatListHooksMarkdown_Empty verifies FormatListHooksMarkdown when empty.
+func TestFormatListHooksMarkdown_Empty(t *testing.T) {
+	out := ListHooksOutput{
+		Hooks:      []HookOutput{},
+		Pagination: toolutil.PaginationOutput{TotalItems: 0},
+	}
+	md := FormatListHooksMarkdown(out)
+	if !strings.Contains(md, "No webhooks found") {
+		t.Error("FormatListHooksMarkdown should say no webhooks found for empty list")
+	}
+}
+
+// TestFormatListHooksMarkdown_HookWithoutName verifies FormatListHooksMarkdown when hook without name.
+func TestFormatListHooksMarkdown_HookWithoutName(t *testing.T) {
+	out := ListHooksOutput{
+		Hooks: []HookOutput{
+			{ID: 5, URL: "https://example.com/hook3"},
+		},
+		Pagination: toolutil.PaginationOutput{TotalItems: 1},
+	}
+	md := FormatListHooksMarkdown(out)
+	// Empty name should be rendered as "-"
+	if !strings.Contains(md, "-") {
+		t.Error("FormatListHooksMarkdown should render empty name as dash")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// FormatHookMarkdown tests
+// ---------------------------------------------------------------------------.
+
+// TestFormatHookMarkdown_WithName verifies FormatHookMarkdown when with name.
+func TestFormatHookMarkdown_WithName(t *testing.T) {
+	out := HookOutput{
+		ID:                        1,
+		URL:                       testHookURL,
+		Name:                      "deploy-hook",
+		PushEvents:                true,
+		IssuesEvents:              true,
+		MergeRequestsEvents:       false,
+		EnableSSLVerification:     true,
+		ResourceDeployTokenEvents: true,
+		URLVariables:              []HookURLVariable{{Key: "secret_env"}},
+		CustomHeaders:             []HookCustomHeader{{Key: "X-Secret"}},
+	}
+	md := FormatHookMarkdown(out)
+	for _, want := range []string{"Webhook #1", "deploy-hook", testHookURL, "SSL Verification", "Event Triggers", "Push", "Issues", "Merge Requests", "Resource Deploy Token", "REDACTED"} {
+		if !strings.Contains(md, want) {
+			t.Errorf("FormatHookMarkdown missing %q", want)
+		}
+	}
+}
+
+// TestFormatHookMarkdown_WithoutName verifies FormatHookMarkdown when without name.
+func TestFormatHookMarkdown_WithoutName(t *testing.T) {
+	out := HookOutput{
+		ID:  2,
+		URL: testHookURL2,
+	}
+	md := FormatHookMarkdown(out)
+	if md == "" {
+		t.Fatal(errExpectedNonEmptyMD)
+	}
+	if strings.Contains(md, "**Name:**") {
+		t.Error("FormatHookMarkdown should not contain Name field when name is empty")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// FormatListProjectUsersMarkdown tests
+// ---------------------------------------------------------------------------.
+
+// TestFormatListProjectUsersMarkdown_WithUsers verifies FormatListProjectUsersMarkdown when with users.
+func TestFormatListProjectUsersMarkdown_WithUsers(t *testing.T) {
+	out := ListProjectUsersOutput{
+		Users: []ProjectUserOutput{
+			{ID: 1, Name: testAlice, Username: "alice", State: "active"},
+			{ID: 2, Name: testBob, Username: "bob", State: "blocked"},
+		},
+	}
+	md := FormatListProjectUsersMarkdown(out)
+	for _, want := range []string{"Project Users (2)", testAlice, "@alice", "active", testBob, "@bob", "blocked"} {
+		if !strings.Contains(md, want) {
+			t.Errorf("FormatListProjectUsersMarkdown missing %q", want)
+		}
+	}
+}
+
+// TestFormatListProjectUsersMarkdown_Empty verifies FormatListProjectUsersMarkdown when empty.
+func TestFormatListProjectUsersMarkdown_Empty(t *testing.T) {
+	out := ListProjectUsersOutput{Users: []ProjectUserOutput{}}
+	md := FormatListProjectUsersMarkdown(out)
+	if !strings.Contains(md, "No users found") {
+		t.Error("FormatListProjectUsersMarkdown should say no users found")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// FormatListProjectGroupsMarkdown tests
+// ---------------------------------------------------------------------------.
+
+// TestFormatListProjectGroupsMarkdown_WithGroups verifies FormatListProjectGroupsMarkdown when with groups.
+func TestFormatListProjectGroupsMarkdown_WithGroups(t *testing.T) {
+	out := ListProjectGroupsOutput{
+		Groups: []ProjectGroupOutput{
+			{ID: 1, Name: "group-a", FullPath: "org/group-a"},
+			{ID: 2, Name: "group-b", FullPath: "org/group-b"},
+		},
+	}
+	md := FormatListProjectGroupsMarkdown(out)
+	for _, want := range []string{"Project Groups (2)", "group-a", "org/group-a", "group-b", "org/group-b"} {
+		if !strings.Contains(md, want) {
+			t.Errorf("FormatListProjectGroupsMarkdown missing %q", want)
+		}
+	}
+}
+
+// TestFormatListProjectGroupsMarkdown_Empty verifies FormatListProjectGroupsMarkdown when empty.
+func TestFormatListProjectGroupsMarkdown_Empty(t *testing.T) {
+	out := ListProjectGroupsOutput{Groups: []ProjectGroupOutput{}}
+	md := FormatListProjectGroupsMarkdown(out)
+	if !strings.Contains(md, "No groups found") {
+		t.Error("FormatListProjectGroupsMarkdown should say no groups found")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// FormatListStarrersMarkdown tests
+// ---------------------------------------------------------------------------.
+
+// TestFormatListStarrersMarkdown_WithStarrers verifies FormatListStarrersMarkdown when with starrers.
+func TestFormatListStarrersMarkdown_WithStarrers(t *testing.T) {
+	out := ListProjectStarrersOutput{
+		Starrers: []StarrerOutput{
+			{StarredSince: testDate20260101, User: ProjectUserOutput{ID: 1, Name: testAlice, Username: "alice"}},
+			{StarredSince: "2026-02-01", User: ProjectUserOutput{ID: 2, Name: testBob, Username: "bob"}},
+		},
+	}
+	md := FormatListStarrersMarkdown(out)
+	for _, want := range []string{"Project Starrers (2)", testAlice, "@alice", "1 Jan 2026", testBob, "@bob", "1 Feb 2026"} {
+		if !strings.Contains(md, want) {
+			t.Errorf("FormatListStarrersMarkdown missing %q", want)
+		}
+	}
+}
+
+// TestFormatListStarrersMarkdown_Empty verifies FormatListStarrersMarkdown when empty.
+func TestFormatListStarrersMarkdown_Empty(t *testing.T) {
+	out := ListProjectStarrersOutput{Starrers: []StarrerOutput{}}
+	md := FormatListStarrersMarkdown(out)
+	if !strings.Contains(md, "No starrers found") {
+		t.Error("FormatListStarrersMarkdown should say no starrers found")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// buildCreateOpts — additional branch coverage for optional fields
+// ---------------------------------------------------------------------------.
+
+// TestBuildCreateOpts_AllOptionalFields verifies BuildCreateOpts when all optional fields.
+func TestBuildCreateOpts_AllOptionalFields(t *testing.T) {
+	issuesEnabled := true
+	mrEnabled := false
+	wikiEnabled := true
+	jobsEnabled := false
+	lfsEnabled := true
+	requestAccess := true
+	allowSkipped := false
+	protectMRPipelines := true
+	removeBranch := true
+	autoclose := true
+
+	input := CreateInput{
+		Name:                             "full-project",
+		NamespaceID:                      99,
+		Description:                      "desc",
+		Visibility:                       "internal",
+		InitializeWithReadme:             true,
+		DefaultBranch:                    testBranchDevelop,
+		Path:                             "full-project-path",
+		Topics:                           []string{"go", "test"},
+		MergeMethod:                      "rebase_merge",
+		SquashOption:                     "always",
+		OnlyAllowMergeIfPipelineSucceeds: true,
+		OnlyAllowMergeIfAllDiscussionsAreResolved: true,
+		IssuesEnabled:                &issuesEnabled,
+		MergeRequestsEnabled:         &mrEnabled,
+		WikiEnabled:                  &wikiEnabled,
+		JobsEnabled:                  &jobsEnabled,
+		LFSEnabled:                   &lfsEnabled,
+		RequestAccessEnabled:         &requestAccess,
+		CIConfigPath:                 ".gitlab-ci.yml",
+		AllowMergeOnSkippedPipeline:  &allowSkipped,
+		ProtectMergeRequestPipelines: &protectMRPipelines,
+		RemoveSourceBranchAfterMerge: &removeBranch,
+		AutocloseReferencedIssues:    &autoclose,
+	}
+
+	opts := buildCreateOpts(input)
+	assertCreateProjectOpts(t, opts)
+}
+
+// assertCreateProjectOpts checks create project opts invariants for tests.
+func assertCreateProjectOpts(t *testing.T, opts *gl.CreateProjectOptions) {
+	t.Helper()
+	assertCreateProjectCoreOpts(t, opts)
+	assertCreateProjectFeatureOpts(t, opts)
+}
+
+// assertCreateProjectCoreOpts checks create project core opts invariants for tests.
+func assertCreateProjectCoreOpts(t *testing.T, opts *gl.CreateProjectOptions) {
+	t.Helper()
+	if opts.Name == nil || *opts.Name != "full-project" {
+		t.Error("Name not set")
+	}
+	if opts.NamespaceID == nil || *opts.NamespaceID != 99 {
+		t.Error("NamespaceID not set")
+	}
+	if opts.Visibility == nil {
+		t.Error(errVisibilityNotSet)
+	}
+	if opts.InitializeWithReadme == nil || !*opts.InitializeWithReadme {
+		t.Error("InitializeWithReadme not set")
+	}
+	if opts.DefaultBranch == nil || *opts.DefaultBranch != testBranchDevelop {
+		t.Error("DefaultBranch not set")
+	}
+	if opts.Path == nil || *opts.Path != "full-project-path" {
+		t.Error("Path not set")
+	}
+	if opts.Topics == nil || len(*opts.Topics) != 2 {
+		t.Error("Topics not set")
+	}
+	if opts.MergeMethod == nil {
+		t.Error("MergeMethod not set")
+	}
+	if opts.SquashOption == nil {
+		t.Error("SquashOption not set")
+	}
+}
+
+// assertCreateProjectFeatureOpts checks create project feature opts invariants for tests.
+func assertCreateProjectFeatureOpts(t *testing.T, opts *gl.CreateProjectOptions) {
+	t.Helper()
+	assertCreateProjectMergeOpts(t, opts)
+	assertCreateProjectToggleOpts(t, opts)
+}
+
+// assertCreateProjectMergeOpts checks create project merge opts invariants for tests.
+func assertCreateProjectMergeOpts(t *testing.T, opts *gl.CreateProjectOptions) {
+	t.Helper()
+	if opts.OnlyAllowMergeIfPipelineSucceeds == nil || !*opts.OnlyAllowMergeIfPipelineSucceeds {
+		t.Error("OnlyAllowMergeIfPipelineSucceeds not set")
+	}
+	if opts.OnlyAllowMergeIfAllDiscussionsAreResolved == nil || !*opts.OnlyAllowMergeIfAllDiscussionsAreResolved {
+		t.Error("OnlyAllowMergeIfAllDiscussionsAreResolved not set")
+	}
+	if opts.IssuesAccessLevel == nil || *opts.IssuesAccessLevel != gl.EnabledAccessControl {
+		t.Error("IssuesAccessLevel not set")
+	}
+	if opts.MergeRequestsAccessLevel == nil || *opts.MergeRequestsAccessLevel != gl.DisabledAccessControl {
+		t.Error("MergeRequestsAccessLevel not set correctly")
+	}
+	if opts.WikiAccessLevel == nil || *opts.WikiAccessLevel != gl.EnabledAccessControl {
+		t.Error("WikiAccessLevel not set")
+	}
+	if opts.BuildsAccessLevel == nil || *opts.BuildsAccessLevel != gl.DisabledAccessControl {
+		t.Error("BuildsAccessLevel not set correctly")
+	}
+}
+
+// assertCreateProjectToggleOpts checks create project toggle opts invariants for tests.
+func assertCreateProjectToggleOpts(t *testing.T, opts *gl.CreateProjectOptions) {
+	t.Helper()
+	if opts.LFSEnabled == nil || !*opts.LFSEnabled {
+		t.Error("LFSEnabled not set")
+	}
+	if opts.RequestAccessEnabled == nil || !*opts.RequestAccessEnabled {
+		t.Error("RequestAccessEnabled not set")
+	}
+	if opts.CIConfigPath == nil || *opts.CIConfigPath != ".gitlab-ci.yml" {
+		t.Error("CIConfigPath not set")
+	}
+	if opts.AllowMergeOnSkippedPipeline == nil || *opts.AllowMergeOnSkippedPipeline {
+		t.Error("AllowMergeOnSkippedPipeline not set correctly")
+	}
+	if opts.ProtectMergeRequestPipelines == nil || !*opts.ProtectMergeRequestPipelines {
+		t.Error("ProtectMergeRequestPipelines not set")
+	}
+	if opts.RemoveSourceBranchAfterMerge == nil || !*opts.RemoveSourceBranchAfterMerge {
+		t.Error("RemoveSourceBranchAfterMerge not set")
+	}
+	if opts.AutocloseReferencedIssues == nil || !*opts.AutocloseReferencedIssues {
+		t.Error("AutocloseReferencedIssues not set")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// buildUpdateOpts + applyUpdateFeatureOpts — branch coverage
+// ---------------------------------------------------------------------------.
+
+// TestBuildUpdateOpts_AllFields verifies BuildUpdateOpts when all fields.
+func TestBuildUpdateOpts_AllFields(t *testing.T) {
+	pipelineSucceeds := true
+	allDiscussions := true
+	issuesOn := false
+	mrOn := true
+	wikiOn := false
+	jobsOn := true
+	allowSkipped := true
+	removeBranch := false
+	autoclose := true
+	mergePipelines := true
+	mergeTrains := false
+	protectMRPipelines := true
+	resolveOutdated := true
+
+	input := UpdateInput{
+		ProjectID:                        "42",
+		Name:                             "updated",
+		Description:                      "new desc",
+		Visibility:                       testPublic,
+		DefaultBranch:                    testBranchDevelop,
+		MergeMethod:                      "ff",
+		Topics:                           []string{"ci", "cd"},
+		SquashOption:                     "default_on",
+		OnlyAllowMergeIfPipelineSucceeds: &pipelineSucceeds,
+		OnlyAllowMergeIfAllDiscussionsAreResolved: &allDiscussions,
+		IssuesEnabled:                  &issuesOn,
+		MergeRequestsEnabled:           &mrOn,
+		WikiEnabled:                    &wikiOn,
+		JobsEnabled:                    &jobsOn,
+		CIConfigPath:                   "custom-ci.yml",
+		AllowMergeOnSkippedPipeline:    &allowSkipped,
+		RemoveSourceBranchAfterMerge:   &removeBranch,
+		AutocloseReferencedIssues:      &autoclose,
+		MergeCommitTemplate:            "Merge: %{title}",
+		SquashCommitTemplate:           "Squash: %{title}",
+		MergePipelinesEnabled:          &mergePipelines,
+		MergeTrainsEnabled:             &mergeTrains,
+		ProtectMergeRequestPipelines:   &protectMRPipelines,
+		ResolveOutdatedDiffDiscussions: &resolveOutdated,
+		ApprovalsBeforeMerge:           2,
+		LFSEnabled:                     &issuesOn,
+		RequestAccessEnabled:           &mrOn,
+		SharedRunnersEnabled:           &wikiOn,
+		PublicBuilds:                   &jobsOn,
+		PackagesEnabled:                &pipelineSucceeds,
+		PackageRegistryAccessLevel:     "enabled",
+		PagesAccessLevel:               "enabled",
+		ContainerRegistryAccessLevel:   "disabled",
+		SnippetsAccessLevel:            "private",
+	}
+
+	opts := buildUpdateOpts(input)
+	assertEditProjectOpts(t, opts)
+}
+
+// assertEditProjectOpts checks edit project opts invariants for tests.
+func assertEditProjectOpts(t *testing.T, opts *gl.EditProjectOptions) {
+	t.Helper()
+	assertEditProjectCoreOpts(t, opts)
+	assertEditProjectAdvancedOpts(t, opts)
+}
+
+// assertEditProjectCoreOpts checks edit project core opts invariants for tests.
+func assertEditProjectCoreOpts(t *testing.T, opts *gl.EditProjectOptions) {
+	t.Helper()
+	if opts.Name == nil || *opts.Name != "updated" {
+		t.Error("Name not set")
+	}
+	if opts.Description == nil {
+		t.Error("Description not set")
+	}
+	if opts.Visibility == nil {
+		t.Error(errVisibilityNotSet)
+	}
+	if opts.DefaultBranch == nil || *opts.DefaultBranch != testBranchDevelop {
+		t.Error("DefaultBranch not set")
+	}
+	if opts.MergeMethod == nil {
+		t.Error("MergeMethod not set")
+	}
+	if opts.Topics == nil || len(*opts.Topics) != 2 {
+		t.Error("Topics not set")
+	}
+	if opts.SquashOption == nil {
+		t.Error("SquashOption not set")
+	}
+	if opts.OnlyAllowMergeIfPipelineSucceeds == nil {
+		t.Error("OnlyAllowMergeIfPipelineSucceeds not set")
+	}
+	if opts.OnlyAllowMergeIfAllDiscussionsAreResolved == nil {
+		t.Error("OnlyAllowMergeIfAllDiscussionsAreResolved not set")
+	}
+	if opts.IssuesAccessLevel == nil {
+		t.Error("IssuesAccessLevel not set")
+	}
+	if opts.MergeRequestsAccessLevel == nil {
+		t.Error("MergeRequestsAccessLevel not set")
+	}
+	if opts.WikiAccessLevel == nil {
+		t.Error("WikiAccessLevel not set")
+	}
+}
+
+// assertEditProjectAdvancedOpts checks edit project advanced opts invariants for tests.
+func assertEditProjectAdvancedOpts(t *testing.T, opts *gl.EditProjectOptions) {
+	t.Helper()
+	assertEditProjectMergeOpts(t, opts)
+	assertEditProjectAccessOpts(t, opts)
+}
+
+func assertEditProjectMergeOpts(t *testing.T, opts *gl.EditProjectOptions) {
+	t.Helper()
+	if opts.BuildsAccessLevel == nil {
+		t.Error("BuildsAccessLevel not set")
+	}
+	if opts.CIConfigPath == nil || *opts.CIConfigPath != "custom-ci.yml" {
+		t.Error("CIConfigPath not set")
+	}
+	if opts.AllowMergeOnSkippedPipeline == nil {
+		t.Error("AllowMergeOnSkippedPipeline not set")
+	}
+	if opts.RemoveSourceBranchAfterMerge == nil {
+		t.Error("RemoveSourceBranchAfterMerge not set")
+	}
+	if opts.AutocloseReferencedIssues == nil {
+		t.Error("AutocloseReferencedIssues not set")
+	}
+	if opts.MergeCommitTemplate == nil || *opts.MergeCommitTemplate != "Merge: %{title}" {
+		t.Error("MergeCommitTemplate not set")
+	}
+	if opts.SquashCommitTemplate == nil || *opts.SquashCommitTemplate != "Squash: %{title}" {
+		t.Error("SquashCommitTemplate not set")
+	}
+	if opts.MergePipelinesEnabled == nil {
+		t.Error("MergePipelinesEnabled not set")
+	}
+	if opts.MergeTrainsEnabled == nil {
+		t.Error("MergeTrainsEnabled not set")
+	}
+	if opts.ProtectMergeRequestPipelines == nil || !*opts.ProtectMergeRequestPipelines {
+		t.Error("ProtectMergeRequestPipelines not set")
+	}
+	if opts.ResolveOutdatedDiffDiscussions == nil {
+		t.Error("ResolveOutdatedDiffDiscussions not set")
+	}
+	if opts.ApprovalsBeforeMerge == nil || *opts.ApprovalsBeforeMerge != 2 { //nolint:staticcheck // Test deprecated compatibility field.
+		t.Error("ApprovalsBeforeMerge not set")
+	}
+	if opts.LFSEnabled == nil {
+		t.Error("LFSEnabled not set")
+	}
+}
+
+func assertEditProjectAccessOpts(t *testing.T, opts *gl.EditProjectOptions) {
+	t.Helper()
+	if opts.RequestAccessEnabled == nil {
+		t.Error("RequestAccessEnabled not set")
+	}
+	if opts.SharedRunnersEnabled == nil {
+		t.Error("SharedRunnersEnabled not set")
+	}
+	if opts.PublicJobs == nil {
+		t.Error("PublicJobs not set")
+	}
+	if opts.PackagesEnabled == nil { //nolint:staticcheck // Test deprecated compatibility field.
+		t.Error("PackagesEnabled not set")
+	}
+	if opts.PackageRegistryAccessLevel == nil {
+		t.Error("PackageRegistryAccessLevel not set")
+	}
+	if opts.PagesAccessLevel == nil {
+		t.Error("PagesAccessLevel not set")
+	}
+	if opts.ContainerRegistryAccessLevel == nil {
+		t.Error("ContainerRegistryAccessLevel not set")
+	}
+	if opts.SnippetsAccessLevel == nil {
+		t.Error("SnippetsAccessLevel not set")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Fork — additional branch coverage for optional fields
+// ---------------------------------------------------------------------------.
+
+// TestProjectFork_AllOptionalFields verifies ProjectFork when all optional fields.
+func TestProjectFork_AllOptionalFields(t *testing.T) {
+	const projectJSON = `{"id":99,"name":"forked","path_with_namespace":"user/forked","visibility":"private","default_branch":"main","web_url":"https://gitlab.example.com/user/forked","description":"forked desc"}`
+	mrTarget := true
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == pathProject42Fork {
+			var body map[string]any
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				t.Fatalf("failed to decode request body: %v", err)
+			}
+			assertForkBody(t, body)
+			testutil.RespondJSON(w, http.StatusCreated, projectJSON)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+
+	out, err := Fork(context.Background(), client, ForkInput{
+		ProjectID:                     "42",
+		Name:                          "forked",
+		Path:                          "forked-path",
+		NamespaceID:                   10,
+		NamespacePath:                 "user",
+		Description:                   "forked desc",
+		Visibility:                    testPrivate,
+		Branches:                      "main",
+		MergeRequestDefaultTargetSelf: &mrTarget,
+	})
+	if err != nil {
+		t.Fatalf("Fork() unexpected error: %v", err)
+	}
+	if out.Name != "forked" {
+		t.Errorf("out.Name = %q, want forked", out.Name)
+	}
+}
+
+// assertForkBody checks fork body invariants for tests.
+func assertForkBody(t *testing.T, body map[string]any) {
+	t.Helper()
+	if body["name"] != "forked" {
+		t.Errorf("name = %v, want forked", body["name"])
+	}
+	if body["path"] != "forked-path" {
+		t.Errorf("path = %v, want forked-path", body["path"])
+	}
+	if body["description"] != "forked desc" {
+		t.Errorf("description = %v, want forked desc", body["description"])
+	}
+	if body["visibility"] != testPrivate {
+		t.Errorf("visibility = %v, want private", body["visibility"])
+	}
+	if body["branches"] != "main" {
+		t.Errorf("branches = %v, want main", body["branches"])
+	}
+}
+
+// ---------------------------------------------------------------------------
+// ListForks — additional branch coverage for optional fields
+// ---------------------------------------------------------------------------.
+
+// TestProjectListForks_AllOptionalFields verifies ProjectListForks when all optional fields.
+func TestProjectListForks_AllOptionalFields(t *testing.T) {
+	const forksJSON = `[{"id":10,"name":"fork-a","path_with_namespace":"u/fork-a","visibility":"public","default_branch":"main","web_url":"https://gitlab.example.com/u/fork-a","description":""}]`
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && r.URL.Path == pathProject42Forks {
+			assertListForksQuery(t, r)
+			testutil.RespondJSON(w, http.StatusOK, forksJSON)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+
+	out, err := ListForks(context.Background(), client, ListForksInput{
+		ProjectID:  "42",
+		Owned:      true,
+		Search:     "fork",
+		Visibility: testPublic,
+		OrderBy:    "name",
+		Sort:       testSortAsc,
+	})
+	if err != nil {
+		t.Fatalf("ListForks() unexpected error: %v", err)
+	}
+	if len(out.Forks) != 1 {
+		t.Fatalf("expected 1 fork, got %d", len(out.Forks))
+	}
+}
+
+// assertListForksQuery checks list forks query invariants for tests.
+func assertListForksQuery(t *testing.T, r *http.Request) {
+	t.Helper()
+	q := r.URL.Query()
+	if q.Get("owned") != "true" {
+		t.Error("expected owned=true")
+	}
+	if q.Get("search") != "fork" {
+		t.Error("expected search=fork")
+	}
+	if q.Get("visibility") != testPublic {
+		t.Error("expected visibility=public")
+	}
+	if q.Get("order_by") != "name" {
+		t.Error("expected order_by=name")
+	}
+	if q.Get("sort") != testSortAsc {
+		t.Error("expected sort=asc")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// AddHook — additional branch coverage for all optional event booleans
+// ---------------------------------------------------------------------------.
+
+// TestProjectAddHook_AllOptionalEvents verifies ProjectAddHook when all optional events.
+func TestProjectAddHook_AllOptionalEvents(t *testing.T) {
+	const hookJSON = `{"id":1,"url":"https://example.com/hook","project_id":42,"push_events":true,"issues_events":true,"merge_requests_events":true,"tag_push_events":true,"note_events":true,"confidential_note_events":true,"job_events":true,"pipeline_events":true,"wiki_page_events":true,"deployment_events":true,"releases_events":true,"confidential_issues_events":true,"emoji_events":true,"resource_access_token_events":true,"enable_ssl_verification":false}`
+	pushEvents := true
+	issuesEvents := true
+	confidentialIssues := true
+	mrEvents := true
+	tagPush := true
+	noteEvents := true
+	confidentialNote := true
+	jobEvents := true
+	pipelineEvents := true
+	wikiEvents := true
+	deploymentEvents := true
+	releasesEvents := true
+	emojiEvents := true
+	resourceTokenEvents := true
+	sslVerify := false
+
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == pathProject42Hooks {
+			testutil.RespondJSON(w, http.StatusCreated, hookJSON)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+
+	out, err := AddHook(context.Background(), client, AddHookInput{
+		ProjectID: "42",
+		URL:       testHookURL,
+		HookOptionsInput: HookOptionsInput{
+			Name:                      testHookName,
+			Description:               "A test webhook",
+			Token:                     "secret",
+			PushEvents:                &pushEvents,
+			PushEventsBranchFilter:    "main",
+			IssuesEvents:              &issuesEvents,
+			ConfidentialIssuesEvents:  &confidentialIssues,
+			MergeRequestsEvents:       &mrEvents,
+			TagPushEvents:             &tagPush,
+			NoteEvents:                &noteEvents,
+			ConfidentialNoteEvents:    &confidentialNote,
+			JobEvents:                 &jobEvents,
+			PipelineEvents:            &pipelineEvents,
+			WikiPageEvents:            &wikiEvents,
+			DeploymentEvents:          &deploymentEvents,
+			ReleasesEvents:            &releasesEvents,
+			EmojiEvents:               &emojiEvents,
+			ResourceAccessTokenEvents: &resourceTokenEvents,
+			EnableSSLVerification:     &sslVerify,
+			CustomWebhookTemplate:     `{"text":"{{event}}"}`,
+			BranchFilterStrategy:      "wildcard",
+		},
+	})
+	if err != nil {
+		t.Fatalf("AddHook() unexpected error: %v", err)
+	}
+	if out.ID != 1 {
+		t.Errorf("out.ID = %d, want 1", out.ID)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// EditHook — additional branch coverage for all optional event booleans
+// ---------------------------------------------------------------------------.
+
+// TestProjectEditHook_AllOptionalEvents verifies ProjectEditHook when all optional events.
+func TestProjectEditHook_AllOptionalEvents(t *testing.T) {
+	const hookJSON = `{"id":5,"url":"https://example.com/updated","project_id":42,"push_events":false,"issues_events":false,"merge_requests_events":false,"tag_push_events":false,"note_events":false,"confidential_note_events":false,"job_events":false,"pipeline_events":false,"wiki_page_events":false,"deployment_events":false,"releases_events":false,"confidential_issues_events":false,"emoji_events":false,"resource_access_token_events":false,"enable_ssl_verification":true}`
+	pushEvents := false
+	issuesEvents := false
+	confidentialIssues := false
+	mrEvents := false
+	tagPush := false
+	noteEvents := false
+	confidentialNote := false
+	jobEvents := false
+	pipelineEvents := false
+	wikiEvents := false
+	deploymentEvents := false
+	releasesEvents := false
+	emojiEvents := false
+	resourceTokenEvents := false
+	sslVerify := true
+
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPut && r.URL.Path == "/api/v4/projects/42/hooks/5" {
+			testutil.RespondJSON(w, http.StatusOK, hookJSON)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+
+	out, err := EditHook(context.Background(), client, EditHookInput{
+		ProjectID: "42",
+		HookID:    5,
+		URL:       "https://example.com/updated",
+		HookOptionsInput: HookOptionsInput{
+			Name:                      "updated-hook",
+			Description:               "Updated hook",
+			Token:                     "new-secret",
+			PushEvents:                &pushEvents,
+			PushEventsBranchFilter:    testBranchDevelop,
+			IssuesEvents:              &issuesEvents,
+			ConfidentialIssuesEvents:  &confidentialIssues,
+			MergeRequestsEvents:       &mrEvents,
+			TagPushEvents:             &tagPush,
+			NoteEvents:                &noteEvents,
+			ConfidentialNoteEvents:    &confidentialNote,
+			JobEvents:                 &jobEvents,
+			PipelineEvents:            &pipelineEvents,
+			WikiPageEvents:            &wikiEvents,
+			DeploymentEvents:          &deploymentEvents,
+			ReleasesEvents:            &releasesEvents,
+			EmojiEvents:               &emojiEvents,
+			ResourceAccessTokenEvents: &resourceTokenEvents,
+			EnableSSLVerification:     &sslVerify,
+			CustomWebhookTemplate:     `{"text":"updated"}`,
+			BranchFilterStrategy:      "regex",
+		},
+	})
+	if err != nil {
+		t.Fatalf("EditHook() unexpected error: %v", err)
+	}
+	if out.ID != 5 {
+		t.Errorf("out.ID = %d, want 5", out.ID)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// buildUserProjectOpts — branch coverage for all option fields
+// ---------------------------------------------------------------------------.
+
+// TestBuildUserProjectOpts_AllFields verifies BuildUserProjectOpts when all fields.
+func TestBuildUserProjectOpts_AllFields(t *testing.T) {
+	archived := true
+	opts := buildUserProjectOpts(userProjectFilter{
+		Search: "query", Visibility: testPrivate, Archived: &archived,
+		OrderBy: "name", Sort: "desc", Simple: true,
+		Page: 2, PerPage: 25,
+	})
+
+	if opts.Search == nil || *opts.Search != "query" {
+		t.Error("Search not set")
+	}
+	if opts.Visibility == nil {
+		t.Error(errVisibilityNotSet)
+	}
+	if opts.Archived == nil || !*opts.Archived {
+		t.Error("Archived not set")
+	}
+	if opts.OrderBy == nil || *opts.OrderBy != "name" {
+		t.Error("OrderBy not set")
+	}
+	if opts.Sort == nil || *opts.Sort != "desc" {
+		t.Error("Sort not set")
+	}
+	if opts.Simple == nil || !*opts.Simple {
+		t.Error("Simple not set")
+	}
+	if opts.Page != 2 {
+		t.Errorf("Page = %d, want 2", opts.Page)
+	}
+	if opts.PerPage != 25 {
+		t.Errorf("PerPage = %d, want 25", opts.PerPage)
+	}
+}
+
+// TestBuildUserProjectOpts_NoFields verifies BuildUserProjectOpts when no fields.
+func TestBuildUserProjectOpts_NoFields(t *testing.T) {
+	opts := buildUserProjectOpts(userProjectFilter{})
+	if opts.Search != nil {
+		t.Error("Search should be nil")
+	}
+	if opts.Visibility != nil {
+		t.Error("Visibility should be nil")
+	}
+	if opts.Archived != nil {
+		t.Error("Archived should be nil")
+	}
+	if opts.OrderBy != nil {
+		t.Error("OrderBy should be nil")
+	}
+	if opts.Sort != nil {
+		t.Error("Sort should be nil")
+	}
+	if opts.Simple != nil {
+		t.Error("Simple should be nil")
+	}
+}
+
+// TestActionSpecs_Metadata verifies canonical metadata for project actions.
+func TestActionSpecs_Metadata(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	specs := ActionSpecs(client, true)
+	byTool := projectSpecsByTool(t, specs)
+
+	if len(specs) != 54 {
+		t.Fatalf("len(ActionSpecs) = %d, want 54", len(specs))
+	}
+	if len(byTool) != len(specs) {
+		t.Fatalf("unique individual tools = %d, want %d", len(byTool), len(specs))
+	}
+	for _, spec := range specs {
+		if spec.OwnerPackage != "projects" {
+			t.Fatalf("OwnerPackage for %s = %q, want projects", spec.Name, spec.OwnerPackage)
+		}
+	}
+	if !byTool["gitlab_project_transfer"].Destructive {
+		t.Fatal("gitlab_project_transfer should be destructive for confirmation prompts")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Context cancellation tests (covers ctx.Err() branches)
+// ---------------------------------------------------------------------------.
+
+// canceledCtx supports canceled ctx assertions in projects tests.
+func canceledCtx() context.Context {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	return ctx
+}
+
+// TestGet_CtxCanceled verifies Get when ctx canceled.
+func TestGet_CtxCanceled(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	_, err := Get(canceledCtx(), client, GetInput{ProjectID: "1"})
+	if err == nil {
+		t.Fatal(errExpectedCtxErr)
+	}
+}
+
+// TestUpdate_CtxCanceled verifies Update when ctx canceled.
+func TestUpdate_CtxCanceled(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	_, err := Update(canceledCtx(), client, UpdateInput{ProjectID: "1"})
+	if err == nil {
+		t.Fatal(errExpectedCtxErr)
+	}
+}
+
+// TestList_CtxCanceled verifies List when ctx canceled.
+func TestList_CtxCanceled(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	_, err := List(canceledCtx(), client, ListInput{})
+	if err == nil {
+		t.Fatal(errExpectedCtxErr)
+	}
+}
+
+// TestStar_CtxCanceled verifies Star when ctx canceled.
+func TestStar_CtxCanceled(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	_, err := Star(canceledCtx(), client, StarInput{ProjectID: "1"})
+	if err == nil {
+		t.Fatal(errExpectedCtxErr)
+	}
+}
+
+// TestUnstar_CtxCanceled verifies Unstar when ctx canceled.
+func TestUnstar_CtxCanceled(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	_, err := Unstar(canceledCtx(), client, UnstarInput{ProjectID: "1"})
+	if err == nil {
+		t.Fatal(errExpectedCtxErr)
+	}
+}
+
+// TestArchive_CtxCanceled verifies Archive when ctx canceled.
+func TestArchive_CtxCanceled(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	_, err := Archive(canceledCtx(), client, ArchiveInput{ProjectID: "1"})
+	if err == nil {
+		t.Fatal(errExpectedCtxErr)
+	}
+}
+
+// TestUnarchive_CtxCanceled verifies Unarchive when ctx canceled.
+func TestUnarchive_CtxCanceled(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	_, err := Unarchive(canceledCtx(), client, UnarchiveInput{ProjectID: "1"})
+	if err == nil {
+		t.Fatal(errExpectedCtxErr)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// AddPushRule with ALL optional fields set (covers all branches)
+// ---------------------------------------------------------------------------.
+
+// TestAddPushRule_AllFields verifies AddPushRule when all fields.
+func TestAddPushRule_AllFields(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == pathPushRules42 {
+			testutil.RespondJSON(w, http.StatusCreated, pushRuleJSON)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	out, err := AddPushRule(context.Background(), client, AddPushRuleInput{
+		ProjectID:                  "42",
+		AuthorEmailRegex:           "@company.com$",
+		BranchNameRegex:            "^(main|release/.*)$",
+		CommitCommitterCheck:       new(true),
+		CommitCommitterNameCheck:   new(false),
+		CommitMessageNegativeRegex: "WIP",
+		CommitMessageRegex:         "^(feat|fix):",
+		DenyDeleteTag:              new(true),
+		FileNameRegex:              "\\.(exe|dll)$",
+		MaxFileSize:                new(int64(50)),
+		MemberCheck:                new(true),
+		PreventSecrets:             new(true),
+		RejectUnsignedCommits:      new(false),
+		RejectNonDCOCommits:        new(false),
+	})
+	if err != nil {
+		t.Fatalf(fmtUnexpErr, err)
+	}
+	if out.ID != 1 {
+		t.Errorf(fmtIDWant1, out.ID)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// EditPushRule with ALL optional fields set (covers all branches)
+// ---------------------------------------------------------------------------.
+
+// TestEditPushRule_AllFields verifies EditPushRule when all fields.
+func TestEditPushRule_AllFields(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPut && r.URL.Path == pathPushRules42 {
+			testutil.RespondJSON(w, http.StatusOK, pushRuleJSON)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	s := func(v string) *string { return new(v) }
+	i := func(v int64) *int64 { return new(v) }
+	out, err := EditPushRule(context.Background(), client, EditPushRuleInput{
+		ProjectID:                  "42",
+		AuthorEmailRegex:           s("@newdomain.com$"),
+		BranchNameRegex:            s("^release/"),
+		CommitCommitterCheck:       new(true),
+		CommitCommitterNameCheck:   new(true),
+		CommitMessageNegativeRegex: s("DO NOT MERGE"),
+		CommitMessageRegex:         s("^(feat|fix|docs):"),
+		DenyDeleteTag:              new(false),
+		FileNameRegex:              s("\\.(bat|sh)$"),
+		MaxFileSize:                i(100),
+		MemberCheck:                new(false),
+		PreventSecrets:             new(true),
+		RejectUnsignedCommits:      new(true),
+		RejectNonDCOCommits:        new(true),
+	})
+	if err != nil {
+		t.Fatalf(fmtUnexpErr, err)
+	}
+	if out.ID != 1 {
+		t.Errorf(fmtIDWant1, out.ID)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Get with optional params (Statistics, License, WithCustomAttributes)
+// ---------------------------------------------------------------------------.
+
+// TestGet_WithOptions verifies Get when with options.
+func TestGet_WithOptions(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == pathProject42 {
+			testutil.RespondJSON(w, http.StatusOK, `{"id":42,"name":"test","visibility":"public"}`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	out, err := Get(context.Background(), client, GetInput{
+		ProjectID:            "42",
+		Statistics:           new(true),
+		License:              new(true),
+		WithCustomAttributes: new(true),
+	})
+	if err != nil {
+		t.Fatalf(fmtUnexpErr, err)
+	}
+	if out.ID != 42 {
+		t.Errorf("ID = %d, want 42", out.ID)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// ListProjectGroups with all filter options
+// ---------------------------------------------------------------------------.
+
+// TestListProjectGroups_AllFilters verifies ListProjectGroups when all filters.
+func TestListProjectGroups_AllFilters(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v4/projects/10/groups" {
+			testutil.RespondJSON(w, http.StatusOK, `[{"id":1,"name":"grp","avatar_url":"","web_url":"https://g","full_name":"Group","full_path":"grp"}]`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	out, err := ListProjectGroups(context.Background(), client, ListProjectGroupsInput{
+		ProjectID:            "10",
+		Search:               "grp",
+		WithShared:           new(true),
+		SharedVisibleOnly:    new(false),
+		SkipGroups:           []int64{99, 100},
+		SharedMinAccessLevel: 30,
+		PaginationInput:      toolutil.PaginationInput{Page: 1, PerPage: 20},
+	})
+	if err != nil {
+		t.Fatalf(fmtUnexpErr, err)
+	}
+	if len(out.Groups) != 1 {
+		t.Fatalf(fmtLenGroupsWant1, len(out.Groups))
+	}
+}
+
+// ---------------------------------------------------------------------------
+// ListInvitedGroups with all filter options
+// ---------------------------------------------------------------------------.
+
+// TestListInvitedGroups_AllFilters verifies ListInvitedGroups when all filters.
+func TestListInvitedGroups_AllFilters(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v4/projects/10/invited_groups" {
+			testutil.RespondJSON(w, http.StatusOK, `[{"id":2,"name":"invited","avatar_url":"","web_url":"https://g","full_name":"Invited","full_path":"invited"}]`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	out, err := ListInvitedGroups(context.Background(), client, ListInvitedGroupsInput{
+		ProjectID:       "10",
+		Search:          "invited",
+		MinAccessLevel:  20,
+		PaginationInput: toolutil.PaginationInput{Page: 1, PerPage: 20},
+	})
+	if err != nil {
+		t.Fatalf(fmtUnexpErr, err)
+	}
+	if len(out.Groups) != 1 {
+		t.Fatalf(fmtLenGroupsWant1, len(out.Groups))
+	}
+}
+
+// ---------------------------------------------------------------------------
+// ListUserProjects with all filter options
+// ---------------------------------------------------------------------------.
+
+// TestListUserProjects_AllFilters verifies ListUserProjects when all filters.
+func TestListUserProjects_AllFilters(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v4/users/john/projects" {
+			testutil.RespondJSON(w, http.StatusOK, `[{"id":5,"name":"proj","visibility":"public"}]`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	out, err := ListUserProjects(context.Background(), client, ListUserProjectsInput{
+		UserID:          testUserJohn,
+		Search:          "proj",
+		Visibility:      testPublic,
+		Archived:        new(false),
+		OrderBy:         "name",
+		Sort:            testSortAsc,
+		Simple:          true,
+		PaginationInput: toolutil.PaginationInput{Page: 1, PerPage: 10},
+	})
+	if err != nil {
+		t.Fatalf(fmtUnexpErr, err)
+	}
+	if len(out.Projects) != 1 {
+		t.Fatalf(fmtLenProjectsWant1, len(out.Projects))
+	}
+}
+
+// ---------------------------------------------------------------------------
+// buildListOpts + applyListFilterOpts with all branches
+// ---------------------------------------------------------------------------.
+
+// TestBuildListOpts_AllBranches verifies BuildListOpts when all branches.
+func TestBuildListOpts_AllBranches(t *testing.T) {
+	input := ListInput{
+		Owned:                    true,
+		Search:                   "test",
+		Visibility:               testPrivate,
+		Archived:                 new(true),
+		OrderBy:                  "created_at",
+		Sort:                     "desc",
+		Topic:                    "go",
+		Simple:                   true,
+		MinAccessLevel:           30,
+		LastActivityAfter:        testDate20260101,
+		LastActivityBefore:       "2026-12-31",
+		Starred:                  new(true),
+		Membership:               new(true),
+		WithIssuesEnabled:        new(true),
+		WithMergeRequestsEnabled: new(true),
+		SearchNamespaces:         new(true),
+		Statistics:               new(true),
+		WithProgrammingLanguage:  "Go",
+		IncludePendingDelete:     new(true),
+		IncludeHidden:            new(true),
+		IDAfter:                  100,
+		IDBefore:                 500,
+	}
+	input.Page = 2
+	input.PerPage = 50
+
+	opts := buildListOpts(input)
+	assertListProjectOpts(t, opts)
+}
+
+// assertListProjectOpts checks list project opts invariants for tests.
+func assertListProjectOpts(t *testing.T, opts *gl.ListProjectsOptions) {
+	t.Helper()
+	assertListProjectCoreOpts(t, opts)
+	assertListProjectFilterOpts(t, opts)
+}
+
+// assertListProjectCoreOpts checks list project core opts invariants for tests.
+func assertListProjectCoreOpts(t *testing.T, opts *gl.ListProjectsOptions) {
+	t.Helper()
+	assertListProjectSearchOpts(t, opts)
+	assertListProjectDisplayOpts(t, opts)
+}
+
+// assertListProjectSearchOpts checks list project search opts invariants for tests.
+func assertListProjectSearchOpts(t *testing.T, opts *gl.ListProjectsOptions) {
+	t.Helper()
+	if opts.Owned == nil || !*opts.Owned {
+		t.Error("Owned not set")
+	}
+	if opts.Search == nil || *opts.Search != "test" {
+		t.Error("Search not set")
+	}
+	if opts.Visibility == nil {
+		t.Error(errVisibilityNotSet)
+	}
+	if opts.Archived == nil {
+		t.Error("Archived not set")
+	}
+	if opts.OrderBy == nil || *opts.OrderBy != "created_at" {
+		t.Error("OrderBy not set")
+	}
+	if opts.Sort == nil || *opts.Sort != "desc" {
+		t.Error("Sort not set")
+	}
+}
+
+// assertListProjectDisplayOpts checks list project display opts invariants for tests.
+func assertListProjectDisplayOpts(t *testing.T, opts *gl.ListProjectsOptions) {
+	t.Helper()
+	if opts.Topic == nil || *opts.Topic != "go" {
+		t.Error("Topic not set")
+	}
+	if opts.Simple == nil || !*opts.Simple {
+		t.Error("Simple not set")
+	}
+	if opts.MinAccessLevel == nil {
+		t.Error("MinAccessLevel not set")
+	}
+	if opts.Starred == nil || !*opts.Starred {
+		t.Error("Starred not set")
+	}
+	if opts.Membership == nil || !*opts.Membership {
+		t.Error("Membership not set")
+	}
+}
+
+// assertListProjectFilterOpts checks list project filter opts invariants for tests.
+func assertListProjectFilterOpts(t *testing.T, opts *gl.ListProjectsOptions) {
+	t.Helper()
+	assertListProjectFeatureFilterOpts(t, opts)
+	assertListProjectPaginationFilterOpts(t, opts)
+}
+
+// assertListProjectFeatureFilterOpts checks list project feature filter opts invariants for tests.
+func assertListProjectFeatureFilterOpts(t *testing.T, opts *gl.ListProjectsOptions) {
+	t.Helper()
+	if opts.WithIssuesEnabled == nil || !*opts.WithIssuesEnabled {
+		t.Error("WithIssuesEnabled not set")
+	}
+	if opts.WithMergeRequestsEnabled == nil || !*opts.WithMergeRequestsEnabled {
+		t.Error("WithMergeRequestsEnabled not set")
+	}
+	if opts.SearchNamespaces == nil || !*opts.SearchNamespaces {
+		t.Error("SearchNamespaces not set")
+	}
+	if opts.Statistics == nil || !*opts.Statistics {
+		t.Error("Statistics not set")
+	}
+	if opts.WithProgrammingLanguage == nil || *opts.WithProgrammingLanguage != "Go" {
+		t.Error("WithProgrammingLanguage not set")
+	}
+}
+
+// assertListProjectPaginationFilterOpts checks list project pagination filter opts invariants for tests.
+func assertListProjectPaginationFilterOpts(t *testing.T, opts *gl.ListProjectsOptions) {
+	t.Helper()
+	if opts.IncludePendingDelete == nil || !*opts.IncludePendingDelete {
+		t.Error("IncludePendingDelete not set")
+	}
+	if opts.IncludeHidden == nil || !*opts.IncludeHidden {
+		t.Error("IncludeHidden not set")
+	}
+	if opts.IDAfter == nil || *opts.IDAfter != 100 {
+		t.Error("IDAfter not set")
+	}
+	if opts.IDBefore == nil || *opts.IDBefore != 500 {
+		t.Error("IDBefore not set")
+	}
+	if opts.Page != 2 {
+		t.Error("Page not set")
+	}
+	if opts.PerPage != 50 {
+		t.Error("PerPage not set")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// ToOutput with Namespace (covers the namespace branch)
+// ---------------------------------------------------------------------------.
+
+// TestToOutput_WithNamespace verifies ToOutput when with namespace.
+func TestToOutput_WithNamespace(t *testing.T) {
+	p := &gl.Project{
+		ID:         1,
+		Name:       "test",
+		Visibility: gl.PublicVisibility,
+		Namespace:  &gl.ProjectNamespace{FullPath: testMyGroup},
+	}
+	out := ToOutput(p)
+	if out.Namespace != testMyGroup {
+		t.Errorf("Namespace = %q, want %q", out.Namespace, testMyGroup)
+	}
+}
+
+// TestToOutput_WithCreatedAt verifies ToOutput when with created at.
+func TestToOutput_WithCreatedAt(t *testing.T) {
+	now := time.Now()
+	p := &gl.Project{
+		ID:        1,
+		Name:      "test",
+		CreatedAt: &now,
+	}
+	out := ToOutput(p)
+	if out.CreatedAt == "" {
+		t.Error("expected CreatedAt to be set")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// API error path tests (covers err != nil after API calls)
+// ---------------------------------------------------------------------------.
+
+// errMockHandler supports err mock handler assertions in projects tests.
+func errMockHandler() http.Handler {
+	// Return 404 (not 500) to avoid triggering GitLab client retry logic
+	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		testutil.RespondJSON(w, http.StatusNotFound, `{"message":"404 Not Found"}`)
+	})
+}
+
+// TestUpdate_APIError verifies Update when API error.
+func TestUpdate_APIError(t *testing.T) {
+	client := testutil.NewTestClient(t, errMockHandler())
+	_, err := Update(context.Background(), client, UpdateInput{ProjectID: "1", Name: "x"})
+	if err == nil {
+		t.Fatal(errExpectedAPI)
+	}
+}
+
+// TestTransfer_APIError verifies Transfer when API error.
+func TestTransfer_APIError(t *testing.T) {
+	client := testutil.NewTestClient(t, errMockHandler())
+	_, err := Transfer(context.Background(), client, TransferInput{ProjectID: "1", Namespace: "ns"})
+	if err == nil {
+		t.Fatal(errExpectedAPI)
+	}
+}
+
+// TestTransfer_EmptyNamespace verifies Transfer when empty namespace.
+func TestTransfer_EmptyNamespace(t *testing.T) {
+	client := testutil.NewTestClient(t, errMockHandler())
+	_, err := Transfer(context.Background(), client, TransferInput{ProjectID: "1"})
+	if err == nil {
+		t.Fatal("expected validation error for empty namespace")
+	}
+}
+
+// TestGetLanguages_APIError verifies GetLanguages when API error.
+func TestGetLanguages_APIError(t *testing.T) {
+	client := testutil.NewTestClient(t, errMockHandler())
+	_, err := GetLanguages(context.Background(), client, GetLanguagesInput{ProjectID: "1"})
+	if err == nil {
+		t.Fatal(errExpectedAPI)
+	}
+}
+
+// TestGetLanguages_EmptyProjectID verifies GetLanguages when empty project ID.
+func TestGetLanguages_EmptyProjectID(t *testing.T) {
+	client := testutil.NewTestClient(t, errMockHandler())
+	_, err := GetLanguages(context.Background(), client, GetLanguagesInput{})
+	if err == nil {
+		t.Fatal(errExpectedValidation)
+	}
+}
+
+// TestListHooks_APIError verifies ListHooks when API error.
+func TestListHooks_APIError(t *testing.T) {
+	client := testutil.NewTestClient(t, errMockHandler())
+	_, err := ListHooks(context.Background(), client, ListHooksInput{ProjectID: "1"})
+	if err == nil {
+		t.Fatal(errExpectedAPI)
+	}
+}
+
+// TestGetHook_APIError verifies GetHook when API error.
+func TestGetHook_APIError(t *testing.T) {
+	client := testutil.NewTestClient(t, errMockHandler())
+	_, err := GetHook(context.Background(), client, GetHookInput{ProjectID: "1", HookID: 1})
+	if err == nil {
+		t.Fatal(errExpectedAPI)
+	}
+}
+
+// TestGetHook_EmptyProject verifies GetHook when empty project.
+func TestGetHook_EmptyProject(t *testing.T) {
+	client := testutil.NewTestClient(t, errMockHandler())
+	_, err := GetHook(context.Background(), client, GetHookInput{HookID: 1})
+	if err == nil {
+		t.Fatal(errExpectedValidation)
+	}
+}
+
+// TestDeleteHook_APIError verifies DeleteHook when API error.
+func TestDeleteHook_APIError(t *testing.T) {
+	client := testutil.NewTestClient(t, errMockHandler())
+	err := DeleteHook(context.Background(), client, DeleteHookInput{ProjectID: "1", HookID: 1})
+	if err == nil {
+		t.Fatal(errExpectedAPI)
+	}
+}
+
+// TestDeleteHook_CtxCanceled verifies DeleteHook when ctx canceled.
+func TestDeleteHook_CtxCanceled(t *testing.T) {
+	client := testutil.NewTestClient(t, errMockHandler())
+	err := DeleteHook(canceledCtx(), client, DeleteHookInput{ProjectID: "1", HookID: 1})
+	if err == nil {
+		t.Fatal(errExpectedCtxErr)
+	}
+}
+
+// TestTriggerTestHook_Success verifies TriggerTestHook when success.
+func TestTriggerTestHook_Success(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			w.WriteHeader(http.StatusCreated)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	out, err := TriggerTestHook(context.Background(), client, TriggerTestHookInput{
+		ProjectID: "1",
+		HookID:    10,
+		Event:     "push_events",
+	})
+	if err != nil {
+		t.Fatalf(fmtUnexpErr, err)
+	}
+	if !strings.Contains(out.Message, "push_events") {
+		t.Errorf("expected message to contain 'push_events', got %q", out.Message)
+	}
+}
+
+// TestTriggerTestHook_CtxCanceled verifies TriggerTestHook when ctx canceled.
+func TestTriggerTestHook_CtxCanceled(t *testing.T) {
+	client := testutil.NewTestClient(t, errMockHandler())
+	_, err := TriggerTestHook(canceledCtx(), client, TriggerTestHookInput{ProjectID: "1", HookID: 1, Event: "push_events"})
+	if err == nil {
+		t.Fatal(errExpectedCtxErr)
+	}
+}
+
+// TestTriggerTestHook_EmptyEvent verifies TriggerTestHook when empty event.
+func TestTriggerTestHook_EmptyEvent(t *testing.T) {
+	client := testutil.NewTestClient(t, errMockHandler())
+	_, err := TriggerTestHook(context.Background(), client, TriggerTestHookInput{ProjectID: "1", HookID: 1})
+	if err == nil {
+		t.Fatal(errExpectedValidation)
+	}
+}
+
+// TestTriggerTestHook_EmptyHookID verifies TriggerTestHook when empty hook ID.
+func TestTriggerTestHook_EmptyHookID(t *testing.T) {
+	client := testutil.NewTestClient(t, errMockHandler())
+	_, err := TriggerTestHook(context.Background(), client, TriggerTestHookInput{ProjectID: "1", Event: "push_events"})
+	if err == nil {
+		t.Fatal(errExpectedValidation)
+	}
+}
+
+// TestListProjectUsers_WithFilters verifies ListProjectUsers when with filters.
+func TestListProjectUsers_WithFilters(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		if q.Get("search") != testUserJohn {
+			t.Errorf("search = %q, want %q", q.Get("search"), testUserJohn)
+		}
+		testutil.RespondJSON(w, http.StatusOK, `[{"id":1,"username":"john","name":"John","state":"active","web_url":"https://g/john"}]`)
+	}))
+	out, err := ListProjectUsers(context.Background(), client, ListProjectUsersInput{
+		ProjectID:       "10",
+		Search:          testUserJohn,
+		PaginationInput: toolutil.PaginationInput{Page: 1, PerPage: 20},
+	})
+	if err != nil {
+		t.Fatalf(fmtUnexpErr, err)
+	}
+	if len(out.Users) != 1 {
+		t.Fatalf("len(Users) = %d, want 1", len(out.Users))
+	}
+}
+
+// TestListProjectUsers_APIError verifies ListProjectUsers when API error.
+func TestListProjectUsers_APIError(t *testing.T) {
+	client := testutil.NewTestClient(t, errMockHandler())
+	_, err := ListProjectUsers(context.Background(), client, ListProjectUsersInput{ProjectID: "1"})
+	if err == nil {
+		t.Fatal(errExpectedAPI)
+	}
+}
+
+// TestListProjectStarrers_WithFilters verifies ListProjectStarrers when with filters.
+func TestListProjectStarrers_WithFilters(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		testutil.RespondJSON(w, http.StatusOK, `[{"starred_since":"2026-01-01T00:00:00Z","user":{"id":1,"username":"alice","name":"Alice","state":"active","web_url":"https://g/alice"}}]`)
+	}))
+	out, err := ListProjectStarrers(context.Background(), client, ListProjectStarrersInput{
+		ProjectID:       "10",
+		Search:          "alice",
+		PaginationInput: toolutil.PaginationInput{Page: 1, PerPage: 20},
+	})
+	if err != nil {
+		t.Fatalf(fmtUnexpErr, err)
+	}
+	if len(out.Starrers) != 1 {
+		t.Fatalf("len(Starrers) = %d, want 1", len(out.Starrers))
+	}
+}
+
+// TestListProjectStarrers_APIError verifies ListProjectStarrers when API error.
+func TestListProjectStarrers_APIError(t *testing.T) {
+	client := testutil.NewTestClient(t, errMockHandler())
+	_, err := ListProjectStarrers(context.Background(), client, ListProjectStarrersInput{ProjectID: "1"})
+	if err == nil {
+		t.Fatal(errExpectedAPI)
+	}
+}
+
+// TestShareProject_APIError verifies ShareProject when API error.
+func TestShareProject_APIError(t *testing.T) {
+	client := testutil.NewTestClient(t, errMockHandler())
+	_, err := ShareProjectWithGroup(context.Background(), client, ShareProjectInput{
+		ProjectID: "1", GroupID: 10, GroupAccess: 30,
+	})
+	if err == nil {
+		t.Fatal(errExpectedAPI)
+	}
+}
+
+// TestDelete_SharedGroupAPIError verifies Delete when shared group API error.
+func TestDelete_SharedGroupAPIError(t *testing.T) {
+	client := testutil.NewTestClient(t, errMockHandler())
+	err := DeleteSharedProjectFromGroup(context.Background(), client, DeleteSharedGroupInput{ProjectID: "1", GroupID: 10})
+	if err == nil {
+		t.Fatal(errExpectedAPI)
+	}
+}
+
+// TestDeletePushRule_APIError verifies DeletePushRule when API error.
+func TestDeletePushRule_APIError(t *testing.T) {
+	client := testutil.NewTestClient(t, errMockHandler())
+	err := DeletePushRule(context.Background(), client, DeletePushRuleInput{ProjectID: "1"})
+	if err == nil {
+		t.Fatal(errExpectedAPI)
+	}
+}
+
+// TestRestore_APIError verifies Restore when API error.
+func TestRestore_APIError(t *testing.T) {
+	client := testutil.NewTestClient(t, errMockHandler())
+	_, err := Restore(context.Background(), client, RestoreInput{ProjectID: "1"})
+	if err == nil {
+		t.Fatal(errExpectedAPI)
+	}
+}
+
+// TestRestore_EmptyProjectID verifies Restore when empty project ID.
+func TestRestore_EmptyProjectID(t *testing.T) {
+	client := testutil.NewTestClient(t, errMockHandler())
+	_, err := Restore(context.Background(), client, RestoreInput{})
+	if err == nil {
+		t.Fatal(errExpectedValidation)
+	}
+}
+
+// TestStar_APIError verifies Star when API error.
+func TestStar_APIError(t *testing.T) {
+	client := testutil.NewTestClient(t, errMockHandler())
+	_, err := Star(context.Background(), client, StarInput{ProjectID: "1"})
+	if err == nil {
+		t.Fatal(errExpectedAPI)
+	}
+}
+
+// TestUnstar_APIError verifies Unstar when API error.
+func TestUnstar_APIError(t *testing.T) {
+	client := testutil.NewTestClient(t, errMockHandler())
+	_, err := Unstar(context.Background(), client, UnstarInput{ProjectID: "1"})
+	if err == nil {
+		t.Fatal(errExpectedAPI)
+	}
+}
+
+// TestArchive_APIError verifies Archive when API error.
+func TestArchive_APIError(t *testing.T) {
+	client := testutil.NewTestClient(t, errMockHandler())
+	_, err := Archive(context.Background(), client, ArchiveInput{ProjectID: "1"})
+	if err == nil {
+		t.Fatal(errExpectedAPI)
+	}
+}
+
+// TestUnarchive_APIError verifies Unarchive when API error.
+func TestUnarchive_APIError(t *testing.T) {
+	client := testutil.NewTestClient(t, errMockHandler())
+	_, err := Unarchive(context.Background(), client, UnarchiveInput{ProjectID: "1"})
+	if err == nil {
+		t.Fatal(errExpectedAPI)
+	}
+}
+
+// TestListProjectGroups_APIError verifies ListProjectGroups when API error.
+func TestListProjectGroups_APIError(t *testing.T) {
+	client := testutil.NewTestClient(t, errMockHandler())
+	_, err := ListProjectGroups(context.Background(), client, ListProjectGroupsInput{ProjectID: "1"})
+	if err == nil {
+		t.Fatal(errExpectedAPI)
+	}
+}
+
+// TestListInvitedGroups_APIError verifies ListInvitedGroups when API error.
+func TestListInvitedGroups_APIError(t *testing.T) {
+	client := testutil.NewTestClient(t, errMockHandler())
+	_, err := ListInvitedGroups(context.Background(), client, ListInvitedGroupsInput{ProjectID: "1"})
+	if err == nil {
+		t.Fatal(errExpectedAPI)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// MCP integration tests — exercise RegisterTools handler closures
+// ---------------------------------------------------------------------------.
+
+// projectJSON identifies the project JSON constant used by this package.
+const projectJSON = `{"id":42,"name":"test","path_with_namespace":"g/test","visibility":"private","default_branch":"main","web_url":"https://example.com","description":"desc","merge_request_title_regex":"^(feat|fix):","merge_request_title_regex_description":"MR title must start with feat: or fix:"}`
+
+// hookJSON42 identifies the hook JSON 42 constant used by this package.
+const hookJSON42 = `{"id":1,"url":"https://example.com/hook","project_id":42,"push_events":true,"created_at":"2026-01-01T00:00:00Z"}`
+
+// pushRuleJSON42 identifies the push rule JSON 42 constant used by this package.
+const pushRuleJSON42 = `{"id":1,"commit_message_regex":".*","branch_name_regex":".*","max_file_size":100}`
+
+// mockRoute holds a canned HTTP response for a test mock endpoint.
+type mockRoute struct {
+	status int
+	body   string
+}
+
+// mcpMockHandler returns an HTTP handler that responds with valid JSON for all
+// project-related GitLab API endpoints used by the canonical project actions.
+// Routes are organized as a map to keep cognitive complexity low.
+func mcpMockHandler() http.Handler {
+	// Method-specific routes: key = "METHOD /path"
+	methodRoutes := map[string]mockRoute{
+		// Push rules
+		"GET /api/v4/projects/42/push_rule":    {http.StatusOK, pushRuleJSON42},
+		"POST /api/v4/projects/42/push_rule":   {http.StatusCreated, pushRuleJSON42},
+		"PUT /api/v4/projects/42/push_rule":    {http.StatusOK, pushRuleJSON42},
+		"DELETE /api/v4/projects/42/push_rule": {http.StatusNoContent, ""},
+		// Webhook customization
+		"PUT /api/v4/projects/42/hooks/1/custom_headers/X-Test":    {http.StatusNoContent, ""},
+		"DELETE /api/v4/projects/42/hooks/1/custom_headers/X-Test": {http.StatusNoContent, ""},
+		"PUT /api/v4/projects/42/hooks/1/url_variables/myvar":      {http.StatusNoContent, ""},
+		"DELETE /api/v4/projects/42/hooks/1/url_variables/myvar":   {http.StatusNoContent, ""},
+		// Fork relations
+		"POST /api/v4/projects/42/fork/99": {http.StatusCreated, `{"id":42}`},
+		"DELETE /api/v4/projects/42/fork":  {http.StatusNoContent, ""},
+		// Avatar
+		"PUT /api/v4/projects/42/avatar": {http.StatusOK, projectJSON},
+		// Approval config
+		"GET /api/v4/projects/42/approvals":  {http.StatusOK, `{"approvals_before_merge":2}`},
+		"POST /api/v4/projects/42/approvals": {http.StatusOK, `{"approvals_before_merge":3}`},
+		// Approval rules
+		"GET /api/v4/projects/42/approval_rules":      {http.StatusOK, `[{"id":1,"name":"rule","approvals_required":1}]`},
+		"GET /api/v4/projects/42/approval_rules/1":    {http.StatusOK, `{"id":1,"name":"rule","approvals_required":1}`},
+		"POST /api/v4/projects/42/approval_rules":     {http.StatusCreated, `{"id":1,"name":"rule","approvals_required":1}`},
+		"PUT /api/v4/projects/42/approval_rules/1":    {http.StatusOK, `{"id":1,"name":"rule","approvals_required":1}`},
+		"DELETE /api/v4/projects/42/approval_rules/1": {http.StatusNoContent, ""},
+		// Pull mirror
+		"GET /api/v4/projects/42/mirror/pull":  {http.StatusOK, `{"id":42,"enabled":true,"url":"https://example.com/repo.git"}`},
+		"PUT /api/v4/projects/42/mirror/pull":  {http.StatusOK, `{"id":42,"enabled":true,"url":"https://example.com/repo.git"}`},
+		"POST /api/v4/projects/42/mirror/pull": {http.StatusOK, projectJSON},
+		// Maintenance
+		"POST /api/v4/projects/42/housekeeping": {http.StatusCreated, `{}`},
+		// Admin
+		"POST /api/v4/projects/user/1": {http.StatusCreated, projectJSON},
+		// Hooks
+		"GET /api/v4/projects/42/hooks":      {http.StatusOK, "[]"},
+		"GET /api/v4/projects/42/hooks/1":    {http.StatusOK, hookJSON42},
+		"POST /api/v4/projects/42/hooks":     {http.StatusCreated, hookJSON42},
+		"PUT /api/v4/projects/42/hooks/1":    {http.StatusOK, hookJSON42},
+		"DELETE /api/v4/projects/42/hooks/1": {http.StatusNoContent, ""},
+		// Share
+		"POST /api/v4/projects/42/share":     {http.StatusCreated, "{}"},
+		"DELETE /api/v4/projects/42/share/1": {http.StatusNoContent, ""},
+		// Project CRUD
+		"POST /api/v4/projects":              {http.StatusCreated, projectJSON},
+		"GET /api/v4/projects":               {http.StatusOK, "[]"},
+		"DELETE /api/v4/projects/42":         {http.StatusAccepted, "{}"},
+		"POST /api/v4/projects/42/restore":   {http.StatusOK, projectJSON},
+		"POST /api/v4/projects/42/fork":      {http.StatusCreated, projectJSON},
+		"POST /api/v4/projects/42/star":      {http.StatusOK, projectJSON},
+		"POST /api/v4/projects/42/unstar":    {http.StatusOK, projectJSON},
+		"POST /api/v4/projects/42/archive":   {http.StatusOK, projectJSON},
+		"POST /api/v4/projects/42/unarchive": {http.StatusOK, projectJSON},
+		"PUT /api/v4/projects/42/transfer":   {http.StatusOK, projectJSON},
+	}
+
+	// Path-only routes: matched when no method-specific route exists
+	pathRoutes := map[string]mockRoute{
+		"/api/v4/projects/42/invited_groups":   {http.StatusOK, "[]"},
+		"/api/v4/projects/42/users":            {http.StatusOK, "[]"},
+		"/api/v4/projects/42/groups":           {http.StatusOK, "[]"},
+		"/api/v4/projects/42/starrers":         {http.StatusOK, "[]"},
+		"/api/v4/projects/42/storage":          {http.StatusOK, `{"repository_storage":"default"}`},
+		"/api/v4/projects/42/avatar":           {http.StatusOK, "AVATAR"},
+		pathProject42Forks:                     {http.StatusOK, "[]"},
+		"/api/v4/projects/42/languages":        {http.StatusOK, `{"Go":80.5,"Markdown":19.5}`},
+		"/api/v4/users/1/projects":             {http.StatusOK, "[]"},
+		"/api/v4/users/1/contributed_projects": {http.StatusOK, "[]"},
+		"/api/v4/users/1/starred_projects":     {http.StatusOK, "[]"},
+		// Catch-all GET for project 42 (also handles PUT /projects/42)
+		pathProject42: {http.StatusOK, projectJSON},
+	}
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		// TriggerTestHook uses a prefix match
+		if r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, "/api/v4/projects/42/hooks/1/test/") {
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{}`))
+			return
+		}
+
+		key := r.Method + " " + r.URL.Path
+		if route, ok := methodRoutes[key]; ok {
+			w.WriteHeader(route.status)
+			if route.body != "" {
+				_, _ = w.Write([]byte(route.body))
+			}
+			return
+		}
+
+		if route, ok := pathRoutes[r.URL.Path]; ok {
+			w.WriteHeader(route.status)
+			if route.body != "" {
+				_, _ = w.Write([]byte(route.body))
+			}
+			return
+		}
+
+		http.NotFound(w, r)
+	})
+}
+
+// newProjectRouteSpecs creates canonical project route specs for the package tests.
+func newProjectRouteSpecs(t *testing.T) map[string]toolutil.ActionSpec {
+	t.Helper()
+
+	client := testutil.NewTestClient(t, mcpMockHandler())
+	return projectSpecsByTool(t, ActionSpecs(client, true))
+}
+
+// TestActionSpecs_CallAllRoutes exercises every canonical project action route.
+func TestActionSpecs_CallAllRoutes(t *testing.T) {
+	byTool := newProjectRouteSpecs(t)
+
+	// Each entry: tool name → minimal arguments that produce a successful call
+	tools := []struct {
+		name string
+		args map[string]any
+	}{
+		// Project CRUD.
+		{"gitlab_project_create", map[string]any{"name": "test"}},
+		{"gitlab_project_get", map[string]any{"project_id": "42"}},
+		{"gitlab_project_list", map[string]any{}},
+		{"gitlab_project_delete", map[string]any{"project_id": "42"}},
+		{"gitlab_project_restore", map[string]any{"project_id": "42"}},
+		{"gitlab_project_update", map[string]any{"project_id": "42", "name": "renamed"}},
+		{"gitlab_project_fork", map[string]any{"project_id": "42"}},
+		{"gitlab_project_star", map[string]any{"project_id": "42"}},
+		{"gitlab_project_unstar", map[string]any{"project_id": "42"}},
+		{"gitlab_project_archive", map[string]any{"project_id": "42"}},
+		{"gitlab_project_unarchive", map[string]any{"project_id": "42"}},
+		{"gitlab_project_transfer", map[string]any{"project_id": "42", "namespace": "new-ns"}},
+		{"gitlab_project_list_forks", map[string]any{"project_id": "42"}},
+		{"gitlab_project_languages", map[string]any{"project_id": "42"}},
+
+		// Hooks.
+		{"gitlab_project_hook_list", map[string]any{"project_id": "42"}},
+		{"gitlab_project_hook_get", map[string]any{"project_id": "42", "hook_id": float64(1)}},
+		{"gitlab_project_hook_add", map[string]any{"project_id": "42", "url": testHookURL}},
+		{"gitlab_project_hook_edit", map[string]any{"project_id": "42", "hook_id": float64(1), "url": testHookURL}},
+		{"gitlab_project_hook_delete", map[string]any{"project_id": "42", "hook_id": float64(1)}},
+		{"gitlab_project_hook_test", map[string]any{"project_id": "42", "hook_id": float64(1), "event": "push_events"}},
+
+		// User/group listings.
+		{"gitlab_project_list_user_projects", map[string]any{"user_id": "1"}},
+		{"gitlab_project_list_users", map[string]any{"project_id": "42"}},
+		{"gitlab_project_list_groups", map[string]any{"project_id": "42"}},
+		{"gitlab_project_list_starrers", map[string]any{"project_id": "42"}},
+
+		// Share.
+		{"gitlab_project_share_with_group", map[string]any{"project_id": "42", "group_id": float64(1), "group_access": float64(30)}},
+		{"gitlab_project_delete_shared_group", map[string]any{"project_id": "42", "group_id": float64(1)}},
+		{"gitlab_project_list_invited_groups", map[string]any{"project_id": "42"}},
+
+		// User-scoped listings.
+		{"gitlab_project_list_user_contributed", map[string]any{"user_id": "1"}},
+		{"gitlab_project_list_user_starred", map[string]any{"user_id": "1"}},
+
+		// Push rules.
+		{"gitlab_project_get_push_rules", map[string]any{"project_id": "42"}},
+		{"gitlab_project_add_push_rule", map[string]any{"project_id": "42", "commit_message_regex": "^EVAL-"}},
+		{"gitlab_project_edit_push_rule", map[string]any{"project_id": "42"}},
+		{"gitlab_project_delete_push_rule", map[string]any{"project_id": "42"}},
+
+		// Webhook customization.
+		{"gitlab_project_hook_set_custom_header", map[string]any{"project_id": "42", "hook_id": float64(1), "key": "X-Test", "value": "v"}},
+		{"gitlab_project_hook_delete_custom_header", map[string]any{"project_id": "42", "hook_id": float64(1), "key": "X-Test"}},
+		{"gitlab_project_hook_set_url_variable", map[string]any{"project_id": "42", "hook_id": float64(1), "key": "myvar", "value": "v"}},
+		{"gitlab_project_hook_delete_url_variable", map[string]any{"project_id": "42", "hook_id": float64(1), "key": "myvar"}},
+
+		// Fork relations.
+		{"gitlab_project_create_fork_relation", map[string]any{"project_id": "42", "forked_from_id": float64(99)}},
+		{"gitlab_project_delete_fork_relation", map[string]any{"project_id": "42"}},
+
+		// Avatar.
+		{"gitlab_project_upload_avatar", map[string]any{"project_id": "42", "content_base64": "aWNv", "filename": "a.png"}},
+		{"gitlab_project_download_avatar", map[string]any{"project_id": "42"}},
+
+		// Approval config.
+		{"gitlab_project_approval_config_get", map[string]any{"project_id": "42"}},
+		{"gitlab_project_approval_config_change", map[string]any{"project_id": "42", "approvals_before_merge": float64(3)}},
+
+		// Approval rules.
+		{"gitlab_project_approval_rule_list", map[string]any{"project_id": "42"}},
+		{"gitlab_project_approval_rule_get", map[string]any{"project_id": "42", "rule_id": float64(1)}},
+		{"gitlab_project_approval_rule_create", map[string]any{"project_id": "42", "name": "rule", "approvals_required": float64(1)}},
+		{"gitlab_project_approval_rule_update", map[string]any{"project_id": "42", "rule_id": float64(1), "name": "rule2", "approvals_required": float64(2)}},
+		{"gitlab_project_approval_rule_delete", map[string]any{"project_id": "42", "rule_id": float64(1)}},
+
+		// Pull mirror.
+		{"gitlab_project_pull_mirror_get", map[string]any{"project_id": "42"}},
+		{"gitlab_project_pull_mirror_configure", map[string]any{"project_id": "42", "url": "https://example.com/repo.git"}},
+		{"gitlab_project_start_mirroring", map[string]any{"project_id": "42"}},
+
+		// Maintenance.
+		{"gitlab_project_start_housekeeping", map[string]any{"project_id": "42"}},
+
+		// Repository storage.
+		{"gitlab_project_repository_storage_get", map[string]any{"project_id": "42"}},
+
+		// Admin.
+		{"gitlab_project_create_for_user", map[string]any{"user_id": float64(1), "name": "test"}},
+	}
+
+	for _, tt := range tools {
+		t.Run(tt.name, func(t *testing.T) {
+			assertProjectRouteOK(t, byTool, tt.name, tt.args)
+		})
+	}
+}
+
+// TestCatalogSurface_ProjectDestructiveConfirmDeclined verifies destructive project tools return early when confirmation is declined.
+func TestCatalogSurface_ProjectDestructiveConfirmDeclined(t *testing.T) {
+	client := testutil.NewTestClient(t, http.NewServeMux())
+	byTool := projectSpecsByTool(t, ActionSpecs(client, false))
+
+	for _, tt := range []struct {
+		toolName string
+		args     map[string]any
+	}{
+		{toolName: "gitlab_project_delete", args: map[string]any{"project_id": "42"}},
+		{toolName: "gitlab_project_transfer", args: map[string]any{"project_id": "42", "namespace": "new-ns"}},
+	} {
+		t.Run(tt.toolName, func(t *testing.T) {
+			server := mcp.NewServer(&mcp.Implementation{Name: "test", Version: "0.0.1"}, nil)
+			toolutil.RegisterSurfaceToolFromSpec(server, byTool[tt.toolName], toolutil.SurfaceToolRegisterOptions{
+				Description: "Test project destructive confirmation.",
+				Icons:       toolutil.IconProject,
+			})
+
+			st, ct := mcp.NewInMemoryTransports()
+			ctx := context.Background()
+			serverSession, err := server.Connect(ctx, st, nil)
+			if err != nil {
+				t.Fatalf("server connect: %v", err)
+			}
+			mcpClient := mcp.NewClient(&mcp.Implementation{Name: "test-client", Version: "0.0.1"}, &mcp.ClientOptions{
+				ElicitationHandler: func(_ context.Context, _ *mcp.ElicitRequest) (*mcp.ElicitResult, error) {
+					return &mcp.ElicitResult{Action: "decline"}, nil
+				},
+			})
+			session, err := mcpClient.Connect(ctx, ct, nil)
+			if err != nil {
+				t.Fatalf("client connect: %v", err)
+			}
+			t.Cleanup(func() {
+				session.Close()
+				_ = serverSession.Wait()
+			})
+
+			result, err := session.CallTool(ctx, &mcp.CallToolParams{Name: tt.toolName, Arguments: tt.args})
+			if err != nil {
+				t.Fatalf("CallTool error: %v", err)
+			}
+			if result == nil {
+				t.Fatal("expected non-nil result for declined confirmation")
+			}
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Create field combination edge cases
+// ---------------------------------------------------------------------------.
+
+// TestProjectCreate_MergeMethod_FastForward verifies that Create sends the
+// merge_method=ff option without squash commits.
+func TestProjectCreate_MergeMethod_FastForward(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == pathProjects {
+			var body map[string]any
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				t.Fatalf("failed to decode body: %v", err)
+			}
+			if v, ok := body["merge_method"].(string); !ok || v != "ff" {
+				t.Errorf("merge_method = %v, want %q", body["merge_method"], "ff")
+			}
+			if _, ok := body["squash_option"]; ok {
+				t.Errorf("squash_option should not be set, got %v", body["squash_option"])
+			}
+			testutil.RespondJSON(w, http.StatusCreated, `{"id":99,"name":"ff-proj","path_with_namespace":"ns/ff-proj","visibility":"private","default_branch":"main","web_url":"https://gitlab.example.com/ns/ff-proj","description":"","merge_method":"ff"}`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+
+	out, err := Create(context.Background(), client, CreateInput{
+		Name:        "ff-proj",
+		MergeMethod: "ff",
+	})
+	if err != nil {
+		t.Fatalf(fmtUnexpErr, err)
+	}
+	if out.MergeMethod != "ff" {
+		t.Errorf("MergeMethod = %q, want %q", out.MergeMethod, "ff")
+	}
+}
+
+// TestProjectCreate_MergePoliciesCombined verifies that Create sends
+// merge_method + squash_option + only_allow_merge_if_pipeline_succeeds together.
+func TestProjectCreate_MergePoliciesCombined(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == pathProjects {
+			var body map[string]any
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				t.Fatalf("failed to decode body: %v", err)
+			}
+			if v := body["merge_method"]; v != "rebase_merge" {
+				t.Errorf("merge_method = %v, want rebase_merge", v)
+			}
+			if v := body["squash_option"]; v != "always" {
+				t.Errorf("squash_option = %v, want always", v)
+			}
+			if v, ok := body["only_allow_merge_if_pipeline_succeeds"].(bool); !ok || !v {
+				t.Errorf("only_allow_merge_if_pipeline_succeeds = %v, want true", body["only_allow_merge_if_pipeline_succeeds"])
+			}
+			testutil.RespondJSON(w, http.StatusCreated, `{"id":100,"name":"policies-proj","path_with_namespace":"ns/policies-proj","visibility":"private","default_branch":"main","web_url":"https://gitlab.example.com/ns/policies-proj","description":"","merge_method":"rebase_merge"}`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+
+	_, err := Create(context.Background(), client, CreateInput{
+		Name:                             "policies-proj",
+		MergeMethod:                      "rebase_merge",
+		SquashOption:                     "always",
+		OnlyAllowMergeIfPipelineSucceeds: true,
+	})
+	if err != nil {
+		t.Fatalf(fmtUnexpErr, err)
+	}
+}
+
+// TestProjectCreate_RemoveSourceBranch verifies that Create sends
+// remove_source_branch_after_merge when set to true.
+func TestProjectCreate_RemoveSourceBranch(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == pathProjects {
+			var body map[string]any
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				t.Fatalf("failed to decode body: %v", err)
+			}
+			if v, ok := body["remove_source_branch_after_merge"].(bool); !ok || !v {
+				t.Errorf("remove_source_branch_after_merge = %v, want true", body["remove_source_branch_after_merge"])
+			}
+			testutil.RespondJSON(w, http.StatusCreated, `{"id":101,"name":"cleanup-proj","path_with_namespace":"ns/cleanup-proj","visibility":"private","default_branch":"main","web_url":"https://gitlab.example.com/ns/cleanup-proj","description":"","remove_source_branch_after_merge":true}`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+
+	remove := true
+	out, err := Create(context.Background(), client, CreateInput{
+		Name:                         "cleanup-proj",
+		RemoveSourceBranchAfterMerge: &remove,
+	})
+	if err != nil {
+		t.Fatalf(fmtUnexpErr, err)
+	}
+	if !out.RemoveSourceBranchAfterMerge {
+		t.Error("RemoveSourceBranchAfterMerge = false, want true")
+	}
+}
+
+// TestProjectCreate_FeatureTogglesDisabled verifies that Create correctly sends
+// feature toggles set to false (issues, wiki, jobs, snippets disabled).
+func TestProjectCreate_FeatureTogglesDisabled(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		handleProjectCreateFeatureTogglesDisabled(t, w, r)
+	}))
+
+	issues := false
+	wiki := false
+	jobs := false
+	snippets := "disabled"
+	_, err := Create(context.Background(), client, CreateInput{
+		Name:                "minimal-proj",
+		IssuesEnabled:       &issues,
+		WikiEnabled:         &wiki,
+		JobsEnabled:         &jobs,
+		SnippetsAccessLevel: snippets,
+	})
+	if err != nil {
+		t.Fatalf(fmtUnexpErr, err)
+	}
+}
+
+func handleProjectCreateFeatureTogglesDisabled(t *testing.T, w http.ResponseWriter, r *http.Request) {
+	t.Helper()
+	if r.Method != http.MethodPost || r.URL.Path != pathProjects {
+		http.NotFound(w, r)
+		return
+	}
+	var body map[string]any
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		t.Fatalf("failed to decode body: %v", err)
+	}
+	assertDisabledProjectFeatureToggles(t, body)
+	testutil.RespondJSON(w, http.StatusCreated, `{"id":102,"name":"minimal-proj","path_with_namespace":"ns/minimal-proj","visibility":"private","default_branch":"main","web_url":"https://gitlab.example.com/ns/minimal-proj","description":""}`)
+}
+
+func assertDisabledProjectFeatureToggles(t *testing.T, body map[string]any) {
+	t.Helper()
+	if v := body["issues_access_level"]; v != "disabled" {
+		t.Errorf("issues_access_level = %v, want disabled", v)
+	}
+	if v := body["wiki_access_level"]; v != "disabled" {
+		t.Errorf("wiki_access_level = %v, want disabled", v)
+	}
+	if v := body["builds_access_level"]; v != "disabled" {
+		t.Errorf("builds_access_level = %v, want disabled", v)
+	}
+	if v := body["snippets_access_level"]; v != "disabled" {
+		t.Errorf("snippets_access_level = %v, want disabled", v)
+	}
+}
+
+// assertProjectRouteOK checks project route ok invariants for tests.
+func assertProjectRouteOK(t *testing.T, byTool map[string]toolutil.ActionSpec, name string, args map[string]any) {
+	t.Helper()
+	result, err := byTool[name].Route.Handler(t.Context(), args)
+	if err != nil {
+		t.Fatalf("Route.Handler(%s) error: %v", name, err)
+	}
+	if result == nil {
+		t.Fatalf("Route.Handler(%s) returned nil", name)
+	}
+}
+
+// projectSpecsByTool supports project specs by tool assertions in projects tests.
+func projectSpecsByTool(t *testing.T, specs []toolutil.ActionSpec) map[string]toolutil.ActionSpec {
+	t.Helper()
+	byTool := make(map[string]toolutil.ActionSpec, len(specs))
+	for _, spec := range specs {
+		byTool[spec.IndividualTool.Name] = spec
+	}
+	return byTool
+}
+
+// Test paths for webhook customization, fork relations, avatars, maintenance, and admin operations.
+const (
+	pathProject42CustomHeaders = "/api/v4/projects/42/hooks/1/custom_headers/X-Custom"
+	pathProject42URLVars       = "/api/v4/projects/42/hooks/1/url_variables/my_var"
+	pathProject42ForkRelation  = "/api/v4/projects/42/fork"
+	pathProject42Avatar        = "/api/v4/projects/42/avatar"
+	pathProject42Housekeeping  = "/api/v4/projects/42/housekeeping"
+	pathProject42Storage       = "/api/v4/projects/42/storage"
+	pathProjectForUser5        = "/api/v4/projects/user/5"
+
+	testKeyXCustom = "X-Custom"
+	testKeyMyVar   = "my_var"
+	testValueHdr   = "header-value"
+	testValueVar   = "var-value"
+
+	forkRelationJSON = `{"id":1,"forked_to_project_id":42,"forked_from_project_id":99,"created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z"}`
+
+	repoStorageJSON = `{
+		"project_id":42,
+		"disk_path":"@hashed/d4/73/d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35",
+		"repository_storage":"default",
+		"created_at":"2026-01-01T00:00:00Z"
+	}`
+
+	extProjectJSON = `{"id":42,"name":"my-repo","path":"my-repo","path_with_namespace":"jmrplens/my-repo","visibility":"private","default_branch":"main","web_url":"https://gitlab.example.com/jmrplens/my-repo","description":"","topics":[]}`
+)
+
+// TestSetCustomHeader_Success verifies SetCustomHeader succeeds when the GitLab API accepts the custom header write on a project webhook.
+func TestSetCustomHeader_Success(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPut && r.URL.Path == pathProject42CustomHeaders {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	err := SetCustomHeader(context.Background(), client, SetCustomHeaderInput{
+		ProjectID: "42",
+		HookID:    1,
+		Key:       testKeyXCustom,
+		Value:     testValueHdr,
+	})
+	if err != nil {
+		t.Fatalf(fmtUnexpErr, err)
+	}
+}
+
+// TestSetCustomHeader_EmptyProjectID verifies SetCustomHeader returns an error when ProjectID is empty.
+func TestSetCustomHeader_EmptyProjectID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.NotFound(w, nil)
+	}))
+	err := SetCustomHeader(context.Background(), client, SetCustomHeaderInput{HookID: 1, Key: "k"})
+	if err == nil {
+		t.Fatal(errEmptyProjID)
+	}
+}
+
+// TestSetCustomHeader_EmptyHookID verifies SetCustomHeader returns an error when HookID is zero.
+func TestSetCustomHeader_EmptyHookID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.NotFound(w, nil)
+	}))
+	err := SetCustomHeader(context.Background(), client, SetCustomHeaderInput{ProjectID: "42", Key: "k"})
+	if err == nil {
+		t.Fatal(errEmptyHookID)
+	}
+}
+
+// TestSetCustomHeader_EmptyKey verifies SetCustomHeader returns an error when Key is empty.
+func TestSetCustomHeader_EmptyKey(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.NotFound(w, nil)
+	}))
+	err := SetCustomHeader(context.Background(), client, SetCustomHeaderInput{ProjectID: "42", HookID: 1})
+	if err == nil {
+		t.Fatal("expected error for empty key, got nil")
+	}
+}
+
+// TestSetCustomHeader_APIError verifies SetCustomHeader propagates errors returned by the GitLab API.
+func TestSetCustomHeader_APIError(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+	}))
+	err := SetCustomHeader(context.Background(), client, SetCustomHeaderInput{
+		ProjectID: "42", HookID: 1, Key: testKeyXCustom, Value: testValueHdr,
+	})
+	if err == nil {
+		t.Fatal(errExpectedAPI)
+	}
+}
+
+// TestSetCustomHeader_ContextCancelled verifies SetCustomHeader honors a cancelled context and returns an error.
+func TestSetCustomHeader_ContextCancelled(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.NotFound(w, nil)
+	}))
+	ctx := testutil.CancelledCtx(t)
+	err := SetCustomHeader(ctx, client, SetCustomHeaderInput{
+		ProjectID: "42", HookID: 1, Key: testKeyXCustom, Value: testValueHdr,
+	})
+	if err == nil {
+		t.Fatal(errExpectedCtxErr)
+	}
+}
+
+// TestDeleteCustomHeader_Success verifies DeleteCustomHeader succeeds when the GitLab API confirms deletion of a webhook custom header.
+func TestDeleteCustomHeader_Success(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodDelete && r.URL.Path == pathProject42CustomHeaders {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	err := DeleteCustomHeader(context.Background(), client, DeleteCustomHeaderInput{
+		ProjectID: "42", HookID: 1, Key: testKeyXCustom,
+	})
+	if err != nil {
+		t.Fatalf(fmtUnexpErr, err)
+	}
+}
+
+// TestDeleteCustomHeader_EmptyProjectID verifies DeleteCustomHeader returns an error when ProjectID is empty.
+func TestDeleteCustomHeader_EmptyProjectID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.NotFound(w, nil)
+	}))
+	err := DeleteCustomHeader(context.Background(), client, DeleteCustomHeaderInput{HookID: 1, Key: "k"})
+	if err == nil {
+		t.Fatal(errEmptyProjID)
+	}
+}
+
+// TestDeleteCustomHeader_EmptyHookID verifies DeleteCustomHeader returns an error when HookID is zero.
+func TestDeleteCustomHeader_EmptyHookID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.NotFound(w, nil)
+	}))
+	err := DeleteCustomHeader(context.Background(), client, DeleteCustomHeaderInput{ProjectID: "42", Key: "k"})
+	if err == nil {
+		t.Fatal(errEmptyHookID)
+	}
+}
+
+// TestDeleteCustomHeader_APIError verifies DeleteCustomHeader propagates errors returned by the GitLab API.
+func TestDeleteCustomHeader_APIError(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+	}))
+	err := DeleteCustomHeader(context.Background(), client, DeleteCustomHeaderInput{
+		ProjectID: "42", HookID: 1, Key: testKeyXCustom,
+	})
+	if err == nil {
+		t.Fatal(errExpectedAPI)
+	}
+}
+
+// TestSetWebhookURLVariable_Success verifies SetURLVariable succeeds when the GitLab API accepts the webhook URL variable write.
+func TestSetWebhookURLVariable_Success(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPut && r.URL.Path == pathProject42URLVars {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	err := SetWebhookURLVariable(context.Background(), client, SetWebhookURLVariableInput{
+		ProjectID: "42", HookID: 1, Key: testKeyMyVar, Value: testValueVar,
+	})
+	if err != nil {
+		t.Fatalf(fmtUnexpErr, err)
+	}
+}
+
+// TestSetWebhookURLVariable_EmptyProjectID verifies SetURLVariable returns an error when ProjectID is empty.
+func TestSetWebhookURLVariable_EmptyProjectID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.NotFound(w, nil)
+	}))
+	err := SetWebhookURLVariable(context.Background(), client, SetWebhookURLVariableInput{HookID: 1, Key: "k"})
+	if err == nil {
+		t.Fatal(errEmptyProjID)
+	}
+}
+
+// TestSetWebhookURLVariable_EmptyHookID verifies SetURLVariable returns an error when HookID is zero.
+func TestSetWebhookURLVariable_EmptyHookID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.NotFound(w, nil)
+	}))
+	err := SetWebhookURLVariable(context.Background(), client, SetWebhookURLVariableInput{ProjectID: "42", Key: "k"})
+	if err == nil {
+		t.Fatal(errEmptyHookID)
+	}
+}
+
+// TestSetWebhookURLVariable_EmptyKey verifies SetURLVariable returns an error when Key is empty.
+func TestSetWebhookURLVariable_EmptyKey(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.NotFound(w, nil)
+	}))
+	err := SetWebhookURLVariable(context.Background(), client, SetWebhookURLVariableInput{ProjectID: "42", HookID: 1})
+	if err == nil {
+		t.Fatal("expected error for empty key, got nil")
+	}
+}
+
+// TestSetWebhookURLVariable_APIError verifies SetURLVariable propagates errors returned by the GitLab API.
+func TestSetWebhookURLVariable_APIError(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+	}))
+	err := SetWebhookURLVariable(context.Background(), client, SetWebhookURLVariableInput{
+		ProjectID: "42", HookID: 1, Key: testKeyMyVar, Value: testValueVar,
+	})
+	if err == nil {
+		t.Fatal(errExpectedAPI)
+	}
+}
+
+// TestDeleteWebhookURLVariable_Success verifies DeleteURLVariable succeeds when the GitLab API confirms deletion of a webhook URL variable.
+func TestDeleteWebhookURLVariable_Success(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodDelete && r.URL.Path == pathProject42URLVars {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	err := DeleteWebhookURLVariable(context.Background(), client, DeleteWebhookURLVariableInput{
+		ProjectID: "42", HookID: 1, Key: testKeyMyVar,
+	})
+	if err != nil {
+		t.Fatalf(fmtUnexpErr, err)
+	}
+}
+
+// TestDeleteWebhookURLVariable_EmptyProjectID verifies DeleteURLVariable returns an error when ProjectID is empty.
+func TestDeleteWebhookURLVariable_EmptyProjectID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.NotFound(w, nil)
+	}))
+	err := DeleteWebhookURLVariable(context.Background(), client, DeleteWebhookURLVariableInput{HookID: 1, Key: "k"})
+	if err == nil {
+		t.Fatal(errEmptyProjID)
+	}
+}
+
+// TestDeleteWebhookURLVariable_EmptyHookID verifies DeleteURLVariable returns an error when HookID is zero.
+func TestDeleteWebhookURLVariable_EmptyHookID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.NotFound(w, nil)
+	}))
+	err := DeleteWebhookURLVariable(context.Background(), client, DeleteWebhookURLVariableInput{ProjectID: "42", Key: "k"})
+	if err == nil {
+		t.Fatal(errEmptyHookID)
+	}
+}
+
+// TestDeleteWebhookURLVariable_APIError verifies DeleteURLVariable propagates errors returned by the GitLab API.
+func TestDeleteWebhookURLVariable_APIError(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+	}))
+	err := DeleteWebhookURLVariable(context.Background(), client, DeleteWebhookURLVariableInput{
+		ProjectID: "42", HookID: 1, Key: testKeyMyVar,
+	})
+	if err == nil {
+		t.Fatal(errExpectedAPI)
+	}
+}
+
+// TestDeleteWebhookURLVariable_ContextCancelled verifies DeleteURLVariable honors a cancelled context and returns an error.
+func TestDeleteWebhookURLVariable_ContextCancelled(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.NotFound(w, nil)
+	}))
+	ctx := testutil.CancelledCtx(t)
+	err := DeleteWebhookURLVariable(ctx, client, DeleteWebhookURLVariableInput{
+		ProjectID: "42", HookID: 1, Key: testKeyMyVar,
+	})
+	if err == nil {
+		t.Fatal(errExpectedCtxErr)
+	}
+}
+
+// TestCreateForkRelation_Success verifies CreateForkRelation succeeds when the GitLab API accepts the fork-from relationship creation.
+func TestCreateForkRelation_Success(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, pathProject42ForkRelation) {
+			testutil.RespondJSON(w, http.StatusCreated, forkRelationJSON)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	out, err := CreateForkRelation(context.Background(), client, CreateForkRelationInput{
+		ProjectID: "42", ForkedFromID: 99,
+	})
+	if err != nil {
+		t.Fatalf(fmtUnexpErr, err)
+	}
+	if out.ID != 1 {
+		t.Errorf("ID = %d, want 1", out.ID)
+	}
+	if out.ForkedFromProjectID != 99 {
+		t.Errorf("ForkedFromProjectID = %d, want 99", out.ForkedFromProjectID)
+	}
+	if out.ForkedToProjectID != 42 {
+		t.Errorf("ForkedToProjectID = %d, want 42", out.ForkedToProjectID)
+	}
+}
+
+// TestCreateForkRelation_EmptyProjectID verifies CreateForkRelation returns an error when ProjectID is empty.
+func TestCreateForkRelation_EmptyProjectID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.NotFound(w, nil)
+	}))
+	_, err := CreateForkRelation(context.Background(), client, CreateForkRelationInput{ForkedFromID: 99})
+	if err == nil {
+		t.Fatal(errEmptyProjID)
+	}
+}
+
+// TestCreateForkRelation_EmptyForkedFromID verifies CreateForkRelation returns an error when ForkedFromID is empty.
+func TestCreateForkRelation_EmptyForkedFromID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.NotFound(w, nil)
+	}))
+	_, err := CreateForkRelation(context.Background(), client, CreateForkRelationInput{ProjectID: "42"})
+	if err == nil {
+		t.Fatal("expected error for empty forked_from_id, got nil")
+	}
+}
+
+// TestCreateForkRelation_APIError verifies CreateForkRelation propagates errors returned by the GitLab API.
+func TestCreateForkRelation_APIError(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+	}))
+	_, err := CreateForkRelation(context.Background(), client, CreateForkRelationInput{
+		ProjectID: "42", ForkedFromID: 99,
+	})
+	if err == nil {
+		t.Fatal(errExpectedAPI)
+	}
+}
+
+// TestDeleteForkRelation_Success verifies DeleteForkRelation succeeds when the GitLab API confirms removal of the fork relationship.
+func TestDeleteForkRelation_Success(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodDelete && r.URL.Path == pathProject42ForkRelation {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	err := DeleteForkRelation(context.Background(), client, DeleteForkRelationInput{ProjectID: "42"})
+	if err != nil {
+		t.Fatalf(fmtUnexpErr, err)
+	}
+}
+
+// TestDeleteForkRelation_EmptyProjectID verifies DeleteForkRelation returns an error when ProjectID is empty.
+func TestDeleteForkRelation_EmptyProjectID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.NotFound(w, nil)
+	}))
+	err := DeleteForkRelation(context.Background(), client, DeleteForkRelationInput{})
+	if err == nil {
+		t.Fatal(errEmptyProjID)
+	}
+}
+
+// TestDeleteForkRelation_APIError verifies DeleteForkRelation propagates errors returned by the GitLab API.
+func TestDeleteForkRelation_APIError(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+	}))
+	err := DeleteForkRelation(context.Background(), client, DeleteForkRelationInput{ProjectID: "42"})
+	if err == nil {
+		t.Fatal(errExpectedAPI)
+	}
+}
+
+// TestDeleteForkRelation_ContextCancelled verifies DeleteForkRelation honors a cancelled context and returns an error.
+func TestDeleteForkRelation_ContextCancelled(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.NotFound(w, nil)
+	}))
+	ctx := testutil.CancelledCtx(t)
+	err := DeleteForkRelation(ctx, client, DeleteForkRelationInput{ProjectID: "42"})
+	if err == nil {
+		t.Fatal(errExpectedCtxErr)
+	}
+}
+
+// TestUploadAvatar_Success verifies UploadAvatar succeeds when given a base64-encoded payload and the GitLab API returns the updated project.
+func TestUploadAvatar_Success(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPut && r.URL.Path == pathProject42 {
+			testutil.RespondJSON(w, http.StatusOK, extProjectJSON)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	content := base64.StdEncoding.EncodeToString([]byte("fake-image-data"))
+	out, err := UploadAvatar(context.Background(), client, UploadAvatarInput{
+		ProjectID: "42", Filename: "avatar.png", ContentBase64: content,
+	})
+	if err != nil {
+		t.Fatalf(fmtUnexpErr, err)
+	}
+	if out.ID != 42 {
+		t.Errorf("ID = %d, want 42", out.ID)
+	}
+}
+
+// TestUploadAvatar_EmptyProjectID verifies UploadAvatar returns an error when ProjectID is empty.
+func TestUploadAvatar_EmptyProjectID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.NotFound(w, nil)
+	}))
+	_, err := UploadAvatar(context.Background(), client, UploadAvatarInput{
+		Filename: "a.png", ContentBase64: "dGVzdA==",
+	})
+	if err == nil {
+		t.Fatal(errEmptyProjID)
+	}
+}
+
+// TestUploadAvatar_EmptyFilename verifies UploadAvatar returns an error when Filename is empty.
+func TestUploadAvatar_EmptyFilename(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.NotFound(w, nil)
+	}))
+	_, err := UploadAvatar(context.Background(), client, UploadAvatarInput{
+		ProjectID: "42", ContentBase64: "dGVzdA==",
+	})
+	if err == nil {
+		t.Fatal("expected error for empty filename, got nil")
+	}
+}
+
+// TestUploadAvatar_EmptyContentBase64 verifies UploadAvatar returns an error when neither ContentBase64 nor FilePath is provided.
+func TestUploadAvatar_EmptyContentBase64(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.NotFound(w, nil)
+	}))
+	_, err := UploadAvatar(context.Background(), client, UploadAvatarInput{
+		ProjectID: "42", Filename: "a.png",
+	})
+	if err == nil {
+		t.Fatal("expected error when neither file_path nor content_base64 provided, got nil")
+	}
+}
+
+// TestUploadAvatar_BothFilePathAndBase64 verifies UploadAvatar returns an error when both FilePath and ContentBase64 are provided (mutually exclusive).
+func TestUploadAvatar_BothFilePathAndBase64(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.NotFound(w, nil)
+	}))
+	_, err := UploadAvatar(context.Background(), client, UploadAvatarInput{
+		ProjectID: "42", Filename: "a.png", FilePath: "/tmp/a.png", ContentBase64: "dGVzdA==",
+	})
+	if err == nil {
+		t.Fatal("expected error when both file_path and content_base64 provided, got nil")
+	}
+}
+
+// TestUploadAvatar_FilePath_Success verifies UploadAvatar reads an on-disk file via FilePath and uploads it successfully.
+func TestUploadAvatar_FilePath_Success(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPut && r.URL.Path == pathProject42 {
+			testutil.RespondJSON(w, http.StatusOK, extProjectJSON)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	tmpFile := t.TempDir() + "/avatar.png"
+	if err := os.WriteFile(tmpFile, []byte("fake-image-data"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	out, err := UploadAvatar(context.Background(), client, UploadAvatarInput{
+		ProjectID: "42", Filename: "avatar.png", FilePath: tmpFile,
+	})
+	if err != nil {
+		t.Fatalf(fmtUnexpErr, err)
+	}
+	if out.ID != 42 {
+		t.Errorf("ID = %d, want 42", out.ID)
+	}
+}
+
+// TestUploadAvatar_FilePath_NotFound verifies UploadAvatar returns an error when the FilePath points to a non-existent file.
+func TestUploadAvatar_FilePath_NotFound(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.NotFound(w, nil)
+	}))
+	_, err := UploadAvatar(context.Background(), client, UploadAvatarInput{
+		ProjectID: "42", Filename: "a.png", FilePath: "/nonexistent/avatar.png",
+	})
+	if err == nil {
+		t.Fatal("expected error for nonexistent file_path, got nil")
+	}
+}
+
+// TestUploadAvatar_InvalidBase64 verifies UploadAvatar returns an error when ContentBase64 contains invalid base64 data.
+func TestUploadAvatar_InvalidBase64(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.NotFound(w, nil)
+	}))
+	_, err := UploadAvatar(context.Background(), client, UploadAvatarInput{
+		ProjectID: "42", Filename: "a.png", ContentBase64: "!!!not-valid-base64!!!",
+	})
+	if err == nil {
+		t.Fatal("expected error for invalid base64, got nil")
+	}
+}
+
+// TestUploadAvatar_APIError verifies UploadAvatar propagates errors returned by the GitLab API.
+func TestUploadAvatar_APIError(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+	}))
+	content := base64.StdEncoding.EncodeToString([]byte("data"))
+	_, err := UploadAvatar(context.Background(), client, UploadAvatarInput{
+		ProjectID: "42", Filename: "a.png", ContentBase64: content,
+	})
+	if err == nil {
+		t.Fatal(errExpectedAPI)
+	}
+}
+
+// TestUploadAvatar_ContextCancelled verifies UploadAvatar honors a cancelled context and returns an error.
+func TestUploadAvatar_ContextCancelled(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.NotFound(w, nil)
+	}))
+	ctx := testutil.CancelledCtx(t)
+	content := base64.StdEncoding.EncodeToString([]byte("data"))
+	_, err := UploadAvatar(ctx, client, UploadAvatarInput{
+		ProjectID: "42", Filename: "a.png", ContentBase64: content,
+	})
+	if err == nil {
+		t.Fatal(errExpectedCtxErr)
+	}
+}
+
+// TestDownloadAvatar_Success verifies DownloadAvatar fetches the project avatar bytes and returns them base64-encoded alongside the content type.
+func TestDownloadAvatar_Success(t *testing.T) {
+	rawBytes := []byte("fake-png-image-bytes")
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && r.URL.Path == pathProject42Avatar {
+			w.Header().Set("Content-Type", "image/png")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(rawBytes)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	out, err := DownloadAvatar(context.Background(), client, DownloadAvatarInput{ProjectID: "42"})
+	if err != nil {
+		t.Fatalf(fmtUnexpErr, err)
+	}
+	if out.SizeBytes != len(rawBytes) {
+		t.Errorf("SizeBytes = %d, want %d", out.SizeBytes, len(rawBytes))
+	}
+	expectedB64 := base64.StdEncoding.EncodeToString(rawBytes)
+	if out.ContentBase64 != expectedB64 {
+		t.Errorf("ContentBase64 mismatch")
+	}
+}
+
+// TestDownloadAvatar_EmptyProjectID verifies DownloadAvatar returns an error when ProjectID is empty.
+func TestDownloadAvatar_EmptyProjectID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.NotFound(w, nil)
+	}))
+	_, err := DownloadAvatar(context.Background(), client, DownloadAvatarInput{})
+	if err == nil {
+		t.Fatal(errEmptyProjID)
+	}
+}
+
+// TestDownloadAvatar_APIError verifies DownloadAvatar propagates errors returned by the GitLab API.
+func TestDownloadAvatar_APIError(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+	}))
+	_, err := DownloadAvatar(context.Background(), client, DownloadAvatarInput{ProjectID: "42"})
+	if err == nil {
+		t.Fatal(errExpectedAPI)
+	}
+}
+
+type downloadAvatarFailingReader struct{}
+
+func (downloadAvatarFailingReader) Read(_ []byte) (int, error) {
+	return 0, io.ErrUnexpectedEOF
+}
+
+// TestDownloadAvatarOutputFromReader_ReadError verifies avatar response read
+// failures are surfaced with operation context.
+func TestDownloadAvatarOutputFromReader_ReadError(t *testing.T) {
+	_, err := downloadAvatarOutputFromReader(downloadAvatarFailingReader{})
+	if err == nil || !strings.Contains(err.Error(), "projectDownloadAvatar: reading response") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+// TestStartHousekeeping_Success verifies StartHousekeeping succeeds when the GitLab housekeeping endpoint returns 201.
+func TestStartHousekeeping_Success(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == pathProject42Housekeeping {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	err := StartHousekeeping(context.Background(), client, StartHousekeepingInput{ProjectID: "42"})
+	if err != nil {
+		t.Fatalf(fmtUnexpErr, err)
+	}
+}
+
+// TestStartHousekeeping_EmptyProjectID verifies StartHousekeeping returns an error when ProjectID is empty.
+func TestStartHousekeeping_EmptyProjectID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.NotFound(w, nil)
+	}))
+	err := StartHousekeeping(context.Background(), client, StartHousekeepingInput{})
+	if err == nil {
+		t.Fatal(errEmptyProjID)
+	}
+}
+
+// TestStartHousekeeping_APIError verifies StartHousekeeping propagates errors returned by the GitLab API.
+func TestStartHousekeeping_APIError(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+	}))
+	err := StartHousekeeping(context.Background(), client, StartHousekeepingInput{ProjectID: "42"})
+	if err == nil {
+		t.Fatal(errExpectedAPI)
+	}
+}
+
+// TestStartHousekeeping_ContextCancelled verifies StartHousekeeping honors a cancelled context and returns an error.
+func TestStartHousekeeping_ContextCancelled(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.NotFound(w, nil)
+	}))
+	ctx := testutil.CancelledCtx(t)
+	err := StartHousekeeping(ctx, client, StartHousekeepingInput{ProjectID: "42"})
+	if err == nil {
+		t.Fatal(errExpectedCtxErr)
+	}
+}
+
+// TestGetRepositoryStorage_Success verifies GetRepositoryStorage returns the storage shard metadata reported by the GitLab API.
+func TestGetRepositoryStorage_Success(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && r.URL.Path == pathProject42Storage {
+			testutil.RespondJSON(w, http.StatusOK, repoStorageJSON)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	out, err := GetRepositoryStorage(context.Background(), client, GetRepositoryStorageInput{ProjectID: "42"})
+	if err != nil {
+		t.Fatalf(fmtUnexpErr, err)
+	}
+	if out.ProjectID != 42 {
+		t.Errorf("ProjectID = %d, want 42", out.ProjectID)
+	}
+	if out.RepositoryStorage != "default" {
+		t.Errorf("RepositoryStorage = %q, want %q", out.RepositoryStorage, "default")
+	}
+	if out.DiskPath == "" {
+		t.Error("DiskPath is empty")
+	}
+	if out.CreatedAt == "" {
+		t.Error("CreatedAt is empty")
+	}
+}
+
+// TestGetRepositoryStorage_EmptyProjectID verifies GetRepositoryStorage returns an error when ProjectID is empty.
+func TestGetRepositoryStorage_EmptyProjectID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.NotFound(w, nil)
+	}))
+	_, err := GetRepositoryStorage(context.Background(), client, GetRepositoryStorageInput{})
+	if err == nil {
+		t.Fatal(errEmptyProjID)
+	}
+}
+
+// TestGetRepositoryStorage_APIError verifies GetRepositoryStorage propagates errors returned by the GitLab API.
+func TestGetRepositoryStorage_APIError(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+	}))
+	_, err := GetRepositoryStorage(context.Background(), client, GetRepositoryStorageInput{ProjectID: "42"})
+	if err == nil {
+		t.Fatal(errExpectedAPI)
+	}
+}
+
+// TestGetRepositoryStorage_ContextCancelled verifies GetRepositoryStorage honors a cancelled context and returns an error.
+func TestGetRepositoryStorage_ContextCancelled(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.NotFound(w, nil)
+	}))
+	ctx := testutil.CancelledCtx(t)
+	_, err := GetRepositoryStorage(ctx, client, GetRepositoryStorageInput{ProjectID: "42"})
+	if err == nil {
+		t.Fatal(errExpectedCtxErr)
+	}
+}
+
+// TestCreateForUser_Success verifies CreateForUser succeeds when the admin API accepts creating a project on behalf of a user.
+func TestCreateForUser_Success(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == pathProjectForUser5 {
+			testutil.RespondJSON(w, http.StatusCreated, extProjectJSON)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	out, err := CreateForUser(context.Background(), client, CreateForUserInput{
+		UserID: 5, Name: testRepoName,
+	})
+	if err != nil {
+		t.Fatalf(fmtUnexpErr, err)
+	}
+	if out.ID != 42 {
+		t.Errorf("ID = %d, want 42", out.ID)
+	}
+	if out.Name != testRepoName {
+		t.Errorf("Name = %q, want %q", out.Name, testRepoName)
+	}
+}
+
+// TestCreateForUser_EmptyUserID verifies CreateForUser returns an error when UserID is zero.
+func TestCreateForUser_EmptyUserID(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.NotFound(w, nil)
+	}))
+	_, err := CreateForUser(context.Background(), client, CreateForUserInput{Name: "repo"})
+	if err == nil {
+		t.Fatal(errEmptyUserID)
+	}
+}
+
+// TestCreateForUser_EmptyName verifies CreateForUser returns an error when Name is empty.
+func TestCreateForUser_EmptyName(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.NotFound(w, nil)
+	}))
+	_, err := CreateForUser(context.Background(), client, CreateForUserInput{UserID: 5})
+	if err == nil {
+		t.Fatal("expected error for empty name, got nil")
+	}
+}
+
+// TestCreateForUser_APIError verifies CreateForUser propagates errors returned by the GitLab API.
+func TestCreateForUser_APIError(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+	}))
+	_, err := CreateForUser(context.Background(), client, CreateForUserInput{
+		UserID: 5, Name: "repo",
+	})
+	if err == nil {
+		t.Fatal(errExpectedAPI)
+	}
+}
+
+// TestCreateForUser_ContextCancelled verifies CreateForUser honors a cancelled context and returns an error.
+func TestCreateForUser_ContextCancelled(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.NotFound(w, nil)
+	}))
+	ctx := testutil.CancelledCtx(t)
+	_, err := CreateForUser(ctx, client, CreateForUserInput{
+		UserID: 5, Name: "repo",
+	})
+	if err == nil {
+		t.Fatal(errExpectedCtxErr)
+	}
+}
+
+// TestFormatForkRelationMarkdown_NonEmpty verifies the fork-relation markdown formatter produces non-empty output containing the expected fields.
+func TestFormatForkRelationMarkdown_NonEmpty(t *testing.T) {
+	md := FormatForkRelationMarkdown(ForkRelationOutput{
+		ID: 1, ForkedToProjectID: 42, ForkedFromProjectID: 99,
+		CreatedAt: "2026-01-01T00:00:00Z",
+	})
+	if md == "" {
+		t.Fatal(errExpectedNonEmptyMD)
+	}
+	if !strings.Contains(md, "42") {
+		t.Error("markdown missing ForkedToProjectID")
+	}
+}
+
+// TestFormatDownloadAvatarMarkdown_NonEmpty verifies the download-avatar markdown formatter produces non-empty output containing the expected fields.
+func TestFormatDownloadAvatarMarkdown_NonEmpty(t *testing.T) {
+	md := FormatDownloadAvatarMarkdown(DownloadAvatarOutput{
+		ContentBase64: "dGVzdA==", SizeBytes: 4,
+	})
+	if md == "" {
+		t.Fatal(errExpectedNonEmptyMD)
+	}
+	if !strings.Contains(md, "4") {
+		t.Error("markdown missing size")
+	}
+}
+
+// TestFormatRepositoryStorageMarkdown_NonEmpty verifies the repository-storage markdown formatter produces non-empty output containing the expected fields.
+func TestFormatRepositoryStorageMarkdown_NonEmpty(t *testing.T) {
+	md := FormatRepositoryStorageMarkdown(RepositoryStorageOutput{
+		ProjectID: 42, DiskPath: "/data/repos", RepositoryStorage: "default",
+	})
+	if md == "" {
+		t.Fatal(errExpectedNonEmptyMD)
+	}
+	if !strings.Contains(md, "default") {
+		t.Error("markdown missing repository storage name")
+	}
+}
+
+// TestCreateForUser_AllOptionalFields verifies that every optional branch
+// in CreateForUser is exercised: path, namespace, description, visibility,
+// readme init, default branch, topics, and all four access-level toggles.
+func TestCreateForUser_AllOptionalFields(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == pathProjectForUser5 {
+			body, err := io.ReadAll(r.Body)
+			if err != nil {
+				t.Fatalf("read request body: %v", err)
+			}
+			s := string(body)
+			for _, want := range []string{
+				`"path":"custom-path"`,
+				`"description":"desc"`,
+				`"default_branch":"develop"`,
+			} {
+				if !strings.Contains(s, want) {
+					t.Errorf("request body missing %s, got %s", want, s)
+				}
+			}
+			testutil.RespondJSON(w, http.StatusCreated, extProjectJSON)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	bTrue := true
+	bFalse := false
+	out, err := CreateForUser(context.Background(), client, CreateForUserInput{
+		UserID:               5,
+		Name:                 testRepoName,
+		Path:                 "custom-path",
+		NamespaceID:          10,
+		Description:          "desc",
+		Visibility:           "public",
+		InitializeWithReadme: true,
+		DefaultBranch:        "develop",
+		Topics:               []string{"go", "mcp"},
+		IssuesEnabled:        &bTrue,
+		MergeRequestsEnabled: &bFalse,
+		WikiEnabled:          &bTrue,
+		JobsEnabled:          &bFalse,
+	})
+	if err != nil {
+		t.Fatalf(fmtUnexpErr, err)
+	}
+	if out.ID != 42 {
+		t.Errorf("ID = %d, want 42", out.ID)
+	}
+}
+
+// TestDownloadAvatar_ContextCancelled verifies error propagation on cancelled context.
+func TestDownloadAvatar_ContextCancelled(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.NotFound(w, nil)
+	}))
+	ctx := testutil.CancelledCtx(t)
+	_, err := DownloadAvatar(ctx, client, DownloadAvatarInput{ProjectID: "42"})
+	if err == nil {
+		t.Fatal(errExpectedCtxErr)
+	}
+}
+
+// TestDeleteCustomHeader_ContextCancelled verifies error propagation on cancelled context.
+func TestDeleteCustomHeader_ContextCancelled(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.NotFound(w, nil)
+	}))
+	ctx := testutil.CancelledCtx(t)
+	err := DeleteCustomHeader(ctx, client, DeleteCustomHeaderInput{ProjectID: "42", HookID: 1, Key: "X-Custom"})
+	if err == nil {
+		t.Fatal(errExpectedCtxErr)
+	}
+}
+
+// TestBoolToAccessLevel verifies that boolToAccessLevel correctly maps
+// nil, true, and false to the expected GitLab access control values.
+func TestBoolToAccessLevel(t *testing.T) {
+	if got := boolToAccessLevel(nil); got != nil {
+		t.Errorf("nil → %v, want nil", got)
+	}
+	bTrue := true
+	if got := boolToAccessLevel(&bTrue); got == nil || *got != gl.EnabledAccessControl {
+		t.Errorf("true → %v, want EnabledAccessControl", got)
+	}
+	bFalse := false
+	if got := boolToAccessLevel(&bFalse); got == nil || *got != gl.DisabledAccessControl {
+		t.Errorf("false → %v, want DisabledAccessControl", got)
+	}
+}
+
+// TestCreateApprovalRule_AllOptionalFields exercises every optional branch
+// in CreateApprovalRule: rule_type, user_ids, group_ids, protected_branch_ids,
+// usernames, and applies_to_all_protected_branches.
+func TestCreateApprovalRule_AllOptionalFields(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/approval_rules") {
+			testutil.RespondJSON(w, http.StatusCreated, `{"id":1,"name":"rule1","approvals_required":2,"rule_type":"regular"}`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	bTrue := true
+	out, err := CreateApprovalRule(context.Background(), client, CreateApprovalRuleInput{
+		ProjectID:                     "42",
+		Name:                          "rule1",
+		ApprovalsRequired:             2,
+		RuleType:                      "regular",
+		UserIDs:                       []int64{1, 2},
+		GroupIDs:                      []int64{3},
+		ProtectedBranchIDs:            []int64{10},
+		Usernames:                     []string{"user1"},
+		AppliesToAllProtectedBranches: &bTrue,
+	})
+	if err != nil {
+		t.Fatalf(fmtUnexpErr, err)
+	}
+	if out.ID != 1 {
+		t.Errorf("ID = %d, want 1", out.ID)
+	}
+}
+
+// TestUpdateApprovalRule_AllOptionalFields exercises every optional branch
+// in UpdateApprovalRule.
+func TestUpdateApprovalRule_AllOptionalFields(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPut && strings.Contains(r.URL.Path, "/approval_rules/") {
+			testutil.RespondJSON(w, http.StatusOK, `{"id":1,"name":"updated","approvals_required":3,"rule_type":"regular"}`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	bFalse := false
+	approvals := int64(3)
+	out, err := UpdateApprovalRule(context.Background(), client, UpdateApprovalRuleInput{
+		ProjectID:                     "42",
+		RuleID:                        1,
+		Name:                          "updated",
+		ApprovalsRequired:             &approvals,
+		UserIDs:                       []int64{5},
+		GroupIDs:                      []int64{6},
+		ProtectedBranchIDs:            []int64{7},
+		Usernames:                     []string{"u1"},
+		AppliesToAllProtectedBranches: &bFalse,
+	})
+	if err != nil {
+		t.Fatalf(fmtUnexpErr, err)
+	}
+	if out.Name != "updated" {
+		t.Errorf("Name = %q, want %q", out.Name, "updated")
+	}
+}
+
+// TestConfigurePullMirror_AllOptionalFields exercises every optional branch
+// in ConfigurePullMirror.
+func TestConfigurePullMirror_AllOptionalFields(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPut && strings.HasSuffix(r.URL.Path, "/mirror/pull") {
+			testutil.RespondJSON(w, http.StatusOK, `{"id":1,"enabled":true,"url":"https://mirror.example.com","update_status":"finished"}`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	bTrue := true
+	bFalse := false
+	out, err := ConfigurePullMirror(context.Background(), client, ConfigurePullMirrorInput{
+		ProjectID:                        "42",
+		Enabled:                          &bTrue,
+		URL:                              "https://mirror.example.com",
+		AuthUser:                         "user",
+		AuthPassword:                     "pass",
+		MirrorBranchRegex:                "^main$",
+		MirrorTriggerBuilds:              &bTrue,
+		OnlyMirrorProtectedBranches:      &bFalse,
+		MirrorOverwritesDivergedBranches: &bTrue,
+	})
+	if err != nil {
+		t.Fatalf(fmtUnexpErr, err)
+	}
+	if !out.Enabled {
+		t.Error("expected Enabled=true")
+	}
+}
+
+// TestPullMirrorToOutput_AllTimestamps exercises the timestamp branches in
+// pullMirrorToOutput by providing all three nullable time fields.
+func TestPullMirrorToOutput_AllTimestamps(t *testing.T) {
+	now := time.Now()
+	m := &gl.ProjectPullMirrorDetails{
+		ID:                          1,
+		Enabled:                     true,
+		URL:                         "https://mirror.example.com",
+		UpdateStatus:                "finished",
+		LastSuccessfulUpdateAt:      &now,
+		LastUpdateAt:                &now,
+		LastUpdateStartedAt:         &now,
+		MirrorBranchRegex:           "^main$",
+		MirrorTriggerBuilds:         true,
+		OnlyMirrorProtectedBranches: false,
+	}
+	out := pullMirrorToOutput(m)
+	if out.LastSuccessfulUpdateAt == "" {
+		t.Error("expected non-empty LastSuccessfulUpdateAt")
+	}
+	if out.LastUpdateAt == "" {
+		t.Error("expected non-empty LastUpdateAt")
+	}
+	if out.LastUpdateStartedAt == "" {
+		t.Error("expected non-empty LastUpdateStartedAt")
+	}
+}
+
+// TestDeleteTwoStep_Success exercises the deleteTwoStep function when
+// both API calls succeed.
+func TestDeleteTwoStep_Success(t *testing.T) {
+	calls := 0
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodDelete && strings.HasPrefix(r.URL.Path, "/api/v4/projects/42") {
+			calls++
+			w.WriteHeader(http.StatusAccepted)
+			return
+		}
+		if r.Method == http.MethodGet && r.URL.Path == "/api/v4/projects/42" {
+			testutil.RespondJSON(w, http.StatusOK, `{"id":42,"path_with_namespace":"ns/proj-deletion_scheduled-42"}`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	out, err := deleteTwoStep(context.Background(), client, DeleteInput{
+		ProjectID: "42",
+		FullPath:  "ns/proj",
+	})
+	if err != nil {
+		t.Fatalf(fmtUnexpErr, err)
+	}
+	if !out.PermanentlyRemoved {
+		t.Error("expected PermanentlyRemoved=true")
+	}
+	if calls < 2 {
+		t.Errorf("expected at least 2 DELETE calls, got %d", calls)
+	}
+}
+
+// TestDeleteTwoStep_StepOneAlreadyMarked exercises the path where the first
+// DELETE returns an "already marked for deletion" error that is tolerated.
+func TestDeleteTwoStep_StepOneAlreadyMarked(t *testing.T) {
+	callCount := 0
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodDelete {
+			callCount++
+			if callCount == 1 {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				_, _ = w.Write([]byte(`{"message":"Project already been marked for deletion"}`))
+				return
+			}
+			w.WriteHeader(http.StatusAccepted)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	out, err := deleteTwoStep(context.Background(), client, DeleteInput{ProjectID: "42"})
+	if err != nil {
+		t.Fatalf(fmtUnexpErr, err)
+	}
+	if !out.PermanentlyRemoved {
+		t.Error("expected PermanentlyRemoved=true")
+	}
+}
+
+// TestDeleteTwoStep_StepOneFails exercises deleteTwoStep when the first
+// DELETE returns an unexpected error (not "already marked").
+func TestDeleteTwoStep_StepOneFails(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+	}))
+	_, err := deleteTwoStep(context.Background(), client, DeleteInput{ProjectID: "42"})
+	if err == nil {
+		t.Fatal("expected error for forbidden step 1")
+	}
+}
+
+// TestDeleteTwoStep_StepTwoFails exercises deleteTwoStep when step 1 succeeds
+// but step 2 (permanent delete) fails.
+func TestDeleteTwoStep_StepTwoFails(t *testing.T) {
+	callCount := 0
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodDelete {
+			callCount++
+			if callCount == 1 {
+				w.WriteHeader(http.StatusAccepted)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusForbidden)
+			_, _ = w.Write([]byte(`{"error":"internal server error"}`))
+			return
+		}
+		if r.Method == http.MethodGet {
+			testutil.RespondJSON(w, http.StatusOK, `{"id":42,"path_with_namespace":"ns/proj"}`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	_, err := deleteTwoStep(context.Background(), client, DeleteInput{ProjectID: "42", FullPath: "ns/proj"})
+	if err == nil {
+		t.Fatal("expected error for failed step 2")
+	}
+}
+
+// TestCreate_ErrorBranches exercises Create 400 (bad request) and 409 (conflict) branches.
+func TestCreate_ErrorBranches(t *testing.T) {
+	tests := []struct {
+		name   string
+		status int
+		body   string
+	}{
+		{"bad_request", http.StatusBadRequest, `{"message":"name is already taken"}`},
+		{"conflict", http.StatusConflict, `{"message":"project already exists"}`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(tt.status)
+				_, _ = w.Write([]byte(tt.body))
+			}))
+			_, err := Create(context.Background(), client, CreateInput{})
+			if err == nil {
+				t.Fatal("expected error")
+			}
+		})
+	}
+}
+
+// TestUpdate_ErrorBranches exercises Update 400 and 403 branches.
+func TestUpdate_ErrorBranches(t *testing.T) {
+	tests := []struct {
+		name   string
+		status int
+		body   string
+	}{
+		{"bad_request", http.StatusBadRequest, `{"message":"name is invalid"}`},
+		{"forbidden", http.StatusForbidden, `{"message":"forbidden"}`},
+		{"server_error", http.StatusForbidden, `{"error":"boom"}`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(tt.status)
+				_, _ = w.Write([]byte(tt.body))
+			}))
+			_, err := Update(context.Background(), client, UpdateInput{ProjectID: "42"})
+			if err == nil {
+				t.Fatal("expected error")
+			}
+		})
+	}
+}
+
+// TestFork_AllOptionalFields exercises all optional branches in Fork.
+func TestFork_AllOptionalFields(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && strings.Contains(r.URL.Path, "/fork") {
+			testutil.RespondJSON(w, http.StatusCreated, `{"id":99,"name":"my-fork","path_with_namespace":"user/my-fork"}`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	bTrue := true
+	out, err := Fork(context.Background(), client, ForkInput{
+		ProjectID:                     "42",
+		Name:                          "my-fork",
+		Path:                          "my-fork",
+		NamespaceID:                   5,
+		NamespacePath:                 "user",
+		Description:                   "forked",
+		Visibility:                    "private",
+		Branches:                      "main",
+		MergeRequestDefaultTargetSelf: &bTrue,
+	})
+	if err != nil {
+		t.Fatalf(fmtUnexpErr, err)
+	}
+	if out.ID != 99 {
+		t.Errorf("ID = %d, want 99", out.ID)
+	}
+}
+
+// TestFork_ConflictError exercises the 409 conflict branch in Fork.
+func TestFork_ConflictError(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusConflict)
+		_, _ = w.Write([]byte(`{"message":"fork already exists"}`))
+	}))
+	_, err := Fork(context.Background(), client, ForkInput{ProjectID: "42"})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+// TestAddHook_AllOptionalFields exercises every optional field in AddHook.
+func TestAddHook_AllOptionalFields(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && strings.Contains(r.URL.Path, "/hooks") {
+			testutil.RespondJSON(w, http.StatusCreated, `{"id":1,"url":"https://hook.example.com","push_events":true}`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	bTrue := true
+	bFalse := false
+	out, err := AddHook(context.Background(), client, AddHookInput{
+		ProjectID: "42",
+		URL:       "https://hook.example.com",
+		HookOptionsInput: HookOptionsInput{
+			Name:                      "my-hook",
+			Description:               "desc",
+			Token:                     "secret",
+			PushEvents:                &bTrue,
+			PushEventsBranchFilter:    "main",
+			IssuesEvents:              &bTrue,
+			ConfidentialIssuesEvents:  &bFalse,
+			MergeRequestsEvents:       &bTrue,
+			TagPushEvents:             &bTrue,
+			NoteEvents:                &bTrue,
+			ConfidentialNoteEvents:    &bFalse,
+			JobEvents:                 &bTrue,
+			PipelineEvents:            &bTrue,
+			WikiPageEvents:            &bFalse,
+			DeploymentEvents:          &bTrue,
+			ReleasesEvents:            &bTrue,
+			EmojiEvents:               &bFalse,
+			ResourceAccessTokenEvents: &bTrue,
+			EnableSSLVerification:     &bTrue,
+			CustomWebhookTemplate:     `{"text":"hello"}`,
+			BranchFilterStrategy:      "wildcard",
+		},
+	})
+	if err != nil {
+		t.Fatalf(fmtUnexpErr, err)
+	}
+	if out.ID != 1 {
+		t.Errorf("ID = %d, want 1", out.ID)
+	}
+}
+
+// TestEditHook_AllOptionalFields exercises all optional fields in EditHook.
+func TestEditHook_AllOptionalFields(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPut && strings.Contains(r.URL.Path, "/hooks/") {
+			testutil.RespondJSON(w, http.StatusOK, `{"id":1,"url":"https://updated.example.com","push_events":true}`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	bTrue := true
+	bFalse := false
+	out, err := EditHook(context.Background(), client, EditHookInput{
+		ProjectID: "42",
+		HookID:    1,
+		URL:       "https://updated.example.com",
+		HookOptionsInput: HookOptionsInput{
+			Name:                      "updated",
+			Description:               "new desc",
+			Token:                     "newsecret",
+			PushEvents:                &bTrue,
+			PushEventsBranchFilter:    "develop",
+			IssuesEvents:              &bFalse,
+			ConfidentialIssuesEvents:  &bTrue,
+			MergeRequestsEvents:       &bTrue,
+			TagPushEvents:             &bFalse,
+			NoteEvents:                &bTrue,
+			ConfidentialNoteEvents:    &bTrue,
+			JobEvents:                 &bFalse,
+			PipelineEvents:            &bTrue,
+			WikiPageEvents:            &bTrue,
+			DeploymentEvents:          &bFalse,
+			ReleasesEvents:            &bTrue,
+			EmojiEvents:               &bTrue,
+			ResourceAccessTokenEvents: &bFalse,
+			EnableSSLVerification:     &bFalse,
+			CustomWebhookTemplate:     `{"text":"updated"}`,
+			BranchFilterStrategy:      "regex",
+		},
+	})
+	if err != nil {
+		t.Fatalf(fmtUnexpErr, err)
+	}
+	if out.ID != 1 {
+		t.Errorf("ID = %d, want 1", out.ID)
+	}
+}
+
+// TestFormatApprovalRuleMarkdown_AllFields exercises all conditional branches
+// in FormatApprovalRuleMarkdown: RuleType, ReportType, Users, Groups, EligibleApprovers.
+func TestFormatApprovalRuleMarkdown_AllFields(t *testing.T) {
+	md := FormatApprovalRuleMarkdown(ApprovalRuleOutput{
+		ID:                            1,
+		Name:                          "Security",
+		ApprovalsRequired:             2,
+		RuleType:                      "regular",
+		ReportType:                    "code_coverage",
+		AppliesToAllProtectedBranches: true,
+		ContainsHiddenGroups:          false,
+		Users:                         []string{"alice", "bob"},
+		Groups:                        []string{"security-team"},
+		EligibleApprovers:             []string{"alice", "bob", "charlie"},
+	})
+	for _, want := range []string{"regular", "code_coverage", "alice, bob", "security-team", "alice, bob, charlie"} {
+		if !strings.Contains(md, want) {
+			t.Errorf("markdown missing %q", want)
+		}
+	}
+}
+
+// TestFormatListApprovalRulesMarkdown_AllFields exercises the table formatting
+// with RuleType, Users, and Groups columns populated.
+func TestFormatListApprovalRulesMarkdown_AllFields(t *testing.T) {
+	md := FormatListApprovalRulesMarkdown(ListApprovalRulesOutput{
+		Rules: []ApprovalRuleOutput{
+			{
+				ID: 1, Name: "Review", RuleType: "regular", Users: []string{"alice"},
+				Groups: []string{"devs"}, ApprovalsRequired: 1,
+			},
+			{
+				ID: 2, Name: "Empty", ApprovalsRequired: 0,
+			},
+		},
+		Pagination: toolutil.PaginationOutput{TotalItems: 2},
+	})
+	if !strings.Contains(md, "regular") {
+		t.Error("missing RuleType in table")
+	}
+	if !strings.Contains(md, "alice") {
+		t.Error("missing Users in table")
+	}
+	if !strings.Contains(md, "devs") {
+		t.Error("missing Groups in table")
+	}
+	if !strings.Contains(md, "—") {
+		t.Error("missing dash for empty RuleType/Users/Groups")
+	}
+}
+
+// TestFormatListApprovalRulesMarkdown_Empty verifies empty approval rule lists.
+func TestFormatListApprovalRulesMarkdown_Empty(t *testing.T) {
+	md := FormatListApprovalRulesMarkdown(ListApprovalRulesOutput{})
+	if !strings.Contains(md, "No approval rules found") {
+		t.Fatalf("FormatListApprovalRulesMarkdown() = %q, want empty-list message", md)
+	}
+}
+
+// TestFormatPullMirrorMarkdown_AllFields exercises all conditional branches
+// in FormatPullMirrorMarkdown.
+func TestFormatPullMirrorMarkdown_AllFields(t *testing.T) {
+	md := FormatPullMirrorMarkdown(PullMirrorOutput{
+		ID:                               1,
+		Enabled:                          true,
+		URL:                              "https://mirror.example.com",
+		UpdateStatus:                     "finished",
+		LastError:                        "timeout",
+		LastSuccessfulUpdateAt:           "2024-01-15T10:00:00Z",
+		LastUpdateAt:                     "2024-01-15T10:01:00Z",
+		MirrorTriggerBuilds:              true,
+		OnlyMirrorProtectedBranches:      false,
+		MirrorOverwritesDivergedBranches: true,
+		MirrorBranchRegex:                "^main$",
+	})
+	for _, want := range []string{"mirror.example.com", "finished", "timeout", "15 Jan 2024", "^main$"} {
+		if !strings.Contains(md, want) {
+			t.Errorf("markdown missing %q", want)
+		}
+	}
+}
+
+// TestToOutput_NilOptionalFields exercises ToOutput branches for nil
+// namespace and forked_from_project fields.
+func TestToOutput_NilOptionalFields(t *testing.T) {
+	p := &gl.Project{
+		ID:                42,
+		Name:              "test",
+		PathWithNamespace: "ns/test",
+		DefaultBranch:     "main",
+	}
+	out := ToOutput(p)
+	if out.Namespace != "" {
+		t.Errorf("Namespace = %q, want empty", out.Namespace)
+	}
+	if out.ForkedFromProject != "" {
+		t.Error("expected empty ForkedFromProject")
+	}
+	if out.ProtectMergeRequestPipelines == nil || *out.ProtectMergeRequestPipelines {
+		t.Error("expected ProtectMergeRequestPipelines to be explicit false")
+	}
+}
+
+// TestAddHook_APIError exercises the error return branch in AddHook.
+func TestAddHook_APIError(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+	}))
+	_, err := AddHook(context.Background(), client, AddHookInput{ProjectID: "42", URL: "https://example.com"})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+// TestEditHook_APIError exercises the error return branch in EditHook.
+func TestEditHook_APIError(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+	}))
+	_, err := EditHook(context.Background(), client, EditHookInput{ProjectID: "42", HookID: 1})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+// TestAddHook_ContextCancelled exercises ctx.Err() early return in AddHook.
+func TestAddHook_ContextCancelled(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		testutil.RespondJSON(w, http.StatusOK, `{}`)
+	}))
+	ctx := testutil.CancelledCtx(t)
+	_, err := AddHook(ctx, client, AddHookInput{ProjectID: "42", URL: "https://example.com"})
+	if err == nil {
+		t.Fatal(errExpectedCtxErr)
+	}
+}
+
+// TestEditHook_ContextCancelled exercises ctx.Err() early return in EditHook.
+func TestEditHook_ContextCancelled(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		testutil.RespondJSON(w, http.StatusOK, `{}`)
+	}))
+	ctx := testutil.CancelledCtx(t)
+	_, err := EditHook(ctx, client, EditHookInput{ProjectID: "42", HookID: 1})
+	if err == nil {
+		t.Fatal(errExpectedCtxErr)
+	}
+}
+
+// TestGetPullMirror_ContextCancelled exercises ctx.Err() in GetPullMirror.
+func TestGetPullMirror_ContextCancelled(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		testutil.RespondJSON(w, http.StatusOK, `{}`)
+	}))
+	ctx := testutil.CancelledCtx(t)
+	_, err := GetPullMirror(ctx, client, GetPullMirrorInput{ProjectID: "42"})
+	if err == nil {
+		t.Fatal(errExpectedCtxErr)
+	}
+}
+
+// TestStartMirroring_ContextCancelled exercises ctx.Err() in StartMirroring.
+func TestStartMirroring_ContextCancelled(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		testutil.RespondJSON(w, http.StatusOK, `{}`)
+	}))
+	ctx := testutil.CancelledCtx(t)
+	err := StartMirroring(ctx, client, StartMirroringInput{ProjectID: "42"})
+	if err == nil {
+		t.Fatal(errExpectedCtxErr)
+	}
+}
+
+// TestRestore_ContextCancelled exercises ctx.Err() in Restore.
+func TestRestore_ContextCancelled(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		testutil.RespondJSON(w, http.StatusOK, `{}`)
+	}))
+	ctx := testutil.CancelledCtx(t)
+	_, err := Restore(ctx, client, RestoreInput{ProjectID: "42"})
+	if err == nil {
+		t.Fatal(errExpectedCtxErr)
+	}
+}
+
+// TestToOutput_WithAllOptionals exercises ToOutput with Namespace,
+// ForkedFromProject, MarkedForDeletionOn, and all timestamps populated.
+func TestToOutput_WithAllOptionals(t *testing.T) {
+	now := time.Now()
+	delDate := gl.ISOTime(now)
+	p := &gl.Project{
+		ID:                           42,
+		Name:                         "test",
+		PathWithNamespace:            "ns/test",
+		Namespace:                    &gl.ProjectNamespace{FullPath: "ns"},
+		ForkedFromProject:            &gl.ForkParent{PathWithNamespace: "upstream/test"},
+		MarkedForDeletionOn:          &delDate,
+		ProtectMergeRequestPipelines: true,
+		CreatedAt:                    &now,
+		UpdatedAt:                    &now,
+		LastActivityAt:               &now,
+	}
+	out := ToOutput(p)
+	if out.Namespace != "ns" {
+		t.Errorf("Namespace = %q, want %q", out.Namespace, "ns")
+	}
+	if out.ForkedFromProject != "upstream/test" {
+		t.Errorf("ForkedFromProject = %q, want %q", out.ForkedFromProject, "upstream/test")
+	}
+	if out.MarkedForDeletionOn == "" {
+		t.Error("expected non-empty MarkedForDeletionOn")
+	}
+	if out.ProtectMergeRequestPipelines == nil || !*out.ProtectMergeRequestPipelines {
+		t.Error("expected ProtectMergeRequestPipelines to be true")
+	}
+	if out.CreatedAt == "" {
+		t.Error("expected non-empty CreatedAt")
+	}
+}
+
+// TestFormatRepositoryStorageMarkdown_AllFields exercises FormatRepositoryStorageMarkdown
+// with all optional fields populated.
+func TestFormatRepositoryStorageMarkdown_AllFields(t *testing.T) {
+	md := FormatRepositoryStorageMarkdown(RepositoryStorageOutput{
+		ProjectID:         42,
+		DiskPath:          "/var/opt/gitlab/repo",
+		CreatedAt:         "2024-01-01T00:00:00Z",
+		RepositoryStorage: "default",
+	})
+	if !strings.Contains(md, "42") || !strings.Contains(md, "default") {
+		t.Error("missing expected fields in markdown")
+	}
+}
+
+// TestListApprovalRules_WithPagination exercises the Page/PerPage options
+// branches in ListApprovalRules.
+func TestListApprovalRules_WithPagination(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("page") != "2" || r.URL.Query().Get("per_page") != "5" {
+			t.Errorf("expected page=2&per_page=5, got %s", r.URL.RawQuery)
+		}
+		testutil.RespondJSON(w, http.StatusOK, `[{"id":1,"name":"r1","approvals_required":1}]`)
+	}))
+	out, err := ListApprovalRules(context.Background(), client, ListApprovalRulesInput{
+		ProjectID:       "42",
+		PaginationInput: toolutil.PaginationInput{Page: 2, PerPage: 5},
+	})
+	if err != nil {
+		t.Fatalf(fmtUnexpErr, err)
+	}
+	if len(out.Rules) != 1 {
+		t.Errorf("got %d rules, want 1", len(out.Rules))
+	}
+}
+
+// TestListApprovalRules_ContextCancelled exercises ctx.Err() in ListApprovalRules.
+func TestListApprovalRules_ContextCancelled(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		testutil.RespondJSON(w, http.StatusOK, `[]`)
+	}))
+	ctx := testutil.CancelledCtx(t)
+	_, err := ListApprovalRules(ctx, client, ListApprovalRulesInput{ProjectID: "42"})
+	if err == nil {
+		t.Fatal(errExpectedCtxErr)
+	}
+}
+
+// TestChangeApprovalConfig_ContextCancelled exercises ctx.Err() in ChangeApprovalConfig.
+func TestChangeApprovalConfig_ContextCancelled(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		testutil.RespondJSON(w, http.StatusOK, `{}`)
+	}))
+	ctx := testutil.CancelledCtx(t)
+	_, err := ChangeApprovalConfig(ctx, client, ChangeApprovalConfigInput{ProjectID: "42"})
+	if err == nil {
+		t.Fatal(errExpectedCtxErr)
+	}
+}
+
+// TestActionSpecs_ProjectGetRoute verifies the canonical project get route output.
+func TestActionSpecs_ProjectGetRoute(t *testing.T) {
+	const respJSON = `{"id":42,"name":"P","path":"p","path_with_namespace":"g/p","default_branch":"main","web_url":"https://gitlab.example.com/g/p","visibility":"private"}`
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && r.URL.Path == "/api/v4/projects/42" {
+			testutil.RespondJSON(w, http.StatusOK, respJSON)
+			return
+		}
+		http.NotFound(w, r)
+	})
+	client := testutil.NewTestClient(t, handler)
+	byTool := projectSpecsByTool(t, ActionSpecs(client, false))
+
+	result, err := byTool["gitlab_project_get"].Route.Handler(t.Context(), map[string]any{"project_id": "42"})
+	if err != nil {
+		t.Fatalf("Route.Handler error: %v", err)
+	}
+	out, ok := result.(Output)
+	if !ok {
+		t.Fatalf("result type = %T, want Output", result)
+	}
+	if out.ID != 42 || out.PathWithNamespace != "g/p" {
+		t.Fatalf("project output = %#v, want ID 42 path g/p", out)
+	}
+}
+
+// TestActionSpecs_ProjectGetNotFound verifies the canonical get route preserves rich 404 output.
+func TestActionSpecs_ProjectGetNotFound(t *testing.T) {
+	client := testutil.NewTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.NotFound(w, r)
+	}))
+	byTool := projectSpecsByTool(t, ActionSpecs(client, false))
+
+	result, err := byTool["gitlab_project_get"].Route.Handler(t.Context(), map[string]any{"project_id": "42"})
+	if err != nil {
+		t.Fatalf("Route.Handler error: %v", err)
+	}
+	if _, ok := result.(projectNotFoundOutput); !ok {
+		t.Fatalf("result type = %T, want projectNotFoundOutput", result)
+	}
+}

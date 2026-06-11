@@ -1,0 +1,50 @@
+name: Dry Run
+
+on:
+  workflow_dispatch:
+    inputs:
+      simulate_publish:
+        description: 'Simulate npm publish (no actual publish)'
+        type: boolean
+        default: true
+
+jobs:
+  dry-run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+          registry-url: 'https://registry.npmjs.org'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build
+        run: npm run build
+      
+      - name: Test
+        env:
+          FREEDCAMP_API_KEY: ${{ secrets.FREEDCAMP_API_KEY }}
+          FREEDCAMP_API_SECRET: ${{ secrets.FREEDCAMP_API_SECRET }}
+          FREEDCAMP_PROJECT_ID: ${{ secrets.FREEDCAMP_PROJECT_ID }}
+          NODE_OPTIONS: --experimental-vm-modules
+        run: npm test
+      
+      - name: Simulate Version Bump (No Push)
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          # Dry run of npm version (no git tag)
+          echo "Would bump version from $(npm pkg get version)"
+          echo "Would create git tag v$(npm pkg get version | tr -d '"')"
+      
+      - name: Simulate NPM Publish
+        if: inputs.simulate_publish
+        run: npm publish --dry-run --access public 

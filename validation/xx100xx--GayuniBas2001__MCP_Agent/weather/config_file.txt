@@ -1,0 +1,22 @@
+{
+    "mcpServers": {
+        "weather": {
+            "command": "C:\\Users\\User\\.local\\bin\\uv.exe",
+            "args": [
+                "--directory",
+                "D:/Projects/MCP_Claude/MCP_claude/weather",
+                "run",
+                "weather.py"
+            ]
+        },
+        "weather1": {
+            "command": "python",
+            "args": [
+                "D:\\Projects\\MCP_Claude\\MCP_claude\\weather\\weather.py"
+            ],
+            "host": "127.0.0.1",
+            "port": 8000,
+            "timeout": 30000   
+        }
+    }
+}

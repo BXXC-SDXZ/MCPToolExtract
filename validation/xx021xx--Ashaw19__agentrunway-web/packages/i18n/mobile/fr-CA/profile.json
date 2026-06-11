@@ -1,0 +1,277 @@
+{
+  "title": "Plus",
+  "stats": {
+    "ytdGci": "RBC cumul",
+    "dealsClosed": "Transactions conclues",
+    "goal": "Objectif"
+  },
+  "runwayScore": {
+    "label": "SCORE RUNWAY",
+    "strong": "Solide",
+    "onTrack": "En bonne voie",
+    "building": "En construction",
+    "atRisk": "À risque",
+    "description": "Basé sur le rythme de l'objectif, la couverture du pipeline, les dépenses et les réserves"
+  },
+  "tools": {
+    "title": "Outils",
+    "flightCrew": "Équipage de vol",
+    "flightCrewDesc": "Discutez avec Captain, Navigator et Dispatcher",
+    "briefing": "Briefing du jour",
+    "briefingDesc": "Vos priorités et actions du jour",
+    "flightControl": "Contrôle de vol",
+    "flightControlDesc": "Examiner et envoyer les messages automatisés",
+    "forecast": "Prévisions de revenus",
+    "forecastDesc": "Projections et rythme de fin d'année",
+    "scanReceipt": "Numériser un reçu",
+    "scanReceiptDesc": "Capturer et enregistrer les dépenses"
+  },
+  "account": {
+    "title": "Compte",
+    "appearance": "Apparence",
+    "darkMode": "Mode sombre",
+    "lightMode": "Mode clair",
+    "language": "Langue",
+    "languageDesc": "Changer la langue de l'application",
+    "subscription": "Abonnement",
+    "subscriptionPro": "Professionnel · Actif",
+    "subscriptionFree": "Forfait gratuit",
+    "subscriptionManage": "Gérez votre abonnement depuis le tableau de bord web.",
+    "goals": "Objectifs et paramètres",
+    "goalsDesc": "Définir vos cibles annuelles",
+    "goalsWithValue": "Objectif RBC : {{value}}",
+    "voiceQuiz": "Quiz de voix IA",
+    "voiceQuizDesc": "Apprenez à votre IA comment vous parlez vraiment — 3 min",
+    "voiceQuizCompleted": "Complété · Touchez pour mettre à jour",
+    "businessIdentity": "Identité d’affaires",
+    "businessIdentityDesc": "Spécialité, marché, modèle d’affaires — 2 min",
+    "businessIdentityCompleted": "Configuré · Touchez pour mettre à jour",
+    "notifications": "Notifications",
+    "notificationsDesc": "Briefing matinal, alertes de transactions, suivis",
+    "legal": "Mentions légales et confidentialité",
+    "legalDesc": "Politique de confidentialité, conditions, témoins, usage acceptable"
+  },
+  "signOut": "Déconnexion",
+  "version": "Agent Runway · v{{version}}",
+  "province": {
+    "yrsExp": "{{years}} ans exp"
+  },
+  "badge": {
+    "pro": "Pro",
+    "free": "Gratuit"
+  },
+  "forecast": {
+    "projectedYearEndGci": "RBC PROJETÉ EN FIN D'ANNÉE",
+    "basedOnPace": "Basé sur votre rythme actuel de {{amount}}/mois",
+    "earned": "{{amount}} gagné",
+    "percentOfGoal": "{{percent}} % de {{goal}}",
+    "gciPace": "Rythme RBC",
+    "dealPace": "Rythme transactions",
+    "onTrack": "En bonne voie",
+    "behind": "En retard",
+    "keyNumbers": "CHIFFRES CLÉS",
+    "projectedYearEnd": "Projection fin d'année",
+    "conservativePipeline": "Conservateur (+ pipeline)",
+    "weightedPipelineGci": "RBC pondéré du pipeline",
+    "remainingToGoal": "Restant pour l'objectif",
+    "goalMet": "Objectif atteint !",
+    "monthlyPaceRequired": "RYTHME MENSUEL REQUIS",
+    "currentAvg": "Moyenne actuelle",
+    "needed": "Nécessaire",
+    "deals": "{{count}} transactions",
+    "increaseWarning": "Vous devez augmenter votre RBC mensuel de {{amount}} pour atteindre votre objectif",
+    "thisYearSoFar": "CETTE ANNÉE JUSQU'À PRÉSENT",
+    "dealsClosed": "Transactions conclues",
+    "daysLeft": "Jours restants",
+    "pipelineDeals": "Transactions en pipeline"
+  },
+  "briefing": {
+    "greeting": "Votre briefing du {{timeOfDay}}",
+    "morning": "matin",
+    "afternoon": "après-midi",
+    "evening": "soir",
+    "atAGlance": "EN UN COUP D'ŒIL",
+    "overdueFollowUps": "suivis en retard",
+    "newLeads": "nouveaux prospects",
+    "hotDeals": "transactions urgentes",
+    "needsAttention": "Nécessite votre attention",
+    "worthALook": "Mérite un coup d'œil",
+    "comingUp": "À venir",
+    "allClear": "Tout est en ordre",
+    "noUrgentItems": "Aucun élément urgent pour le moment. Revenez plus tard ou continuez à développer votre pipeline.",
+    "footerTip": "Votre briefing se met à jour au fil de la journée lorsque vous enregistrez des activités et concluez des transactions. Tirez vers le bas pour actualiser.",
+    "score": "Score",
+    "ytdGci": "RBC cumul",
+    "deals": "Transactions",
+    "goalProgress": "Progression de l'objectif · Jour {{day}}/365",
+    "percentOfGoal": "{{percent}} % de l'objectif",
+    "aheadOfPace": "En avance sur le rythme",
+    "behindPace": "{{amount}} en retard sur le rythme"
+  },
+  "search": {
+    "placeholder": "Rechercher clients, transactions...",
+    "recentSearches": "RECHERCHES RÉCENTES",
+    "clear": "Effacer",
+    "clients": "CLIENTS",
+    "deals": "TRANSACTIONS",
+    "transactions": "TRANSACTIONS CONCLUES",
+    "noResults": "Aucun résultat pour « {{query}} »",
+    "noResultsHint": "Essayez un autre terme de recherche ou ajoutez un nouveau client",
+    "quickActions": "ACTIONS RAPIDES",
+    "addClient": "Ajouter un client",
+    "addDeal": "Ajouter une transaction",
+    "scanReceipt": "Numériser un reçu",
+    "quickNote": "Note rapide",
+    "quickNotePlaceholder": "Note rapide...",
+    "save": "Enregistrer",
+    "saving": "Enregistrement...",
+    "cancel": "Annuler",
+    "activityTypes": {
+      "note": "Note",
+      "call": "Appel",
+      "text": "Texto",
+      "showing": "Visite",
+      "meeting": "Réunion"
+    }
+  },
+  "legal": {
+    "title": "Mentions légales et confidentialité",
+    "subtitle": "Consultez les politiques qui régissent votre utilisation d’Agent Runway et gérez vos choix de confidentialité.",
+    "openErrorTitle": "Impossible d’ouvrir la page",
+    "openErrorBody": "Réessayez ou visitez agentrunway.ca/privacy dans votre navigateur.",
+    "footer": "Ces documents proviennent de agentrunway.ca. Toute mise à jour effectuée par le service juridique s’affiche automatiquement ici.",
+    "links": {
+      "privacy": {
+        "label": "Politique de confidentialité",
+        "description": "Comment nous traitons vos données — conforme à la LPRPDE"
+      },
+      "terms": {
+        "label": "Conditions d’utilisation",
+        "description": "L’entente entre vous et Agent Runway"
+      },
+      "cookiePolicy": {
+        "label": "Politique sur les témoins",
+        "description": "Ce qui est stocké sur votre appareil, et pourquoi"
+      },
+      "acceptableUse": {
+        "label": "Usage acceptable",
+        "description": "Ce que vous pouvez et ne pouvez pas faire sur la plateforme"
+      }
+    },
+    "consent": {
+      "section": "CHOIX DE CONFIDENTIALITÉ",
+      "title": "Consentement aux témoins et à l’analytique",
+      "description": "Choisissez si Agent Runway peut utiliser de l’analytique facultative pour améliorer le produit. Les services essentiels (connexion, récupération après plantage) fonctionnent toujours.",
+      "statusLabel": "Choix actuel",
+      "statusAccepted": "Accepté",
+      "statusDeclined": "Refusé",
+      "statusUnset": "Non défini",
+      "accept": "Accepter",
+      "decline": "Refuser"
+    }
+  },
+  "cookieConsent": {
+    "title": "Choix de confidentialité",
+    "body": "Agent Runway utilise des services essentiels pour la connexion et la récupération après plantage. De l’analytique facultative peut aussi être utilisée.",
+    "privacyLink": "Politique de confidentialité",
+    "accept": "Accepter",
+    "decline": "Refuser"
+  },
+  "voiceQuiz": {
+    "title": "Trouvons votre voix",
+    "subtitle": "12 questions rapides. Aucune mauvaise réponse. Ça prend 3 minutes.",
+    "progress": "Question {{current}} sur {{total}}",
+    "percentComplete": "{{percent}} % complété",
+    "selectAll": "Sélectionnez tout ce qui s’applique",
+    "back": "Retour",
+    "next": "Suivant",
+    "seeResults": "Voir mes résultats",
+    "summaryTitle": "Voici votre voix",
+    "summarySubtitle": "Votre IA utilisera ceci pour communiquer exactement comme vous.",
+    "traitsLabel": "VOS TRAITS DE VOIX",
+    "humor": "Humour",
+    "directness": "Franchise",
+    "style": "Style",
+    "humorValue": {
+      "none": "Aucun",
+      "light": "Léger",
+      "moderate": "Modéré",
+      "frequent": "Fréquent"
+    },
+    "directnessValue": {
+      "low": "Faible",
+      "medium": "Moyen",
+      "high": "Élevé"
+    },
+    "verbosityValue": {
+      "concise": "Concis",
+      "balanced": "Équilibré",
+      "thorough": "Détaillé"
+    },
+    "aiIntroLabel": "COMMENT VOTRE IA SE PRÉSENTERA",
+    "save": "Parfait, enregistrer",
+    "saving": "Enregistrement…",
+    "saveErrorTitle": "Échec de l’enregistrement",
+    "saveErrorBody": "Impossible d’enregistrer votre profil vocal. Veuillez réessayer."
+  },
+  "businessIdentity": {
+    "title": "Identité d’affaires",
+    "subtitle": "Dites-nous quel genre d’agent vous êtes. Votre IA s’en sert pour vous offrir des conseils pertinents.",
+    "completionLabel": "{{count}} sections sur 6 configurées",
+    "specialtyLabel": "Spécialité",
+    "specialtyHint": "Sélectionnez tout ce qui s’applique",
+    "marketTypeLabel": "Type de marché",
+    "marketTypeHint": "Sélectionnez tout ce qui s’applique",
+    "businessModelLabel": "Modèle d’affaires",
+    "businessModelHint": "Sélectionnez une option",
+    "leadSourcesLabel": "Sources de clients",
+    "leadSourcesHint": "Sélectionnez tout ce qui s’applique",
+    "yearsExperienceLabel": "Années d’expérience",
+    "yearsExperienceHint": "Sélectionnez une option",
+    "priceRangeLabel": "Fourchette de prix moyenne",
+    "priceRangeHint": "Sélectionnez une option",
+    "save": "Enregistrer l’identité d’affaires",
+    "saving": "Enregistrement…",
+    "saveSuccessTitle": "Enregistré",
+    "saveSuccessBody": "Votre identité d’affaires a été mise à jour.",
+    "saveErrorTitle": "Échec de l’enregistrement",
+    "saveErrorBody": "Impossible d’enregistrer votre identité d’affaires. Veuillez réessayer.",
+    "specialtyOptions": {
+      "buyer": "Axé acheteur",
+      "listing": "Axé inscription",
+      "both": "Les deux"
+    },
+    "marketTypeOptions": {
+      "urban_condo": "Urbain / Condo",
+      "suburban": "Banlieue",
+      "rural": "Rural",
+      "luxury": "Luxe",
+      "new_construction": "Construction neuve"
+    },
+    "businessModelOptions": {
+      "solo_agent": "Agent solo",
+      "team_lead": "Chef d’équipe",
+      "team_member": "Membre d’équipe"
+    },
+    "leadSourcesOptions": {
+      "referrals": "Références",
+      "sphere": "Sphère d’influence",
+      "cold_outreach": "Prospection à froid",
+      "social": "Médias sociaux",
+      "farming": "Prospection géographique"
+    },
+    "yearsExperienceOptions": {
+      "0_2": "0–2",
+      "3_5": "3–5",
+      "5_10": "5–10",
+      "10_plus": "10+"
+    },
+    "priceRangeOptions": {
+      "under_300k": "Moins de 300 000 $",
+      "300_500k": "300–500 000 $",
+      "500_800k": "500–800 000 $",
+      "800k_1m": "800 000 $ – 1 M $",
+      "over_1m": "1 M $ et plus"
+    }
+  }
+}

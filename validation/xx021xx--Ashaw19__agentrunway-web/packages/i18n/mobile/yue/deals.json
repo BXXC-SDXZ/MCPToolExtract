@@ -1,0 +1,114 @@
+{
+  "title": "Deals",
+  "tabs": {
+    "pipeline": "Pipeline",
+    "closed": "Closed",
+    "pending": "Pending"
+  },
+  "stats": {
+    "gciClosed": "GCI Closed",
+    "totalGci": "Total GCI",
+    "pipelineValue": "Pipeline",
+    "pendingCount": "Pending"
+  },
+  "search": {
+    "placeholder": "Search by address or client..."
+  },
+  "stages": {
+    "lead": "Lead",
+    "showing": "Showing",
+    "offer": "Offer",
+    "conditional": "Conditional",
+    "firm": "Firm",
+    "closed": "已關閉",
+    "breakdown": "STAGE BREAKDOWN"
+  },
+  "pipeline": {
+    "empty": {
+      "title": "No pipeline deals",
+      "subtitle": "Add deals to track your upcoming commissions",
+      "actionLabel": "Add Deal"
+    },
+    "probability": "{{pct}}% probability",
+    "estimatedGci": "Est. GCI",
+    "advanceStage": "Advance Stage",
+    "close": "Close:",
+    "untitledDeal": "Untitled Deal"
+  },
+  "transaction": {
+    "closedDate": "Closed {{date}}",
+    "pendingDate": "Expected {{date}}",
+    "gci": "GCI",
+    "salePrice": "Sale Price",
+    "sale": "Sale:",
+    "commission": "Commission",
+    "commissionPct": "{{pct}}% commission",
+    "side": "Side",
+    "status": "STATUS",
+    "date": "Date",
+    "transactionLabel": "Transaction"
+  },
+  "closedEmpty": {
+    "title": "No closed deals this year",
+    "subtitle": "Closed transactions will appear here"
+  },
+  "pendingEmpty": {
+    "title": "No pending deals",
+    "subtitle": "Deals awaiting close will appear here"
+  },
+  "searchEmpty": {
+    "title": "No matches",
+    "subtitle": "No deals match \"{{query}}\""
+  },
+  "addDeal": {
+    "title": "Add Deal",
+    "addressLabel": "Address",
+    "addressPlaceholder": "Property address",
+    "clientLabel": "Client",
+    "clientPlaceholder": "Client name",
+    "priceLabel": "Price",
+    "pricePlaceholder": "Estimated price",
+    "commissionLabel": "Commission %",
+    "commissionPlaceholder": "2.5",
+    "stageLabel": "Stage",
+    "typeLabel": "Side",
+    "buy": "Buy",
+    "sell": "Sell",
+    "save": "Save Deal",
+    "saving": "Saving..."
+  },
+  "detail": {
+    "title": "Deal Details",
+    "address": "Address",
+    "client": "Client",
+    "stage": "Stage",
+    "estimatedPrice": "Estimated Price",
+    "price": "Price",
+    "probability": "Probability",
+    "expectedClose": "Expected Close",
+    "closingDate": "Closing Date",
+    "notes": "Notes",
+    "advanceTo": "Advance to {{stage}}",
+    "markClosed": "Mark Closed",
+    "updating": "Updating..."
+  },
+  "transactionDetail": {
+    "title": "Transaction Details"
+  },
+  "edit": {
+    "title": "Edit Deal",
+    "edit": "Edit",
+    "save": "Save Changes",
+    "saving": "Saving...",
+    "clientPlaceholder": "Client name",
+    "expectedCloseLabel": "Expected Close Date",
+    "probabilityOverrideLabel": "Probability Override (%)",
+    "probabilityOverridePlaceholder": "Default {{defaultProb}}%",
+    "notesPlaceholder": "Add notes...",
+    "overrideTag": "manual",
+    "invalidPrice": "Enter a valid price (numbers only).",
+    "invalidCommission": "Commission must be between 0 and 50%.",
+    "invalidProbability": "Probability must be between 0 and 100%.",
+    "invalidDate": "Use the format YYYY-MM-DD."
+  }
+}

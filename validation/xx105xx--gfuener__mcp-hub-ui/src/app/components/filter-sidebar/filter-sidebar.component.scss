@@ -1,0 +1,63 @@
+.sidebar-container {
+  background-color: #1a202c;
+  padding: 20px;
+  border-radius: 8px;
+  color: #e2e8f0;
+  height: 100%;
+}
+
+.search-box {
+  .form-control, .input-group-text {
+    background-color: #2d3748;
+    border-color: #4a5568;
+    color: #e2e8f0;
+  }
+  
+  .form-control::placeholder {
+    color: #a0aec0;
+  }
+  
+  .form-control:focus {
+    box-shadow: none;
+    border-color: #4299e1;
+  }
+}
+
+.filter-section {
+  margin-bottom: 1.5rem;
+  
+  .filter-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    padding-bottom: 0.8rem;
+    margin-bottom: 0.8rem;
+    border-bottom: 1px solid #2d3748;
+    
+    h6 {
+      font-weight: 600;
+      color: #e2e8f0;
+    }
+  }
+  
+  .filter-options {
+    .form-check {
+      margin-bottom: 0.5rem;
+      
+      .form-check-input {
+        background-color: #2d3748;
+        border-color: #4a5568;
+        
+        &:checked {
+          background-color: #4299e1;
+          border-color: #4299e1;
+        }
+      }
+      
+      .form-check-label {
+        color: #cbd5e0;
+      }
+    }
+  }
+}

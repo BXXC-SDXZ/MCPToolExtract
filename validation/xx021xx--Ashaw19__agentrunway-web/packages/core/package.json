@@ -1,0 +1,31 @@
+{
+  "name": "@agent-runway/core",
+  "version": "0.1.0",
+  "private": true,
+  "exports": {
+    "./engines": "./engines/index.ts",
+    "./engines/*": "./engines/*.ts",
+    "./types/database": "./types/database.ts",
+    "./types/organizations": "./types/organizations.ts",
+    "./formatters": "./formatters.ts",
+    "./validation/input-guards": "./validation/input-guards.ts",
+    "./schemas/ai-outputs": "./schemas/ai-outputs.ts",
+    "./tax-copy": "./tax-copy/index.ts",
+    "./tax-copy/disclaimer": "./tax-copy/disclaimer.ts",
+    "./tax-copy/forbidden-verbs": "./tax-copy/forbidden-verbs.ts",
+    "./tax-copy/validate": "./tax-copy/validate.ts",
+    "./voice-quiz": "./voice-quiz/index.ts",
+    "./business-identity": "./business-identity/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "typescript": "^5",
+    "vitest": "^4.1.5"
+  },
+  "dependencies": {
+    "zod": "^4.4.3"
+  }
+}

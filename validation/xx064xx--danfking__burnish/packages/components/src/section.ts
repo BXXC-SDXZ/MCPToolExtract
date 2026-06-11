@@ -1,0 +1,82 @@
+import { LitElement, html, css } from 'lit';
+import { resolveStatusColor } from './status-colors.js';
+
+export class BurnishSection extends LitElement {
+    static properties = {
+        label: { type: String },
+        count: { type: Number },
+        status: { type: String },
+        collapsed: { type: Boolean, reflect: true },
+        color: { type: String },
+        variant: { type: String },
+    };
+
+    static styles = css`
+        :host { display: block; }
+        :host(:first-child) { margin-top: 0; }
+        .header {
+            display: flex; align-items: center; gap: var(--burnish-space-sm, 8px);
+            cursor: pointer; user-select: none; padding: var(--burnish-space-sm, 8px) 0;
+        }
+        .chevron {
+            width: 16px; height: 16px; color: var(--burnish-text-muted);
+            transition: transform var(--burnish-transition-fast); flex-shrink: 0;
+        }
+        :host([collapsed]) .chevron { transform: rotate(-90deg); }
+        .status-dot {
+            width: 12px; height: 12px; border-radius: var(--burnish-radius-round, 50%); flex-shrink: 0;
+            transition: background 0.3s ease;
+        }
+        .label { font-size: var(--burnish-font-size-lg, 16px); font-weight: 600; color: var(--burnish-text); }
+        .label[data-status="error"], .label[data-status="failing"] { color: var(--burnish-error); }
+        .label[data-status="warning"] { color: var(--burnish-warning); }
+        .label[data-status="success"], .label[data-status="healthy"] { color: var(--burnish-success); }
+        .label[data-status="muted"], .label[data-status="no-data"] { color: var(--burnish-text-muted); }
+        .count { font-size: var(--burnish-font-size-md, 14px); font-weight: 600; color: var(--burnish-text-muted); }
+        .content { overflow: hidden; transition: max-height var(--burnish-transition-normal); }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: var(--burnish-space-md, 12px);
+        }
+        :host([variant="compact"]) .status-dot { display: none; }
+        :host([collapsed]) .content { max-height: 0 !important; }
+        @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
+    `;
+
+    declare label: string;
+    declare count: number;
+    declare status: string;
+    declare collapsed: boolean;
+    declare color: string;
+    declare variant: string;
+
+    constructor() {
+        super();
+        this.collapsed = false;
+    }
+
+    private _toggle(e: Event) {
+        e.stopPropagation();
+        this.collapsed = !this.collapsed;
+    }
+
+    render() {
+        const countText = this.count != null ? `(${this.count})` : '';
+        return html`
+            <div class="header" @click=${(e: Event) => this._toggle(e)}>
+                <svg class="chevron" viewBox="0 0 16 16" fill="none">
+                    <path d="M5 3l5 5-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span class="status-dot" style="background:${resolveStatusColor(this.color || this.status)}"></span>
+                <span class="label" data-status="${this.status || ''}">${this.label}</span>
+                ${countText ? html`<span class="count">${countText}</span>` : ''}
+            </div>
+            <div class="content" style="max-height: 2000px">
+                <div class="grid"><slot></slot></div>
+            </div>
+        `;
+    }
+}
+
+customElements.define('burnish-section', BurnishSection);

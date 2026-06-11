@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>OAuth2 Authorization Code Flow with PKCE</title>
+    <script>
+        // Function to generate random string for code verifier
+        function generateCodeVerifier() {
+            const array = new Uint8Array(32);
+            window.crypto.getRandomValues(array);
+            // Convert to base64url encoding
+            return btoa(String.fromCharCode.apply(null, array))
+                .replace(/\+/g, '-')
+                .replace(/\//g, '_')
+                .replace(/=+$/, '');
+        }
+
+        // Function to create code challenge from verifier
+        async function generateCodeChallenge(codeVerifier) {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(codeVerifier);
+            const digest = await window.crypto.subtle.digest('SHA-256', data);
+            // Convert to base64url encoding
+            return btoa(String.fromCharCode.apply(null, new Uint8Array(digest)))
+                .replace(/\+/g, '-')
+                .replace(/\//g, '_')
+                .replace(/=+$/, '');
+        }
+
+        async function startAuth() {
+            try {
+                // Generate PKCE values
+                const codeVerifier = generateCodeVerifier();
+                const codeChallenge = await generateCodeChallenge(codeVerifier);
+                const state = generateCodeVerifier(); // Using the same function to generate a random state
+
+                // Store code verifier in local storage with state as key
+                localStorage.setItem(`cv_${state}`, codeVerifier);
+                console.log('Stored code verifier:', codeVerifier, 'for state:', state);
+
+                // Build authorization URL
+                const authUrl = new URL('/oauth2/authorize', window.location.origin);
+                authUrl.searchParams.append('response_type', 'code');
+                authUrl.searchParams.append('client_id', 'mcp-client');
+                authUrl.searchParams.append('redirect_uri', window.location.origin + '/display-code');
+                authUrl.searchParams.append('scope', 'weather.read');
+                authUrl.searchParams.append('code_challenge', codeChallenge);
+                authUrl.searchParams.append('code_challenge_method', 'S256');
+                authUrl.searchParams.append('state', state);
+
+                // Log the full URL for debugging
+                console.log('Authorization URL:', authUrl.toString());
+
+                // Redirect to authorization endpoint
+                window.location.href = authUrl.toString();
+            } catch (error) {
+                console.error('Error during authorization:', error);
+                alert('Error during authorization: ' + error.message);
+            }
+        }
+
+        // Check if local storage is working
+        function checkStorage() {
+            try {
+                const testKey = 'test_storage';
+                localStorage.setItem(testKey, 'test');
+                const testValue = localStorage.getItem(testKey);
+                localStorage.removeItem(testKey);
+                return testValue === 'test';
+            } catch (e) {
+                console.error('Local storage not available:', e);
+                return false;
+            }
+        }
+
+        // Run check when page loads
+        window.onload = function() {
+            if (!checkStorage()) {
+                alert('Warning: Local storage is not available. The OAuth flow may not work correctly.');
+            }
+            // Clear any old verifiers
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key.startsWith('cv_')) {
+                    const timestamp = localStorage.getItem(key + '_timestamp');
+                    if (timestamp && Date.now() - parseInt(timestamp) > 300000) { // 5 minutes
+                        localStorage.removeItem(key);
+                        localStorage.removeItem(key + '_timestamp');
+                    }
+                }
+            }
+        };
+    </script>
+</head>
+<body>
+    <h1>OAuth2 Authorization Code Flow with PKCE</h1>
+    <button onclick="startAuth()">Start Authorization</button>
+    <div id="debug"></div>
+</body>
+</html> 

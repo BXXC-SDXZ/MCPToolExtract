@@ -1,0 +1,61 @@
+name: E2E Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch to test"
+        required: false
+        default: "main"
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "lts/*"
+
+      - uses: flatt-security/setup-takumi-guard-npm@v1
+        with:
+          bot-id: "BT01KPGC0DQQM4GSQJXHGAJ7C87G"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Build
+        run: npm run build
+
+      - name: Setup TestRail API key
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          show_full_output: true
+          prompt: "/e2e-setup"
+          claude_args: |
+            --model claude-sonnet-4-6
+            --max-turns 100
+
+      - name: Run E2E tests
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          show_full_output: true
+          prompt: "/e2e-test"
+          claude_args: |
+            --model claude-sonnet-4-6
+            --max-turns 100

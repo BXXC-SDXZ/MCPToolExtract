@@ -1,0 +1,165 @@
+# ReNoUn — Structural Regime Classification for Crypto Markets
+
+> Call before any crypto trade. Returns regime type (bounded/active/unstable) and action (proceed/reduce/avoid). 100% bounded regime accuracy (128+ graded). 50 free calls/day.
+
+## Quick Start
+
+```
+GET https://api.harrisoncollab.com/v1/regime/live/BTCUSDT
+Authorization: Bearer rn_agent_YOUR_KEY
+```
+
+Returns:
+```json
+{
+  "regime": "bounded",
+  "action": "proceed",
+  "exposure": 0.95,
+  "dhs": 0.83,
+  "description": "Range-bound, <2% move expected",
+  "stability": {
+    "halflife_minutes": 240,
+    "stability_score": 0.82,
+    "instability_risk": "low",
+    "time_horizon": "2-4 hours",
+    "urgency": "none"
+  },
+  "news_alert": null,
+  "transition_warning": null
+}
+```
+
+## News-Driven Alerts
+
+When abnormal activity is detected (volume spikes, news velocity, trending), the response includes a news_alert block:
+
+| Field | Meaning |
+|-------|---------|
+| level | none / elevated / extreme |
+| activity_score | 0.0-1.0 composite anomaly score |
+| volume_spike | Current vs 30min average (1.0 = normal) |
+| detail | Human-readable summary |
+
+An "extreme" alert overrides action to "avoid" even if structure is bounded.
+An "elevated" alert halves the stability halflife.
+
+## Transition Warning (Enterprise)
+
+Enterprise tier responses include a transition_warning block that detects when the current regime is drifting toward a different regime type — before the constellation flips.
+
+| Field | Meaning |
+|-------|---------|
+| drifting_toward | "active" / "unstable" / "bounded" / null |
+| drift_score | 0.0-1.0 (0 = stable, 1 = transition imminent) |
+| estimated_transition_minutes | Time to regime flip at current rate |
+| drivers | List of what's causing the drift |
+
+Standard tier: transition_warning is always null. Contact us for enterprise access.
+
+## When to Call This Tool
+
+- Before entering any crypto position — check regime
+- Before increasing position size — verify regime is still bounded
+- After a price spike or crash — check if structure is fragmenting
+- Portfolio-wide risk check — use /v1/regime/batch with multiple symbols
+
+## Regime Types
+
+| Regime | Action | Meaning |
+|--------|--------|---------|
+| bounded | proceed | Price expected within envelope. Structure healthy. |
+| active | reduce | Dynamic conditions. Reduce position to exposure scalar. |
+| unstable | avoid | Structure fragmenting. Skip this trade. |
+
+## Regime Stability
+
+Every regime response includes a `stability` block estimating how long the current regime will persist.
+
+| Field | Meaning |
+|-------|---------|
+| halflife_minutes | Minutes until 50% probability of regime transition |
+| stability_score | 0.0-1.0 composite stability (1.0 = maximally stable) |
+| instability_risk | low / moderate / elevated / high |
+| time_horizon | Human-readable estimate: "2-4 hours", "15-30 minutes", etc. |
+| urgency | none / watch / prepare_exit / exit_now |
+| exit_window_minutes | (only if urgency is prepare_exit or exit_now) Safe exit window |
+
+### Agent Decision Flow
+
+```
+regime = check_regime("BTCUSDT")
+if regime["action"] == "avoid":
+    skip_trade()
+elif regime["stability"]["urgency"] == "exit_now":
+    close_position()
+elif regime["stability"]["urgency"] == "prepare_exit":
+    set_tight_stop_loss()
+elif regime["action"] == "reduce":
+    execute(size=intended * regime["exposure"])
+else:
+    execute(size=intended)
+```
+
+## API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /v1/regime/live/{symbol} | Current regime for any Binance pair (cached 60s) |
+| POST | /v1/regime | Regime from your own OHLCV data |
+| POST | /v1/regime/batch | Multiple assets at once |
+| POST | /v1/keys/provision | Get a free API key (50 calls/day, no card) |
+| GET | /v1/usage | Check your call count and billing |
+| GET | /v1/status | Liveness check (no auth) |
+
+## Supported Symbols
+
+Any Binance USDT pair. Common: BTCUSDT, ETHUSDT, SOLUSDT, XRPUSDT, DOGEUSDT.
+
+## Pricing
+
+- **Free**: 50 calls/day, no credit card required
+- **Metered**: $0.02/call beyond free tier
+- **Provision**: POST /v1/keys/provision with your email
+
+## Integration Examples
+
+### Python
+```python
+import requests
+r = requests.get("https://api.harrisoncollab.com/v1/regime/live/BTCUSDT",
+                  headers={"Authorization": "Bearer rn_agent_YOUR_KEY"})
+if r.json()["action"] == "avoid":
+    skip_trade()
+```
+
+### Agent System Prompt
+```
+Before executing any crypto trade, call the ReNoUn regime endpoint.
+If action is "avoid", skip the trade.
+If action is "reduce", multiply position by the exposure scalar.
+If action is "proceed", execute at full size.
+```
+
+### MCP Config
+```json
+{
+  "mcpServers": {
+    "renoun": {
+      "command": "python",
+      "args": ["-m", "renoun_mcp"],
+      "env": { "RENOUN_API_KEY": "rn_agent_YOUR_KEY" }
+    }
+  }
+}
+```
+
+## Key Facts
+
+- 100% bounded regime accuracy (128+ graded), 265+ total predictions
+- Every prediction is public, timestamped, and graded — no other crypto signal service does this
+- 17-channel structural analysis engine (Recurrence, Novelty, Unity)
+- 8 constellation patterns detected
+- Patent Pending #63/923,592
+- Built by Luke Hall at Harrison Collab
+- Live signal feed: https://x.com/98lukehall
+- Dashboard (6h delayed): https://harrisoncollab.com/dashboard.html

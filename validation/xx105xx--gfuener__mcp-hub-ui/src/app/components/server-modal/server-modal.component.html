@@ -1,0 +1,141 @@
+<div class="modal fade show" tabindex="-1" [ngStyle]="{ display: show ? 'block' : 'none', background: 'rgba(0,0,0,0.5)' }" style="z-index: 1050;" *ngIf="show">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div>
+          <h5 class="modal-title mb-0">{{ server.name }}</h5>
+          <span class="text-success fw-bold small me-2" *ngIf="server.status === 'Online'">
+            <i class="bi bi-dot"></i> Online
+          </span>
+          <span class="text-danger fw-bold small me-2" *ngIf="server.status === 'Offline'">
+            <i class="bi bi-dot"></i> Offline
+          </span>
+          <span class="text-muted small">{{ server.location }}</span>
+        </div>
+        <button type="button" class="btn-close" aria-label="Close" (click)="onClose()"></button>
+      </div>
+      <div class="modal-body">
+        <!-- Tabs -->
+        <ul class="nav nav-tabs mb-3">
+          <li class="nav-item"><a class="nav-link" [ngClass]="{active: activeTab === 'overview'}" (click)="setTab('overview')">Overview</a></li>
+          <li class="nav-item"><a class="nav-link" [ngClass]="{active: activeTab === 'capabilities'}" (click)="setTab('capabilities')">Capabilities</a></li>
+          <li class="nav-item"><a class="nav-link" [ngClass]="{active: activeTab === 'performance'}" (click)="setTab('performance')">Performance</a></li>
+          <li class="nav-item"><a class="nav-link" [ngClass]="{active: activeTab === 'security'}" (click)="setTab('security')">Security</a></li>
+        </ul>
+        <!-- Overview Tab -->
+        <div *ngIf="activeTab === 'overview'">
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <div class="bg-dark p-3 rounded mb-3">
+                <div class="mb-2"><strong>Server ID</strong>: srv-u3a2c9d</div>
+                <div class="mb-2"><strong>Version</strong>: {{ server.version }}</div>
+                <div class="mb-2"><strong>IP Address</strong>: 10.0.15.30</div>
+                <div class="mb-2"><strong>Port</strong>: 443</div>
+                <div class="mb-2"><strong>Transport</strong>: {{ server.transport }}</div>
+                <div class="mb-2"><strong>Last Updated</strong>: May 2, 2025 at 10:51 PM (1 day ago)</div>
+              </div>
+            </div>
+            <div class="col-md-6 mb-3">
+              <div class="bg-dark p-3 rounded mb-3">
+                <div class="mb-2"><strong>Current Status</strong>: <span [ngClass]="server.status === 'Online' ? 'text-success' : 'text-danger'">{{ server.status }}</span></div>
+                <div class="mb-2"><strong>Uptime</strong>: 32 days, 12 hours</div>
+                <div class="mb-2"><strong>Response Time</strong>: 62 ms</div>
+                <div class="mb-2"><strong>Security Status</strong>: <span class="text-success"><i class="bi bi-shield-check"></i> Compliant</span></div>
+                <div class="mb-2"><strong>Memory Usage</strong>: 256MB / 512MB</div>
+              </div>
+            </div>
+          </div>
+          <div class="mb-4">
+            <div class="fw-bold mb-2">Capabilities</div>
+            <div class="d-flex flex-wrap gap-3">
+              <div *ngFor="let cap of server.capabilities" class="capability-tile">
+                <i [ngClass]="{
+                  'bi bi-folder': cap === 'files',
+                  'bi bi-database': cap === 'database',
+                  'bi bi-gear': cap === 'apis',
+                  'bi bi-key': cap === 'auth',
+                  'bi bi-person': cap === 'users',
+                  'bi bi-cpu': cap === 'ml'
+                }"></i>
+                <span>{{ cap | titlecase }}</span>
+              </div>
+            </div>
+          </div>
+          <div class="mb-2">
+            <div class="fw-bold mb-2">Connection Test</div>
+            <div class="d-flex align-items-center mb-2">
+              <span class="me-2">Last test: 2 minutes ago</span>
+              <span class="text-danger"><i class="bi bi-dot"></i> Connection failed</span>
+            </div>
+            <button class="btn btn-primary" style="min-width: 120px;"><i class="bi bi-lightning-charge me-1"></i>Test Again</button>
+          </div>
+        </div>
+        <!-- Capabilities Tab -->
+        <div *ngIf="activeTab === 'capabilities'">
+          <div class="mb-4">
+            <h5 class="fw-bold mb-2">Server Capabilities</h5>
+            <div class="mb-3 text-muted">This server provides the following capabilities:</div>
+            <div *ngFor="let cap of server.capabilities" class="mb-4">
+              <div class="bg-dark p-4 rounded mb-2 d-flex align-items-center">
+                <i class="me-3" [ngClass]="'bi ' + getCapabilityDetails(cap).icon" style="font-size:2rem;color:#4299e1;"></i>
+                <div>
+                  <div class="fw-bold">{{ getCapabilityDetails(cap).name }}</div>
+                  <div class="text-muted small mb-2">{{ getCapabilityDetails(cap).desc }}</div>
+                  <div class="bg-secondary bg-opacity-10 p-3 rounded">
+                    <div class="fw-bold mb-1">Available Methods</div>
+                    <pre class="mb-0" style="color:#b5bfe2;background:transparent;">{{ getCapabilityDetails(cap).methods.join('\n') }}</pre>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- Performance Tab -->
+        <div *ngIf="activeTab === 'performance'">
+          <h5 class="fw-bold mb-4">Performance Metrics</h5>
+          <div class="bg-dark p-4 rounded mb-4">
+            <div class="fw-bold mb-2">Response Time</div>
+            <div class="d-flex align-items-center mb-2">
+              <div class="progress flex-grow-1 me-3" style="height: 16px; background: #23263a;">
+                <div class="progress-bar bg-primary" role="progressbar" [style.width]="performance.responseTime + '%'" [attr.aria-valuenow]="performance.responseTime" aria-valuemin="0" aria-valuemax="100" style="min-width: 40px;"> </div>
+              </div>
+              <span class="text-light">{{ performance.responseTime }}ms</span>
+            </div>
+            <div class="text-muted small">Good response time</div>
+          </div>
+          <div class="bg-dark p-4 rounded mb-4">
+            <div class="fw-bold mb-2">Resource Usage</div>
+            <div class="mb-2">Memory: {{ performance.memoryUsed }}MB / {{ performance.memoryTotal }}MB</div>
+            <div class="progress" style="height: 16px; background: #23263a;">
+              <div class="progress-bar bg-primary" role="progressbar" [style.width]="(performance.memoryUsed/performance.memoryTotal*100) + '%'" [attr.aria-valuenow]="performance.memoryUsed" aria-valuemin="0" [attr.aria-valuemax]="performance.memoryTotal"> </div>
+            </div>
+          </div>
+        </div>
+        <!-- Security Tab -->
+        <div *ngIf="activeTab === 'security'">
+          <h5 class="fw-bold mb-4">Security Status</h5>
+          <div class="bg-dark p-4 rounded mb-4 d-flex align-items-center">
+            <i class="bi bi-shield-check me-3" style="font-size:2rem;color:#48bb78;"></i>
+            <div>
+              <div class="fw-bold">Fully Compliant</div>
+              <div class="text-muted small">This server meets all security requirements and standards.</div>
+            </div>
+          </div>
+          <div class="fw-bold mb-2">Authentication Method</div>
+          <div class="row">
+            <div class="col-md-6" *ngFor="let method of security.methods">
+              <div class="bg-dark p-3 rounded mb-2 d-flex align-items-center">
+                <input type="checkbox" class="form-check-input me-2" [checked]="security.enabled.includes(method)" disabled />
+                <span>{{ method }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer d-flex justify-content-between">
+        <button type="button" class="btn btn-secondary" (click)="onClose()">Close</button>
+        <button type="button" class="btn btn-outline-primary">Add to Favorites</button>
+      </div>
+    </div>
+  </div>
+</div> 

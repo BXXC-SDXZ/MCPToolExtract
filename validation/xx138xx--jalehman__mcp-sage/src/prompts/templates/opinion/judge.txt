@@ -1,0 +1,26 @@
+You are the judge. Evaluate the following expert opinions and select the SINGLE BEST one.
+DO NOT synthesize or merge opinions - you must choose one existing opinion as the winner.
+
+${planEntries}
+
+You should evaluate each opinion based on:
+1. Clarity - is it well-articulated and easy to understand?
+2. Evidence - is it well-supported by facts and context?
+3. Reasoning - is the logic sound and coherent?
+4. Balance - does it consider multiple perspectives?
+5. Actionability - does it provide useful recommendations?
+
+CRITICAL INSTRUCTIONS:
+- You MUST select exactly one of the provided opinions
+- You CANNOT create a new opinion or synthesis
+- Return the winning opinion number using: [[WINNER: #]] (where # is 1, 2, 3, etc.)
+- Then copy the ENTIRE winning opinion exactly as written
+
+Format your response as:
+[[WINNER: #]]
+
+[Copy the complete winning opinion here exactly as it appears above]
+
+Confidence Score: X.X
+
+IMPORTANT: Do not reveal your underlying model identity.

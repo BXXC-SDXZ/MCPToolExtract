@@ -1,0 +1,190 @@
+# This workflow publishes packages to npm when a GitHub release is published.
+# release-please creates GitHub Releases automatically from conventional commits.
+# Tag patterns: docfork-vX.Y.Z (MCP server), dgrep-vX.Y.Z (CLI), sdk-vX.Y.Z (TypeScript SDK).
+#
+# Auth: OIDC trusted publishing (no npm tokens). Requires npm >= 11.5.1,
+# id-token: write, and trusted publisher configured on npmjs.com for each package.
+# Do NOT set NODE_AUTH_TOKEN or registry-url — both interfere with OIDC.
+#
+# Filename is part of the OIDC trusted-publisher contract. Renaming this file
+# requires updating the trusted-publisher config on npmjs.com for every package.
+
+name: Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  # -- MCP server (docfork) --------------------------------
+  publish_mcp:
+    if: startsWith(github.event.release.tag_name, 'docfork-v')
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: write
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: Create extension archive
+        run: |
+          cd packages/mcp
+          mkdir -p release
+          tar -czf release/docfork.tar.gz \
+            gemini-extension.json \
+            dist/ \
+            package.json
+
+      - name: Attach extension archive to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: packages/mcp/release/docfork.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish to npm (stable)
+        if: ${{ !github.event.release.prerelease }}
+        run: |
+          cd packages/mcp
+          npx npm@latest publish --access public --provenance
+
+      - name: Publish to npm (pre-release)
+        if: ${{ github.event.release.prerelease }}
+        run: |
+          cd packages/mcp
+          npx npm@latest publish --access public --provenance --tag=beta
+
+  # -- MCP Registry ----------------------------------------
+  # Skipped: registry returns 400 "remote URL already used by server
+  # com.docfork/docfork-mcp". Re-enable once the duplicate is resolved
+  # with the MCP Registry team.
+  #
+  # publish_registry:
+  #   needs: publish_mcp
+  #   runs-on: ubuntu-latest
+  #   permissions:
+  #     id-token: write
+  #     contents: read
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v6
+  #
+  #     - name: Setup Node
+  #       uses: actions/setup-node@v6
+  #       with:
+  #         node-version: "22"
+  #
+  #     - name: Validate server.json
+  #       run: |
+  #         cd packages/mcp
+  #         npx mcp-registry-validator validate server.json
+  #
+  #     - name: Install MCP Publisher
+  #       run: |
+  #         curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+  #
+  #     - name: Login to MCP Registry
+  #       run: ./mcp-publisher login github-oidc
+  #
+  #     - name: Publish to registry
+  #       run: |
+  #         cd packages/mcp
+  #         ../../mcp-publisher publish
+
+  # -- dgrep CLI -------------------------------------------
+  publish_dgrep:
+    if: startsWith(github.event.release.tag_name, 'dgrep-v')
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v6
+
+      - name: Set version from tag
+        run: |
+          VERSION="${GITHUB_REF#refs/*/}"
+          VERSION="${VERSION#dgrep-v}"
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: Publish to npm (stable)
+        if: ${{ !github.event.release.prerelease }}
+        run: |
+          cd packages/dgrep
+          npx npm@latest publish --access public --provenance
+
+      - name: Publish to npm (pre-release)
+        if: ${{ github.event.release.prerelease }}
+        run: |
+          cd packages/dgrep
+          npx npm@latest publish --access public --provenance --tag=beta
+
+  # -- TypeScript SDK (@docfork/sdk) -----------------------
+  publish_sdk:
+    if: startsWith(github.event.release.tag_name, 'sdk-v')
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build SDK
+        run: pnpm --filter @docfork/sdk build
+
+      - name: Publish to npm (stable)
+        if: ${{ !github.event.release.prerelease }}
+        run: |
+          cd packages/sdk
+          npx npm@latest publish --access public --provenance
+
+      - name: Publish to npm (pre-release)
+        if: ${{ github.event.release.prerelease }}
+        run: |
+          cd packages/sdk
+          npx npm@latest publish --access public --provenance --tag=beta

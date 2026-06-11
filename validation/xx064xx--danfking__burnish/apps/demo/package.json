@@ -1,0 +1,25 @@
+{
+  "name": "demo",
+  "version": "0.1.1",
+  "private": true,
+  "description": "Burnish demo app — connects to MCP servers and renders visual dashboards",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch server/index.ts",
+    "build": "echo 'demo app - no build step'",
+    "clean": "echo 'nothing to clean'"
+  },
+  "dependencies": {
+    "@burnishdev/app": "workspace:*",
+    "@burnishdev/components": "workspace:*",
+    "@burnishdev/renderer": "workspace:*",
+    "@burnishdev/server": "workspace:*",
+    "@hono/node-server": "^1.19.13",
+    "hono": "^4.12.14"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}
