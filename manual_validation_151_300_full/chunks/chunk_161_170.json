@@ -1,0 +1,2147 @@
+[
+  {
+    "repo_id": 161,
+    "repo_name": "kumartheashwani__vault-python-mcp-server",
+    "source": "github_full_clone",
+    "status": "tools_found_nonstandard_mcp_like_handler",
+    "notes": "Full clone present. server.py is a hand-written JSON-RPC/FastAPI server, not official MCP SDK. It exposes TOOLS via list_tools and execute methods plus /mcp websocket/http wrappers; the concrete calculator tool is sourced from CalculatorTool and TOOLS.",
+    "tool": [
+      {
+        "tool_id": "161::calculator::server.py:46",
+        "sdk": "custom-python-jsonrpc",
+        "metadata": {
+          "name": "calculator",
+          "title": null,
+          "description": "A basic calculator that can perform arithmetic operations",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "type": "object",
+              "properties": {
+                "operation": {
+                  "type": "string",
+                  "enum": [
+                    "add",
+                    "subtract",
+                    "multiply",
+                    "divide"
+                  ],
+                  "description": "The arithmetic operation to perform"
+                },
+                "numbers": {
+                  "type": "array",
+                  "items": {
+                    "type": "number"
+                  },
+                  "description": "List of numbers to perform the operation on",
+                  "minItems": 2
+                }
+              },
+              "required": [
+                "operation",
+                "numbers"
+              ]
+            },
+            "schema_dialect": "source-derived",
+            "parameters": "see raw schema/source excerpt"
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "server.py",
+            "line_start": 46,
+            "line_end": 98,
+            "function_name": "CalculatorTool/TOOLS",
+            "function_content": "class CalculatorTool:\n    def __init__(self):\n        self.name = \"calculator\"\n        self.description = \"A basic calculator that can perform arithmetic operations\"\n        self.parameters = {\n            \"type\": \"object\",\n            \"properties\": {\n                \"operation\": {\n                    \"type\": \"string\",\n                    \"enum\": [\"add\", \"subtract\", \"multiply\", \"divide\"],\n                    \"description\": \"The arithmetic operation to perform\"\n                },\n                \"numbers\": {\n                    \"type\": \"array\",\n                    \"items\": {\"type\": \"number\"},\n                    \"description\": \"List of numbers to perform the operation on\",\n                    \"minItems\": 2\n                }\n            },\n            \"required\": [\"operation\", \"numbers\"]\n        }\n\n    def execute(self, params: Dict[str, Any]) -> Any:\n        operation = params[\"operation\"]\n        numbers = params[\"numbers\"]\n\n        if len(numbers) < 2:\n            raise ValueError(\"At least two numbers are required\")\n\n        if operation == \"add\":\n            return sum(numbers)\n        elif operation == \"subtract\":\n            return numbers[0] - sum(numbers[1:])\n        elif operation == \"multiply\":\n            result = 1\n            for num in numbers:\n                result *= num\n            return result\n        elif operation == \"divide\":\n            if 0 in numbers[1:]:\n                raise ValueError(\"Division by zero is not allowed\")\n            result = numbers[0]\n            for num in numbers[1:]:\n                result /= num\n            return result\n        else:\n            raise ValueError(f\"Unknown operation: {operation}\")\n\n# Initialize tools\ncalculator = CalculatorTool()\nTOOLS = {\n    calculator.name: calculator\n}"
+          },
+          "handler_resolution": "TOOLS dictionary is listed in process_jsonrpc_request for method list_tools (server.py:194) and executed for method execute via tool.execute(call[\"parameters\"]) (server.py:214-245)."
+        }
+      }
+    ]
+  },
+  {
+    "repo_id": 162,
+    "repo_name": "kun-g__VC-Buddy-MCP",
+    "source": "github_full_clone",
+    "status": "clone_failed_no_source",
+    "notes": "Manifest clone_status failed:128; clone_detail says GitHub HTTPS could not read Username. No full source directory exists under full_repos_151_300, so no MCP tools could be verified from source.",
+    "tool": []
+  },
+  {
+    "repo_id": 163,
+    "repo_name": "Kuon-dev__advanced-reason-mcp",
+    "source": "github_full_clone",
+    "status": "tools_found",
+    "notes": "Standard TypeScript MCP SDK Server with ListToolsRequestSchema/CallToolRequestSchema. Only active tool in ListTools is GEMINI_DEEPSEEK_SEQUENTIAL_TOOL; other candidate tools are commented out.",
+    "tool": [
+      {
+        "tool_id": "163::combined-sequential-thinking::src/index.ts:33",
+        "sdk": "typescript-sdk",
+        "metadata": {
+          "name": "combined-sequential-thinking",
+          "title": null,
+          "description": "A structured sequential-thinking tool using OpenRouter-backed Gemini/DeepSeek reasoning; full description and schema are defined in src/modules/sequential/index.ts:195-370.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "  inputSchema: {\n    type: \"object\",\n    properties: {\n      currentThinking: {\n        type: \"string\",\n        description: `A structured representation of the evolving thought process. MUST incorporate previous thinking and explicitly follow the 5-step reasoning structure. For each thought, include:\n        * Original question/problem statement\n        * Current step number (1-n) and its purpose\n        * Summary of previous step's conclusions\n        * Current analysis formatted with clear section headers for each step\n        * Key findings and insights accumulated so far\n        * Any open questions or uncertainties remaining\n        * Transition to the next logical step\n        Format each thought with markdown headers (###) to clearly delineate sections. Ensure each new thought builds upon previous thinking rather than simply repeating it.`,\n      },\n      thoughtNumber: {\n        type: \"integer\",\n        minimum: 1,\n        description: \"Current thought number\",\n      },\n      totalThoughts: {\n        type: \"integer\",\n        minimum: 1,\n        description: \"Total thoughts needed\",\n      },\n      nextThoughtNeeded: {\n        type: \"boolean\",\n        description: \"Whether another thought is needed\",\n      },\n      isRevision: {\n        type: \"boolean\",\n        description: \"Whether this thought revises a previous one\",\n      },\n      revisesThought: {\n        type: \"integer\",\n        minimum: 1,\n        description: \"Which thought is being revised\",\n      },\n      branchFromThought: {\n        type: \"integer\",\n        minimum: 1,\n        description: \"Which thought is the branching point\",\n      },\n      branchId: {\n        type: \"string\",\n        description: \"Identifier for the current branch\",\n      },\n      needsMoreThoughts: {\n        type: \"boolean\",\n        description: \"If more thoughts are needed\",\n      },\n      reasoningMode: {\n        type: \"string\",\n        enum: [\"analytical\", \"creative\", \"critical\", \"reflective\"],\n        default: \"analytical\",\n        description: \"The style of reasoning to apply\",\n      },\n      externalToolResult: {\n        type: \"object\",\n        properties: {\n          toolType: {\n            type: \"string\",\n            description: \"The type of tool that was used\",\n          },\n          query: {\n            type: \"string\",\n            description: \"The query that was used with the tool\",\n          },\n          result: {\n            type: \"string\",\n            description: \"The result returned by the tool\",\n          },\n        },\n        required: [\"toolType\", \"query\", \"result\"],\n        description:\n          \"Results from an external tool to incorporate into thinking\",\n      },\n      userContext: {\n        type: \"string\",\n        description:\n          \"Additional context provided by the user, such as code snippets, relevant documents, or background information\",\n      },\n      // userContext: {\n      //   type: \"codeContext\",\n      //   version: \"1.0\",\n      //   query: \"The original user question about code\",\n      //   files: [\n      //     {\n      //       path: \"path/to/file.ts\",\n      //       language: \"typescript\",\n      //       snippet: \"// Relevant code snippet here\",\n      //       startLine: 10,\n      //       endLine: 25,\n      //       symbols: [\n      //         {\n      //           name: \"functionName\",\n      //           type: \"function\",\n      //           line: 12,\n      //         },\n      //       ],\n      //     },\n      //   ],\n      //   error: {\n      //     message: \"Error message if debugging\",\n      //     stack: \"Stack trace if available\",\n      //   },\n      //   projectInfo: {\n      //     structure: \"Brief description of relevant project structure\",\n      //     dependencies: [\"relevant\", \"dependencies\"],\n      //   },\n      // },\n    },\n    required: [\n      \"currentThinking\",\n      \"thoughtNumber\",\n      \"totalThoughts\",\n      \"nextThoughtNeeded\",\n    ],\n  },\n};",
+            "schema_dialect": "json-schema-source",
+            "parameters": "see raw schema/source excerpt"
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/index.ts",
+            "line_start": 33,
+            "line_end": 50,
+            "function_name": "GEMINI_DEEPSEEK_SEQUENTIAL_TOOL",
+            "function_content": "server.setRequestHandler(ListToolsRequestSchema, async () => ({\n  tools: [\n    // GEMINI_SEQUENTIAL_THINKING_TOOL,\n    // OPENROUTER_SEQUENTIAL_THINKING_TOOL,\n    GEMINI_DEEPSEEK_SEQUENTIAL_TOOL,\n    // GEMINI_THINKER_TOOL\n  ],\n}));\n\n// Handle tool execution\nserver.setRequestHandler(CallToolRequestSchema, async (request) => {\n  const { name, arguments: args } = request.params;\n\n  try {\n    switch (name) {\n      case \"combined-sequential-thinking\":\n        const combinedArgs = CombinedSequentialThinkingSchema.parse(args);\n        return combinedServer.processSequentialThinking(combinedArgs);"
+          },
+          "handler_resolution": "ListToolsRequestSchema returns GEMINI_DEEPSEEK_SEQUENTIAL_TOOL; CallToolRequestSchema case \"combined-sequential-thinking\" parses CombinedSequentialThinkingSchema and calls combinedServer.processSequentialThinking. Tool definition is in src/modules/sequential/index.ts:195-370."
+        }
+      }
+    ]
+  },
+  {
+    "repo_id": 164,
+    "repo_name": "kuzudb__kuzu-mcp-server",
+    "source": "github_full_clone",
+    "status": "tools_found",
+    "notes": "Standard TypeScript/CommonJS MCP SDK Server. Prompts also exist but are not tools and were not extracted.",
+    "tool": [
+      {
+        "tool_id": "164::query::index.js:150",
+        "sdk": "typescript-sdk/commonjs",
+        "metadata": {
+          "name": "query",
+          "title": null,
+          "description": "Run a Cypher query on the Kuzu database",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "type": "object",
+              "properties": {
+                "cypher": {
+                  "type": "string",
+                  "description": "The Cypher query to run"
+                }
+              }
+            },
+            "schema_dialect": "source-derived",
+            "parameters": "see raw schema/source excerpt"
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "index.js",
+            "line_start": 150,
+            "line_end": 162,
+            "function_name": "query",
+            "function_content": "      {\n        name: \"query\",\n        description: \"Run a Cypher query on the Kuzu database\",\n        inputSchema: {\n          type: \"object\",\n          properties: {\n            cypher: {\n              type: \"string\",\n              description: \"The Cypher query to run\",\n            },\n          },\n        },\n      },"
+          },
+          "handler_resolution": "ListToolsRequestSchema defines query; CallToolRequestSchema branch request.params.name === \"query\" runs conn.query(cypher) at index.js:175-190."
+        }
+      },
+      {
+        "tool_id": "164::getSchema::index.js:163",
+        "sdk": "typescript-sdk/commonjs",
+        "metadata": {
+          "name": "getSchema",
+          "title": null,
+          "description": "Get the schema of the Kuzu database",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "type": "object",
+              "properties": {}
+            },
+            "schema_dialect": "source-derived",
+            "parameters": "see raw schema/source excerpt"
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "index.js",
+            "line_start": 163,
+            "line_end": 170,
+            "function_name": "getSchema",
+            "function_content": "      {\n        name: \"getSchema\",\n        description: \"Get the schema of the Kuzu database\",\n        inputSchema: {\n          type: \"object\",\n          properties: {},\n        },\n      }"
+          },
+          "handler_resolution": "ListToolsRequestSchema defines getSchema; CallToolRequestSchema branch request.params.name === \"getSchema\" calls getSchema(conn) at index.js:191-197."
+        }
+      }
+    ]
+  },
+  {
+    "repo_id": 165,
+    "repo_name": "larryhudson__mcp-server-example-image-block",
+    "source": "github_full_clone",
+    "status": "tools_found",
+    "notes": "Demo MCP server; it is still a real stdio MCP server with one registered McpServer.tool returning an image block.",
+    "tool": [
+      {
+        "tool_id": "165::get_random_image::src/index.ts:25",
+        "sdk": "typescript-sdk",
+        "metadata": {
+          "name": "get_random_image",
+          "title": null,
+          "description": "Get a random image using the Lorem Picsum API",
+          "icons": [],
+          "inputSchema": {
+            "raw": "{}",
+            "schema_dialect": "zod/source",
+            "parameters": "see raw schema/source excerpt"
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/index.ts",
+            "line_start": 25,
+            "line_end": 39,
+            "function_name": "get_random_image",
+            "function_content": "server.tool(\"get_random_image\",\n    \"Get a random image using the Lorem Picsum API\",\n  {},\n  async () => {\n    const imageBase64 = await downloadImageAsBase64(RANDOM_IMAGE_URL);\n\n    return {\n      content: [{\n        type: \"image\",\n        data: imageBase64,\n        mimeType: \"image/jpeg\",\n      }]\n    }\n  }\n);"
+          },
+          "handler_resolution": "McpServer.tool(\"get_random_image\") registered in src/index.ts; handler downloads https://picsum.photos/500 and returns MCP image content."
+        }
+      }
+    ]
+  },
+  {
+    "repo_id": 166,
+    "repo_name": "Leee62__pickapicon-mcp",
+    "source": "github_full_clone",
+    "status": "clone_failed_incomplete_directory",
+    "notes": "Manifest clone_status failed:128 because destination path already existed and was not empty. Directory contains only a partial .git/shallow.lock-style skeleton and no working tree source files, so no MCP tools could be verified.",
+    "tool": []
+  },
+  {
+    "repo_id": 167,
+    "repo_name": "lithtrix__lithtrix-mcp",
+    "source": "github_full_clone",
+    "status": "tools_found",
+    "notes": "Standard TypeScript MCP SDK McpServer. index.js registers search/register/memory/blob/parse/feedback/browse/commons modules; every server.tool call in those registered modules was extracted.",
+    "tool": [
+      {
+        "tool_id": "167::lithtrix_search::tools/search.js:13",
+        "sdk": "typescript-sdk",
+        "metadata": {
+          "name": "lithtrix_search",
+          "title": null,
+          "description": "Search the web via Lithtrix and get credibility-scored results.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "{\n      q: z\n        .string()\n        .min(1)\n        .max(500)\n        .describe(\"The search query (1–500 characters)\"),\n      num_results: z\n        .number()\n        .int()\n        .min(1)\n        .max(20)\n        .default(10)\n        .optional()\n        .describe(\"Number of results to return (1–20, default 10)\"),\n    }",
+            "schema_dialect": "zod/source",
+            "parameters": "see raw schema/source excerpt"
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "tools/search.js",
+            "line_start": 13,
+            "line_end": 104,
+            "function_name": "lithtrix_search",
+            "function_content": "  server.tool(\n    \"lithtrix_search\",\n    \"Search the web via Lithtrix and get credibility-scored results. \" +\n      \"Returns structured JSON with title, URL, snippet, source domain, and credibility_score (0–1) \" +\n      \"for each result. Higher credibility_score = more authoritative source (.gov=1.0, .edu=0.9, \" +\n      \"news=0.8, .org=0.7, other=0.5). Requires LITHTRIX_API_KEY environment variable.\",\n    {\n      q: z\n        .string()\n        .min(1)\n        .max(500)\n        .describe(\"The search query (1–500 characters)\"),\n      num_results: z\n        .number()\n        .int()\n        .min(1)\n        .max(20)\n        .default(10)\n        .optional()\n        .describe(\"Number of results to return (1–20, default 10)\"),\n    },\n    async ({ q, num_results = 10 }) => {\n      const apiKey = process.env.LITHTRIX_API_KEY;\n      if (!apiKey) {\n        return {\n          content: [\n            {\n              type: \"text\",\n              text: JSON.stringify({\n                error: \"LITHTRIX_API_KEY environment variable is not set. \" +\n                  \"Register at https://lithtrix.ai to get an API key.\",\n              }),\n            },\n          ],\n          isError: true,\n        };\n      }\n\n      const url = new URL(\"/v1/search\", LITHTRIX_API_URL);\n      url.searchParams.set(\"q\", q);\n      url.searchParams.set(\"num_results\", String(num_results));\n\n      let response;\n      try {\n        response = await fetch(url.toString(), {\n          headers: {\n            Authorization: `Bearer ${apiKey}`,\n            \"Content-Type\": \"application/json\",\n          },\n        });\n      } catch (err) {\n        return {\n          content: [\n            {\n              type: \"text\",\n              text: JSON.stringify({\n                error: `Network error contacting Lithtrix API: ${err.message}`,\n              }),\n            },\n          ],\n          isError: true,\n        };\n      }\n\n      const body = await response.json();\n\n      if (!response.ok) {\n        return {\n          content: [\n            {\n              type: \"text\",\n              text: JSON.stringify({\n                error: body.message ?? `Lithtrix API error (HTTP ${response.status})`,\n                error_code: body.error_code ?? \"UNKNOWN\",\n              }),\n            },\n          ],\n          isError: true,\n        };\n      }\n\n      // Return the full structured response so agents can use results + usage info\n      return {\n        content: [\n          {\n            type: \"text\",\n            text: JSON.stringify(body, null, 2),\n          },\n        ],\n      };\n    }\n  );"
+          },
+          "handler_resolution": "Registered by tools/search.js and invoked from index.js register* call."
+        }
+      },
+      {
+        "tool_id": "167::lithtrix_register::tools/register.js:14",
+        "sdk": "typescript-sdk",
+        "metadata": {
+          "name": "lithtrix_register",
+          "title": null,
+          "description": "Register a new agent with Lithtrix and receive a one-time API key.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "{\n      agree_to_terms: z\n        .literal(true)\n        .describe(\n          \"Must be true — you agree to https://lithtrix.ai/terms (required by POST /v1/register)\"\n        ),\n      agent_name: z\n        .string()\n        .min(1)\n        .max(100)\n        .regex(/^[a-zA-Z0-9_\\-]+$/)\n        .describe(\n          \"A unique name for this agent (letters, digits, hyphens, underscores only)\"\n        ),\n      owner_identifier: z\n        .string()\n        .min(1)\n        .max(255)\n        .describe(\n          \"Your email address, URL, or a stable identifier for the agent owner\"\n        ),\n      referral_agent: z\n        .string()\n        .uuid()\n        .optional()\n        .describe(\n          \"Optional referring agent UUID — same value as their referral_code from GET /v1/me\"\n        ),\n    }",
+            "schema_dialect": "zod/source",
+            "parameters": "see raw schema/source excerpt"
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "tools/register.js",
+            "line_start": 14,
+            "line_end": 112,
+            "function_name": "lithtrix_register",
+            "function_content": "  server.tool(\n    \"lithtrix_register\",\n    \"Register a new agent with Lithtrix and receive a one-time API key. \" +\n      \"Call this tool once to obtain your LITHTRIX_API_KEY. \" +\n      \"The returned api_key is shown only once — store it immediately and securely. \" +\n      \"No authentication required. \" +\n      \"Spark trial: $5 in credits (no card); pack ladder Sprint $25 / Mission $50 / Deploy $100 (90-day expiry on pack credits). \" +\n      \"Buy Sprint to unlock Browse; search and browse metered at $0.005 per successful call from your balance. \" +\n      \"Optional referral_agent: the referring agent's UUID (same as their referral_code from GET /v1/me); \" +\n      \"when valid, credits that referrer +$0.50 per signup (self-referral excluded; no cap). \" +\n      \"agree_to_terms must be true (Gentle-Agent Agreement). \" +\n      \"agent_name: alphanumeric, hyphens and underscores only. \" +\n      \"owner_identifier: your email, URL, or any stable identifier.\",\n    {\n      agree_to_terms: z\n        .literal(true)\n        .describe(\n          \"Must be true — you agree to https://lithtrix.ai/terms (required by POST /v1/register)\"\n        ),\n      agent_name: z\n        .string()\n        .min(1)\n        .max(100)\n        .regex(/^[a-zA-Z0-9_\\-]+$/)\n        .describe(\n          \"A unique name for this agent (letters, digits, hyphens, underscores only)\"\n        ),\n      owner_identifier: z\n        .string()\n        .min(1)\n        .max(255)\n        .describe(\n          \"Your email address, URL, or a stable identifier for the agent owner\"\n        ),\n      referral_agent: z\n        .string()\n        .uuid()\n        .optional()\n        .describe(\n          \"Optional referring agent UUID — same value as their referral_code from GET /v1/me\"\n        ),\n    },\n    async ({ agree_to_terms, agent_name, owner_identifier, referral_agent }) => {\n      let response;\n      try {\n        const payload = { agent_name, owner_identifier, agree_to_terms };\n        if (referral_agent) {\n          payload.referral_agent = referral_agent;\n        }\n        response = await fetch(`${LITHTRIX_API_URL}/v1/register`, {\n          method: \"POST\",\n          headers: { \"Content-Type\": \"application/json\" },\n          body: JSON.stringify(payload),\n        });\n      } catch (err) {\n        return {\n          content: [\n            {\n              type: \"text\",\n              text: JSON.stringify({\n                error: `Network error contacting Lithtrix API: ${err.message}`,\n              }),\n            },\n          ],\n          isError: true,\n        };\n      }\n\n      const body = await response.json();\n\n      if (!response.ok) {\n        return {\n          content: [\n            {\n              type: \"text\",\n              text: JSON.stringify({\n                error: body.message ?? `Lithtrix API error (HTTP ${response.status})`,\n                error_code: body.error_code ?? \"UNKNOWN\",\n              }),\n            },\n          ],\n          isError: true,\n        };\n      }\n\n      return {\n        content: [\n          {\n            type: \"text\",\n            text:\n              JSON.stringify(body, null, 2) +\n              \"\\n\\n---\\nNext: set LITHTRIX_API_KEY to the api_key above (if not already). \" +\n              \"Read shared public memory with lithtrix_commons_read (`GET /v1/commons/entries`; Bearer; no credit debit) \" +\n              \"and use `GET /v1/capabilities` → `commons` for URLs. MCP package lithtrix-mcp **0.9.0**+.\",\n          },\n        ],\n      };\n    }\n  );"
+          },
+          "handler_resolution": "Registered by tools/register.js and invoked from index.js register* call."
+        }
+      },
+      {
+        "tool_id": "167::lithtrix_memory_set::tools/memory.js:84",
+        "sdk": "typescript-sdk",
+        "metadata": {
+          "name": "lithtrix_memory_set",
+          "title": null,
+          "description": "Store or update a JSON value for a memory key.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "{\n      key: memoryKeySchema,\n      value: z\n        .any()\n        .describe(\n          \"JSON-serializable value (object, array, string, number, boolean, etc.)\"\n        ),\n      ttl: z\n        .number()\n        .int()\n        .positive()\n        .optional()\n        .describe(\"Optional positive TTL in seconds\"),\n      importance: importanceSchema,\n      source: z\n        .string()\n        .max(255)\n        .optional()\n        .describe(\"Optional provenance label (e.g. tool name)\"),\n      confidence: z\n        .number()\n        .min(0)\n        .max(1)\n        .optional()\n        .describe(\"Optional confidence 0–1 (default 1.0 on API)\"),\n    }",
+            "schema_dialect": "zod/source",
+            "parameters": "see raw schema/source excerpt"
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "tools/memory.js",
+            "line_start": 84,
+            "line_end": 140,
+            "function_name": "lithtrix_memory_set",
+            "function_content": "  server.tool(\n    \"lithtrix_memory_set\",\n    \"Store or update a JSON value for a memory key (PUT /v1/memory/{key}). \" +\n      \"Requires LITHTRIX_API_KEY. Optional ttl (seconds), importance, source, confidence.\",\n    {\n      key: memoryKeySchema,\n      value: z\n        .any()\n        .describe(\n          \"JSON-serializable value (object, array, string, number, boolean, etc.)\"\n        ),\n      ttl: z\n        .number()\n        .int()\n        .positive()\n        .optional()\n        .describe(\"Optional positive TTL in seconds\"),\n      importance: importanceSchema,\n      source: z\n        .string()\n        .max(255)\n        .optional()\n        .describe(\"Optional provenance label (e.g. tool name)\"),\n      confidence: z\n        .number()\n        .min(0)\n        .max(1)\n        .optional()\n        .describe(\"Optional confidence 0–1 (default 1.0 on API)\"),\n    },\n    async ({ key, value, ttl, importance, source, confidence }) => {\n      const apiKey = process.env.LITHTRIX_API_KEY;\n      if (!apiKey) return missingApiKeyResponse();\n\n      const payload = { value };\n      if (ttl !== undefined) payload.ttl = ttl;\n      if (importance !== undefined) payload.importance = importance;\n      if (source !== undefined) payload.source = source;\n      if (confidence !== undefined) payload.confidence = confidence;\n\n      const path = `/v1/memory/${encodeURIComponent(key)}`;\n      let response;\n      try {\n        response = await fetch(new URL(path, LITHTRIX_API_URL), {\n          method: \"PUT\",\n          headers: {\n            Authorization: `Bearer ${apiKey}`,\n            \"Content-Type\": \"application/json\",\n          },\n          body: JSON.stringify(payload),\n        });\n      } catch (err) {\n        return networkErrorResponse(err);\n      }\n      return apiJsonResponse(response);\n    }\n  );"
+          },
+          "handler_resolution": "Registered by tools/memory.js and invoked from index.js register* call."
+        }
+      },
+      {
+        "tool_id": "167::lithtrix_memory_get::tools/memory.js:142",
+        "sdk": "typescript-sdk",
+        "metadata": {
+          "name": "lithtrix_memory_get",
+          "title": null,
+          "description": "Retrieve a stored memory by key.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "{\n      key: memoryKeySchema,\n    }",
+            "schema_dialect": "zod/source",
+            "parameters": "see raw schema/source excerpt"
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "tools/memory.js",
+            "line_start": 142,
+            "line_end": 166,
+            "function_name": "lithtrix_memory_get",
+            "function_content": "  server.tool(\n    \"lithtrix_memory_get\",\n    \"Retrieve a stored memory by key (GET /v1/memory/{key}). Requires LITHTRIX_API_KEY.\",\n    {\n      key: memoryKeySchema,\n    },\n    async ({ key }) => {\n      const apiKey = process.env.LITHTRIX_API_KEY;\n      if (!apiKey) return missingApiKeyResponse();\n\n      const path = `/v1/memory/${encodeURIComponent(key)}`;\n      let response;\n      try {\n        response = await fetch(new URL(path, LITHTRIX_API_URL), {\n          headers: {\n            Authorization: `Bearer ${apiKey}`,\n            \"Content-Type\": \"application/json\",\n          },\n        });\n      } catch (err) {\n        return networkErrorResponse(err);\n      }\n      return apiJsonResponse(response);\n    }\n  );"
+          },
+          "handler_resolution": "Registered by tools/memory.js and invoked from index.js register* call."
+        }
+      },
+      {
+        "tool_id": "167::lithtrix_memory_search::tools/memory.js:168",
+        "sdk": "typescript-sdk",
+        "metadata": {
+          "name": "lithtrix_memory_search",
+          "title": null,
+          "description": "Semantic search over your memories.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "{\n      q: z\n        .string()\n        .min(1)\n        .max(500)\n        .describe(\"Natural-language search query\"),\n      limit: z\n        .number()\n        .int()\n        .min(1)\n        .max(20)\n        .optional()\n        .describe(\"Max results (1–20, default 5)\"),\n      importance: importanceSchema,\n      threshold: z\n        .number()\n        .min(0)\n        .max(1)\n        .optional()\n        .describe(\"Minimum similarity 0–1 (default 0.7 on API)\"),\n    }",
+            "schema_dialect": "zod/source",
+            "parameters": "see raw schema/source excerpt"
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "tools/memory.js",
+            "line_start": 168,
+            "line_end": 218,
+            "function_name": "lithtrix_memory_search",
+            "function_content": "  server.tool(\n    \"lithtrix_memory_search\",\n    \"Semantic search over your memories (GET /v1/memory/search). \" +\n      \"Requires LITHTRIX_API_KEY and server-side vector + embedding configuration. \" +\n      \"Returns ranked results with similarity scores.\",\n    {\n      q: z\n        .string()\n        .min(1)\n        .max(500)\n        .describe(\"Natural-language search query\"),\n      limit: z\n        .number()\n        .int()\n        .min(1)\n        .max(20)\n        .optional()\n        .describe(\"Max results (1–20, default 5)\"),\n      importance: importanceSchema,\n      threshold: z\n        .number()\n        .min(0)\n        .max(1)\n        .optional()\n        .describe(\"Minimum similarity 0–1 (default 0.7 on API)\"),\n    },\n    async ({ q, limit, importance, threshold }) => {\n      const apiKey = process.env.LITHTRIX_API_KEY;\n      if (!apiKey) return missingApiKeyResponse();\n\n      const url = new URL(\"/v1/memory/search\", LITHTRIX_API_URL);\n      url.searchParams.set(\"q\", q);\n      if (limit !== undefined) url.searchParams.set(\"limit\", String(limit));\n      if (importance !== undefined) url.searchParams.set(\"importance\", importance);\n      if (threshold !== undefined)\n        url.searchParams.set(\"threshold\", String(threshold));\n\n      let response;\n      try {\n        response = await fetch(url.toString(), {\n          headers: {\n            Authorization: `Bearer ${apiKey}`,\n            \"Content-Type\": \"application/json\",\n          },\n        });\n      } catch (err) {\n        return networkErrorResponse(err);\n      }\n      return apiJsonResponse(response);\n    }\n  );"
+          },
+          "handler_resolution": "Registered by tools/memory.js and invoked from index.js register* call."
+        }
+      },
+      {
+        "tool_id": "167::lithtrix_memory_context::tools/memory.js:220",
+        "sdk": "typescript-sdk",
+        "metadata": {
+          "name": "lithtrix_memory_context",
+          "title": null,
+          "description": "Reload top memories for session start.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "{\n      limit: z\n        .number()\n        .int()\n        .min(1)\n        .max(50)\n        .optional()\n        .describe(\"Max memories to return (1–50, default 10)\"),\n      importance: importanceSchema,\n    }",
+            "schema_dialect": "zod/source",
+            "parameters": "see raw schema/source excerpt"
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "tools/memory.js",
+            "line_start": 220,
+            "line_end": 255,
+            "function_name": "lithtrix_memory_context",
+            "function_content": "  server.tool(\n    \"lithtrix_memory_context\",\n    \"Reload top memories for session start (GET /v1/memory/context) — \" +\n      \"ranked by importance then recency. Requires LITHTRIX_API_KEY.\",\n    {\n      limit: z\n        .number()\n        .int()\n        .min(1)\n        .max(50)\n        .optional()\n        .describe(\"Max memories to return (1–50, default 10)\"),\n      importance: importanceSchema,\n    },\n    async ({ limit, importance }) => {\n      const apiKey = process.env.LITHTRIX_API_KEY;\n      if (!apiKey) return missingApiKeyResponse();\n\n      const url = new URL(\"/v1/memory/context\", LITHTRIX_API_URL);\n      if (limit !== undefined) url.searchParams.set(\"limit\", String(limit));\n      if (importance !== undefined) url.searchParams.set(\"importance\", importance);\n\n      let response;\n      try {\n        response = await fetch(url.toString(), {\n          headers: {\n            Authorization: `Bearer ${apiKey}`,\n            \"Content-Type\": \"application/json\",\n          },\n        });\n      } catch (err) {\n        return networkErrorResponse(err);\n      }\n      return apiJsonResponse(response);\n    }\n  );"
+          },
+          "handler_resolution": "Registered by tools/memory.js and invoked from index.js register* call."
+        }
+      },
+      {
+        "tool_id": "167::lithtrix_blob_upload::tools/blobs.js:134",
+        "sdk": "typescript-sdk",
+        "metadata": {
+          "name": "lithtrix_blob_upload",
+          "title": null,
+          "description": "Upload binary bytes via PUT /v1/blobs.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "{\n      content_base64: z\n        .string()\n        .min(1)\n        .describe(\"Standard base64-encoded file bytes (no data: URL prefix)\"),\n      content_type: z\n        .string()\n        .min(1)\n        .max(255)\n        .describe(\"MIME type sent as Content-Type (e.g. application/pdf)\"),\n      filename: z\n        .string()\n        .max(512)\n        .optional()\n        .describe(\"Optional display filename (sent as filename query on the request)\"),\n    }",
+            "schema_dialect": "zod/source",
+            "parameters": "see raw schema/source excerpt"
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "tools/blobs.js",
+            "line_start": 134,
+            "line_end": 192,
+            "function_name": "lithtrix_blob_upload",
+            "function_content": "  server.tool(\n    \"lithtrix_blob_upload\",\n    \"Upload binary bytes via PUT /v1/blobs (raw body + Content-Type). \" +\n      \"Decode base64 from content_base64. For large files prefer direct HTTP multipart/raw PUT. \" +\n      \"Requires LITHTRIX_API_KEY. Subject to BLOB_MAX_UPLOAD_BYTES and BLOB_STORAGE_LIMIT.\",\n    {\n      content_base64: z\n        .string()\n        .min(1)\n        .describe(\"Standard base64-encoded file bytes (no data: URL prefix)\"),\n      content_type: z\n        .string()\n        .min(1)\n        .max(255)\n        .describe(\"MIME type sent as Content-Type (e.g. application/pdf)\"),\n      filename: z\n        .string()\n        .max(512)\n        .optional()\n        .describe(\"Optional display filename (sent as filename query on the request)\"),\n    },\n    async ({ content_base64, content_type, filename }) => {\n      const apiKey = process.env.LITHTRIX_API_KEY;\n      if (!apiKey) return missingApiKeyResponse();\n\n      let binary;\n      try {\n        binary = Buffer.from(content_base64, \"base64\");\n      } catch (err) {\n        return {\n          content: [\n            {\n              type: \"text\",\n              text: JSON.stringify({ error: `Invalid base64: ${err.message}` }),\n            },\n          ],\n          isError: true,\n        };\n      }\n\n      const url = new URL(\"/v1/blobs\", LITHTRIX_API_URL);\n      if (filename !== undefined) url.searchParams.set(\"filename\", filename);\n\n      let response;\n      try {\n        response = await fetch(url.toString(), {\n          method: \"PUT\",\n          headers: {\n            Authorization: `Bearer ${apiKey}`,\n            \"Content-Type\": content_type,\n          },\n          body: binary,\n        });\n      } catch (err) {\n        return networkErrorResponse(err);\n      }\n      return apiJsonResponse(response);\n    }\n  );"
+          },
+          "handler_resolution": "Registered by tools/blobs.js and invoked from index.js register* call."
+        }
+      },
+      {
+        "tool_id": "167::lithtrix_blob_download::tools/blobs.js:194",
+        "sdk": "typescript-sdk",
+        "metadata": {
+          "name": "lithtrix_blob_download",
+          "title": null,
+          "description": "Download blob bytes.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "{ blob_id: blobIdSchema }",
+            "schema_dialect": "zod/source",
+            "parameters": "see raw schema/source excerpt"
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "tools/blobs.js",
+            "line_start": 194,
+            "line_end": 217,
+            "function_name": "lithtrix_blob_download",
+            "function_content": "  server.tool(\n    \"lithtrix_blob_download\",\n    \"Download blob bytes (GET /v1/blobs/{blob_id}). Returns JSON with content_base64 and content_type. \" +\n      \"Requires LITHTRIX_API_KEY.\",\n    { blob_id: blobIdSchema },\n    async ({ blob_id }) => {\n      const apiKey = process.env.LITHTRIX_API_KEY;\n      if (!apiKey) return missingApiKeyResponse();\n\n      const path = `/v1/blobs/${encodeURIComponent(blob_id)}`;\n      let response;\n      try {\n        response = await fetch(new URL(path, LITHTRIX_API_URL), {\n          headers: {\n            Authorization: `Bearer ${apiKey}`,\n            Accept: \"*/*\",\n          },\n        });\n      } catch (err) {\n        return networkErrorResponse(err);\n      }\n      return blobDownloadResult(response);\n    }\n  );"
+          },
+          "handler_resolution": "Registered by tools/blobs.js and invoked from index.js register* call."
+        }
+      },
+      {
+        "tool_id": "167::lithtrix_blob_list::tools/blobs.js:219",
+        "sdk": "typescript-sdk",
+        "metadata": {
+          "name": "lithtrix_blob_list",
+          "title": null,
+          "description": "List blob metadata.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "{\n      page: z.number().int().min(1).optional().describe(\"Page (default 1)\"),\n      per_page: z\n        .number()\n        .int()\n        .min(1)\n        .max(100)\n        .optional()\n        .describe(\"Page size (1–100, default 50)\"),\n    }",
+            "schema_dialect": "zod/source",
+            "parameters": "see raw schema/source excerpt"
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "tools/blobs.js",
+            "line_start": 219,
+            "line_end": 250,
+            "function_name": "lithtrix_blob_list",
+            "function_content": "  server.tool(\n    \"lithtrix_blob_list\",\n    \"List blob metadata (GET /v1/blobs). Optional page and per_page. Requires LITHTRIX_API_KEY.\",\n    {\n      page: z.number().int().min(1).optional().describe(\"Page (default 1)\"),\n      per_page: z\n        .number()\n        .int()\n        .min(1)\n        .max(100)\n        .optional()\n        .describe(\"Page size (1–100, default 50)\"),\n    },\n    async ({ page, per_page }) => {\n      const apiKey = process.env.LITHTRIX_API_KEY;\n      if (!apiKey) return missingApiKeyResponse();\n\n      const url = new URL(\"/v1/blobs\", LITHTRIX_API_URL);\n      if (page !== undefined) url.searchParams.set(\"page\", String(page));\n      if (per_page !== undefined) url.searchParams.set(\"per_page\", String(per_page));\n\n      let response;\n      try {\n        response = await fetch(url.toString(), {\n          headers: { Authorization: `Bearer ${apiKey}` },\n        });\n      } catch (err) {\n        return networkErrorResponse(err);\n      }\n      return apiJsonResponse(response);\n    }\n  );"
+          },
+          "handler_resolution": "Registered by tools/blobs.js and invoked from index.js register* call."
+        }
+      },
+      {
+        "tool_id": "167::lithtrix_blob_meta::tools/blobs.js:252",
+        "sdk": "typescript-sdk",
+        "metadata": {
+          "name": "lithtrix_blob_meta",
+          "title": null,
+          "description": "Get JSON metadata for one blob.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "{ blob_id: blobIdSchema }",
+            "schema_dialect": "zod/source",
+            "parameters": "see raw schema/source excerpt"
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "tools/blobs.js",
+            "line_start": 252,
+            "line_end": 271,
+            "function_name": "lithtrix_blob_meta",
+            "function_content": "  server.tool(\n    \"lithtrix_blob_meta\",\n    \"Get JSON metadata for one blob (GET /v1/blobs/{blob_id}/meta). Requires LITHTRIX_API_KEY.\",\n    { blob_id: blobIdSchema },\n    async ({ blob_id }) => {\n      const apiKey = process.env.LITHTRIX_API_KEY;\n      if (!apiKey) return missingApiKeyResponse();\n\n      const path = `/v1/blobs/${encodeURIComponent(blob_id)}/meta`;\n      let response;\n      try {\n        response = await fetch(new URL(path, LITHTRIX_API_URL), {\n          headers: { Authorization: `Bearer ${apiKey}` },\n        });\n      } catch (err) {\n        return networkErrorResponse(err);\n      }\n      return apiJsonResponse(response);\n    }\n  );"
+          },
+          "handler_resolution": "Registered by tools/blobs.js and invoked from index.js register* call."
+        }
+      },
+      {
+        "tool_id": "167::lithtrix_blob_delete::tools/blobs.js:273",
+        "sdk": "typescript-sdk",
+        "metadata": {
+          "name": "lithtrix_blob_delete",
+          "title": null,
+          "description": "Soft-delete a blob.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "{ blob_id: blobIdSchema }",
+            "schema_dialect": "zod/source",
+            "parameters": "see raw schema/source excerpt"
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "tools/blobs.js",
+            "line_start": 273,
+            "line_end": 293,
+            "function_name": "lithtrix_blob_delete",
+            "function_content": "  server.tool(\n    \"lithtrix_blob_delete\",\n    \"Soft-delete a blob (DELETE /v1/blobs/{blob_id}). Requires LITHTRIX_API_KEY.\",\n    { blob_id: blobIdSchema },\n    async ({ blob_id }) => {\n      const apiKey = process.env.LITHTRIX_API_KEY;\n      if (!apiKey) return missingApiKeyResponse();\n\n      const path = `/v1/blobs/${encodeURIComponent(blob_id)}`;\n      let response;\n      try {\n        response = await fetch(new URL(path, LITHTRIX_API_URL), {\n          method: \"DELETE\",\n          headers: { Authorization: `Bearer ${apiKey}` },\n        });\n      } catch (err) {\n        return networkErrorResponse(err);\n      }\n      return deleteBlobResult(response);\n    }\n  );"
+          },
+          "handler_resolution": "Registered by tools/blobs.js and invoked from index.js register* call."
+        }
+      },
+      {
+        "tool_id": "167::lithtrix_blob_signed_url::tools/blobs.js:295",
+        "sdk": "typescript-sdk",
+        "metadata": {
+          "name": "lithtrix_blob_signed_url",
+          "title": null,
+          "description": "Mint a time-limited HTTPS read URL for a blob.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "{\n      blob_id: blobIdSchema,\n      expires_in: z\n        .number()\n        .int()\n        .min(60)\n        .optional()\n        .describe(\"TTL seconds (min 60; max from server). Omit for API default.\"),\n    }",
+            "schema_dialect": "zod/source",
+            "parameters": "see raw schema/source excerpt"
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "tools/blobs.js",
+            "line_start": 295,
+            "line_end": 330,
+            "function_name": "lithtrix_blob_signed_url",
+            "function_content": "  server.tool(\n    \"lithtrix_blob_signed_url\",\n    \"Mint a time-limited HTTPS read URL for a blob (GET /v1/blobs/{blob_id}/signed-url). \" +\n      \"Anyone with the URL can GET bytes until expiry — share carefully. Requires LITHTRIX_API_KEY.\",\n    {\n      blob_id: blobIdSchema,\n      expires_in: z\n        .number()\n        .int()\n        .min(60)\n        .optional()\n        .describe(\"TTL seconds (min 60; max from server). Omit for API default.\"),\n    },\n    async ({ blob_id, expires_in }) => {\n      const apiKey = process.env.LITHTRIX_API_KEY;\n      if (!apiKey) return missingApiKeyResponse();\n\n      const url = new URL(\n        `/v1/blobs/${encodeURIComponent(blob_id)}/signed-url`,\n        LITHTRIX_API_URL\n      );\n      if (expires_in !== undefined) {\n        url.searchParams.set(\"expires_in\", String(expires_in));\n      }\n\n      let response;\n      try {\n        response = await fetch(url.toString(), {\n          headers: { Authorization: `Bearer ${apiKey}` },\n        });\n      } catch (err) {\n        return networkErrorResponse(err);\n      }\n      return apiJsonResponse(response);\n    }\n  );"
+          },
+          "handler_resolution": "Registered by tools/blobs.js and invoked from index.js register* call."
+        }
+      },
+      {
+        "tool_id": "167::lithtrix_blob_parse::tools/parse.js:80",
+        "sdk": "typescript-sdk",
+        "metadata": {
+          "name": "lithtrix_blob_parse",
+          "title": null,
+          "description": "Extract text/tables from a blob.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "unknown",
+            "schema_dialect": "zod/source",
+            "parameters": "see raw schema/source excerpt"
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "tools/parse.js",
+            "line_start": 80,
+            "line_end": 124,
+            "function_name": "lithtrix_blob_parse",
+            "function_content": "  server.tool(\n    \"lithtrix_blob_parse\",\n    \"POST /v1/blobs/{blob_id}/parse — extract text/tables; set async=true for QStash. Optional callback_url in JSON body. Requires LITHTRIX_API_KEY.\",\n    {\n      blob_id: blobIdSchema,\n      async: z\n        .boolean()\n        .optional()\n        .describe(\"When true, calls ?async=true (async parse + poll)\"),\n      callback_url: z\n        .string()\n        .url()\n        .max(2048)\n        .optional()\n        .describe(\"HTTPS callback for async completion (public host)\"),\n    },\n    async ({ blob_id, async: asyncFlag, callback_url }) => {\n      const apiKey = process.env.LITHTRIX_API_KEY;\n      if (!apiKey) return missingApiKeyResponse();\n\n      const url = new URL(\n        `/v1/blobs/${encodeURIComponent(blob_id)}/parse`,\n        LITHTRIX_API_URL\n      );\n      if (asyncFlag) url.searchParams.set(\"async\", \"true\");\n\n      const body =\n        callback_url !== undefined ? JSON.stringify({ callback_url }) : undefined;\n\n      let response;\n      try {\n        response = await fetch(url.toString(), {\n          method: \"POST\",\n          headers: {\n            Authorization: `Bearer ${apiKey}`,\n            ...(body ? { \"Content-Type\": \"application/json\" } : {}),\n          },\n          body,\n        });\n      } catch (err) {\n        return networkErrorResponse(err);\n      }\n      return apiJsonResponse(response);\n    }\n  );"
+          },
+          "handler_resolution": "Registered by tools/parse.js and invoked from index.js register* call."
+        }
+      },
+      {
+        "tool_id": "167::lithtrix_blob_parse_status::tools/parse.js:126",
+        "sdk": "typescript-sdk",
+        "metadata": {
+          "name": "lithtrix_blob_parse_status",
+          "title": null,
+          "description": "Poll parse status.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "{\n      blob_id: blobIdSchema,\n      parse_id: parseIdSchema,\n    }",
+            "schema_dialect": "zod/source",
+            "parameters": "see raw schema/source excerpt"
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "tools/parse.js",
+            "line_start": 126,
+            "line_end": 148,
+            "function_name": "lithtrix_blob_parse_status",
+            "function_content": "  server.tool(\n    \"lithtrix_blob_parse_status\",\n    \"GET /v1/blobs/{blob_id}/parse/{parse_id} — poll parse status. Requires LITHTRIX_API_KEY.\",\n    {\n      blob_id: blobIdSchema,\n      parse_id: parseIdSchema,\n    },\n    async ({ blob_id, parse_id }) => {\n      const apiKey = process.env.LITHTRIX_API_KEY;\n      if (!apiKey) return missingApiKeyResponse();\n\n      const path = `/v1/blobs/${encodeURIComponent(blob_id)}/parse/${encodeURIComponent(parse_id)}`;\n      let response;\n      try {\n        response = await fetch(new URL(path, LITHTRIX_API_URL), {\n          headers: { Authorization: `Bearer ${apiKey}` },\n        });\n      } catch (err) {\n        return networkErrorResponse(err);\n      }\n      return apiJsonResponse(response);\n    }\n  );"
+          },
+          "handler_resolution": "Registered by tools/parse.js and invoked from index.js register* call."
+        }
+      },
+      {
+        "tool_id": "167::lithtrix_blob_search::tools/parse.js:150",
+        "sdk": "typescript-sdk",
+        "metadata": {
+          "name": "lithtrix_blob_search",
+          "title": null,
+          "description": "Semantic search over parsed blob chunks.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "{\n      q: z.string().min(1).max(500).describe(\"Natural-language query\"),\n      limit: z.number().int().min(1).max(20).optional().describe(\"Max hits (1–20)\"),\n      threshold: z\n        .number()\n        .min(0)\n        .max(1)\n        .optional()\n        .describe(\"Minimum similarity (0–1)\"),\n    }",
+            "schema_dialect": "zod/source",
+            "parameters": "see raw schema/source excerpt"
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "tools/parse.js",
+            "line_start": 150,
+            "line_end": 182,
+            "function_name": "lithtrix_blob_search",
+            "function_content": "  server.tool(\n    \"lithtrix_blob_search\",\n    \"GET /v1/blobs/search — semantic search over parsed chunks; shares quota with web search. Requires LITHTRIX_API_KEY.\",\n    {\n      q: z.string().min(1).max(500).describe(\"Natural-language query\"),\n      limit: z.number().int().min(1).max(20).optional().describe(\"Max hits (1–20)\"),\n      threshold: z\n        .number()\n        .min(0)\n        .max(1)\n        .optional()\n        .describe(\"Minimum similarity (0–1)\"),\n    },\n    async ({ q, limit, threshold }) => {\n      const apiKey = process.env.LITHTRIX_API_KEY;\n      if (!apiKey) return missingApiKeyResponse();\n\n      const url = new URL(\"/v1/blobs/search\", LITHTRIX_API_URL);\n      url.searchParams.set(\"q\", q);\n      if (limit !== undefined) url.searchParams.set(\"limit\", String(limit));\n      if (threshold !== undefined) url.searchParams.set(\"threshold\", String(threshold));\n\n      let response;\n      try {\n        response = await fetch(url.toString(), {\n          headers: { Authorization: `Bearer ${apiKey}` },\n        });\n      } catch (err) {\n        return networkErrorResponse(err);\n      }\n      return apiJsonResponse(response);\n    }\n  );"
+          },
+          "handler_resolution": "Registered by tools/parse.js and invoked from index.js register* call."
+        }
+      },
+      {
+        "tool_id": "167::lithtrix_feedback::tools/feedback.js:13",
+        "sdk": "typescript-sdk",
+        "metadata": {
+          "name": "lithtrix_feedback",
+          "title": null,
+          "description": "Send structured helpful/unhelpful/wrong feedback.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "{\n      ref_type: z\n        .enum([\"search_id\", \"memory_key\", \"blob_id\", \"parse_id\", \"browse_id\"])\n        .describe(\"Kind of reference\"),\n      ref_id: z\n        .string()\n        .min(1)\n        .describe(\"Opaque id (e.g. search UUID from _lithtrix.search_id, memory key, blob_id)\"),\n      signal: z.enum([\"helpful\", \"unhelpful\", \"wrong\"]).describe(\"Feedback signal\"),\n      note: z\n        .string()\n        .max(500)\n        .optional()\n        .describe(\"Optional context, max 500 characters — no secrets or PII\"),\n    }",
+            "schema_dialect": "zod/source",
+            "parameters": "see raw schema/source excerpt"
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "tools/feedback.js",
+            "line_start": 13,
+            "line_end": 113,
+            "function_name": "lithtrix_feedback",
+            "function_content": "  server.tool(\n    \"lithtrix_feedback\",\n    \"After lithtrix_search, send helpful / unhelpful / wrong signal using ref_type search_id and \" +\n      \"ref_id from the response _lithtrix.search_id (UUID). Same tool works for memory_key, blob_id, \" +\n      \"parse_id. Stored for future routing — no secrets or PII in note. Requires LITHTRIX_API_KEY.\",\n    {\n      ref_type: z\n        .enum([\"search_id\", \"memory_key\", \"blob_id\", \"parse_id\", \"browse_id\"])\n        .describe(\"Kind of reference\"),\n      ref_id: z\n        .string()\n        .min(1)\n        .describe(\"Opaque id (e.g. search UUID from _lithtrix.search_id, memory key, blob_id)\"),\n      signal: z.enum([\"helpful\", \"unhelpful\", \"wrong\"]).describe(\"Feedback signal\"),\n      note: z\n        .string()\n        .max(500)\n        .optional()\n        .describe(\"Optional context, max 500 characters — no secrets or PII\"),\n    },\n    async ({ ref_type, ref_id, signal, note }) => {\n      const apiKey = process.env.LITHTRIX_API_KEY;\n      if (!apiKey) {\n        return {\n          content: [\n            {\n              type: \"text\",\n              text: JSON.stringify({\n                error:\n                  \"LITHTRIX_API_KEY environment variable is not set. \" +\n                  \"Register at https://lithtrix.ai to get an API key.\",\n              }),\n            },\n          ],\n          isError: true,\n        };\n      }\n\n      const url = new URL(\"/v1/feedback\", LITHTRIX_API_URL);\n      const body = { ref_type, ref_id, signal };\n      if (note !== undefined && note !== \"\") {\n        body.note = note;\n      }\n\n      let response;\n      try {\n        response = await fetch(url.toString(), {\n          method: \"POST\",\n          headers: {\n            Authorization: `Bearer ${apiKey}`,\n            \"Content-Type\": \"application/json\",\n          },\n          body: JSON.stringify(body),\n        });\n      } catch (err) {\n        return {\n          content: [\n            {\n              type: \"text\",\n              text: JSON.stringify({\n                error: `Network error contacting Lithtrix API: ${err.message}`,\n              }),\n            },\n          ],\n          isError: true,\n        };\n      }\n\n      const text = await response.text();\n      let parsed;\n      try {\n        parsed = JSON.parse(text);\n      } catch {\n        parsed = { message: text || `HTTP ${response.status}` };\n      }\n\n      if (!response.ok) {\n        return {\n          content: [\n            {\n              type: \"text\",\n              text: JSON.stringify({\n                error: parsed.message ?? `Lithtrix API error (HTTP ${response.status})`,\n                error_code: parsed.error_code ?? \"UNKNOWN\",\n              }),\n            },\n          ],\n          isError: true,\n        };\n      }\n\n      return {\n        content: [\n          {\n            type: \"text\",\n            text: JSON.stringify(parsed, null, 2),\n          },\n        ],\n      };\n    }\n  );"
+          },
+          "handler_resolution": "Registered by tools/feedback.js and invoked from index.js register* call."
+        }
+      },
+      {
+        "tool_id": "167::lithtrix_browse::tools/browse.js:13",
+        "sdk": "typescript-sdk",
+        "metadata": {
+          "name": "lithtrix_browse",
+          "title": null,
+          "description": "Server-side public web access for agents.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "{\n      url: z\n        .string()\n        .min(1)\n        .max(8192)\n        .describe(\"Public http(s) URL to fetch\"),\n      mode: z\n        .enum([\"static\", \"dynamic\"])\n        .optional()\n        .default(\"static\")\n        .describe('Fetch mode: \"static\" (HTTP GET) or \"dynamic\" (rendered HTML)'),\n    }",
+            "schema_dialect": "zod/source",
+            "parameters": "see raw schema/source excerpt"
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "tools/browse.js",
+            "line_start": 13,
+            "line_end": 100,
+            "function_name": "lithtrix_browse",
+            "function_content": "  server.tool(\n    \"lithtrix_browse\",\n    \"Pay to be fully autonomous: server-side public web access for agents. \" +\n      \"POST /v1/browse with url and optional mode (static | dynamic). \" +\n      \"Robots.txt is enforced. Returns browse_id, final_url, text extract, and _lithtrix (browse_url, usage on free tier). \" +\n      \"Requires LITHTRIX_API_KEY.\",\n    {\n      url: z\n        .string()\n        .min(1)\n        .max(8192)\n        .describe(\"Public http(s) URL to fetch\"),\n      mode: z\n        .enum([\"static\", \"dynamic\"])\n        .optional()\n        .default(\"static\")\n        .describe('Fetch mode: \"static\" (HTTP GET) or \"dynamic\" (rendered HTML)'),\n    },\n    async ({ url, mode = \"static\" }) => {\n      const apiKey = process.env.LITHTRIX_API_KEY;\n      if (!apiKey) {\n        return {\n          content: [\n            {\n              type: \"text\",\n              text: JSON.stringify({\n                error:\n                  \"LITHTRIX_API_KEY environment variable is not set. \" +\n                  \"Register at https://lithtrix.ai to get an API key.\",\n              }),\n            },\n          ],\n          isError: true,\n        };\n      }\n\n      const reqUrl = new URL(\"/v1/browse\", LITHTRIX_API_URL);\n      let response;\n      try {\n        response = await fetch(reqUrl.toString(), {\n          method: \"POST\",\n          headers: {\n            Authorization: `Bearer ${apiKey}`,\n            \"Content-Type\": \"application/json\",\n          },\n          body: JSON.stringify({ url, mode }),\n        });\n      } catch (err) {\n        return {\n          content: [\n            {\n              type: \"text\",\n              text: JSON.stringify({\n                error: `Network error contacting Lithtrix API: ${err.message}`,\n              }),\n            },\n          ],\n          isError: true,\n        };\n      }\n\n      const body = await response.json();\n\n      if (!response.ok) {\n        return {\n          content: [\n            {\n              type: \"text\",\n              text: JSON.stringify({\n                error: body.message ?? `Lithtrix API error (HTTP ${response.status})`,\n                error_code: body.error_code ?? \"UNKNOWN\",\n              }),\n            },\n          ],\n          isError: true,\n        };\n      }\n\n      return {\n        content: [\n          {\n            type: \"text\",\n            text: JSON.stringify(body, null, 2),\n          },\n        ],\n      };\n    }\n  );"
+          },
+          "handler_resolution": "Registered by tools/browse.js and invoked from index.js register* call."
+        }
+      },
+      {
+        "tool_id": "167::lithtrix_commons_read::tools/commons.js:12",
+        "sdk": "typescript-sdk",
+        "metadata": {
+          "name": "lithtrix_commons_read",
+          "title": null,
+          "description": "List opt-in shared public memory from Lithtrix Commons.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "{\n      page: z\n        .number()\n        .int()\n        .min(1)\n        .optional()\n        .describe(\"Page number (1-based, default 1)\"),\n      per_page: z\n        .number()\n        .int()\n        .min(1)\n        .max(100)\n        .optional()\n        .describe(\"Page size (1–100, default 20)\"),\n    }",
+            "schema_dialect": "zod/source",
+            "parameters": "see raw schema/source excerpt"
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "tools/commons.js",
+            "line_start": 12,
+            "line_end": 102,
+            "function_name": "lithtrix_commons_read",
+            "function_content": "  server.tool(\n    \"lithtrix_commons_read\",\n    \"List opt-in shared public memory from Lithtrix Commons (`GET /v1/commons/entries`). \" +\n      \"Requires `LITHTRIX_API_KEY`. Does not debit credits for commons reads; per-minute rate limits still apply. \" +\n      \"Use `GET /v1/capabilities` → `commons` for URLs and `GET /v1/community` for public founding stats.\",\n    {\n      page: z\n        .number()\n        .int()\n        .min(1)\n        .optional()\n        .describe(\"Page number (1-based, default 1)\"),\n      per_page: z\n        .number()\n        .int()\n        .min(1)\n        .max(100)\n        .optional()\n        .describe(\"Page size (1–100, default 20)\"),\n    },\n    async ({ page = 1, per_page = 20 }) => {\n      const apiKey = process.env.LITHTRIX_API_KEY;\n      if (!apiKey) {\n        return {\n          content: [\n            {\n              type: \"text\",\n              text: JSON.stringify({\n                error:\n                  \"LITHTRIX_API_KEY environment variable is not set. \" +\n                  \"Register with lithtrix_register or POST /v1/register first.\",\n              }),\n            },\n          ],\n          isError: true,\n        };\n      }\n\n      const url = new URL(\"/v1/commons/entries\", LITHTRIX_API_URL);\n      url.searchParams.set(\"page\", String(page));\n      url.searchParams.set(\"per_page\", String(per_page));\n\n      let response;\n      try {\n        response = await fetch(url.toString(), {\n          headers: {\n            Authorization: `Bearer ${apiKey}`,\n            Accept: \"application/json\",\n          },\n        });\n      } catch (err) {\n        return {\n          content: [\n            {\n              type: \"text\",\n              text: JSON.stringify({\n                error: `Network error contacting Lithtrix API: ${err.message}`,\n              }),\n            },\n          ],\n          isError: true,\n        };\n      }\n\n      const body = await response.json();\n\n      if (!response.ok) {\n        return {\n          content: [\n            {\n              type: \"text\",\n              text: JSON.stringify({\n                error: body.message ?? `Lithtrix API error (HTTP ${response.status})`,\n                error_code: body.error_code ?? \"UNKNOWN\",\n              }),\n            },\n          ],\n          isError: true,\n        };\n      }\n\n      return {\n        content: [\n          {\n            type: \"text\",\n            text: JSON.stringify(body, null, 2),\n          },\n        ],\n      };\n    }\n  );"
+          },
+          "handler_resolution": "Registered by tools/commons.js and invoked from index.js register* call."
+        }
+      }
+    ]
+  },
+  {
+    "repo_id": 168,
+    "repo_name": "Loag__mcp-server-test",
+    "source": "github_full_clone",
+    "status": "tools_found_nonstandard_http_protocol",
+    "notes": "Go project implements a custom HTTP MCP-like server with /v1/discover and /v1/call-tool rather than the official JSON-RPC method names. Tools are real provider-discovered and dispatchable handlers.",
+    "tool": [
+      {
+        "tool_id": "168::filesystem.list::mcp/filesystem.go:36",
+        "sdk": "custom-go-http-mcp-like",
+        "metadata": {
+          "name": "filesystem.list",
+          "title": null,
+          "description": "List Directory: Lists the contents of a directory",
+          "icons": [],
+          "inputSchema": {
+            "raw": "\t\t\t{\n\t\t\t\tID:          \"filesystem.list\",\n\t\t\t\tName:        \"List Directory\",\n\t\t\t\tDescription: \"Lists the contents of a directory\",\n\t\t\t\tParameters: map[string]interface{}{\n\t\t\t\t\t\"type\": \"object\",\n\t\t\t\t\t\"properties\": map[string]interface{}{\n\t\t\t\t\t\t\"path\": map[string]interface{}{\n\t\t\t\t\t\t\t\"type\":        \"string\",\n\t\t\t\t\t\t\t\"description\": \"Path to the directory to list\",\n\t\t\t\t\t\t},\n\t\t\t\t\t},\n\t\t\t\t\t\"required\": []string{\"path\"},\n\t\t\t\t},\n\t\t\t},",
+            "schema_dialect": "source-derived",
+            "parameters": "see raw schema/source excerpt"
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "mcp/filesystem.go",
+            "line_start": 36,
+            "line_end": 50,
+            "function_name": "filesystem.list",
+            "function_content": "\t\t\t{\n\t\t\t\tID:          \"filesystem.list\",\n\t\t\t\tName:        \"List Directory\",\n\t\t\t\tDescription: \"Lists the contents of a directory\",\n\t\t\t\tParameters: map[string]interface{}{\n\t\t\t\t\t\"type\": \"object\",\n\t\t\t\t\t\"properties\": map[string]interface{}{\n\t\t\t\t\t\t\"path\": map[string]interface{}{\n\t\t\t\t\t\t\t\"type\":        \"string\",\n\t\t\t\t\t\t\t\"description\": \"Path to the directory to list\",\n\t\t\t\t\t\t},\n\t\t\t\t\t},\n\t\t\t\t\t\"required\": []string{\"path\"},\n\t\t\t\t},\n\t\t\t},"
+          },
+          "handler_resolution": "Provider.GetInfo advertises the tool; server.handleCallTool parses tool_id provider.tool and calls provider.CallTool at server/server.go:77-118; case \"list\" calls p.listDirectory(request) at mcp/filesystem.go:166-169."
+        }
+      },
+      {
+        "tool_id": "168::filesystem.read::mcp/filesystem.go:51",
+        "sdk": "custom-go-http-mcp-like",
+        "metadata": {
+          "name": "filesystem.read",
+          "title": null,
+          "description": "Read File: Reads the contents of a file",
+          "icons": [],
+          "inputSchema": {
+            "raw": "\t\t\t{\n\t\t\t\tID:          \"filesystem.read\",\n\t\t\t\tName:        \"Read File\",\n\t\t\t\tDescription: \"Reads the contents of a file\",\n\t\t\t\tParameters: map[string]interface{}{\n\t\t\t\t\t\"type\": \"object\",\n\t\t\t\t\t\"properties\": map[string]interface{}{\n\t\t\t\t\t\t\"path\": map[string]interface{}{\n\t\t\t\t\t\t\t\"type\":        \"string\",\n\t\t\t\t\t\t\t\"description\": \"Path to the file to read\",\n\t\t\t\t\t\t},\n\t\t\t\t\t\t\"encoding\": map[string]interface{}{\n\t\t\t\t\t\t\t\"type\":        \"string\",\n\t\t\t\t\t\t\t\"description\": \"Encoding of the file (text or base64)\",\n\t\t\t\t\t\t\t\"enum\":        []string{\"text\", \"base64\"},\n\t\t\t\t\t\t\t\"default\":     \"text\",\n\t\t\t\t\t\t},\n\t\t\t\t\t},\n\t\t\t\t\t\"required\": []string{\"path\"},\n\t\t\t\t},\n\t\t\t},",
+            "schema_dialect": "source-derived",
+            "parameters": "see raw schema/source excerpt"
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "mcp/filesystem.go",
+            "line_start": 51,
+            "line_end": 71,
+            "function_name": "filesystem.read",
+            "function_content": "\t\t\t{\n\t\t\t\tID:          \"filesystem.read\",\n\t\t\t\tName:        \"Read File\",\n\t\t\t\tDescription: \"Reads the contents of a file\",\n\t\t\t\tParameters: map[string]interface{}{\n\t\t\t\t\t\"type\": \"object\",\n\t\t\t\t\t\"properties\": map[string]interface{}{\n\t\t\t\t\t\t\"path\": map[string]interface{}{\n\t\t\t\t\t\t\t\"type\":        \"string\",\n\t\t\t\t\t\t\t\"description\": \"Path to the file to read\",\n\t\t\t\t\t\t},\n\t\t\t\t\t\t\"encoding\": map[string]interface{}{\n\t\t\t\t\t\t\t\"type\":        \"string\",\n\t\t\t\t\t\t\t\"description\": \"Encoding of the file (text or base64)\",\n\t\t\t\t\t\t\t\"enum\":        []string{\"text\", \"base64\"},\n\t\t\t\t\t\t\t\"default\":     \"text\",\n\t\t\t\t\t\t},\n\t\t\t\t\t},\n\t\t\t\t\t\"required\": []string{\"path\"},\n\t\t\t\t},\n\t\t\t},"
+          },
+          "handler_resolution": "Provider.GetInfo advertises the tool; server.handleCallTool parses tool_id provider.tool and calls provider.CallTool at server/server.go:77-118; case \"read\" calls p.readFile(request) at mcp/filesystem.go:169-170."
+        }
+      },
+      {
+        "tool_id": "168::filesystem.write::mcp/filesystem.go:72",
+        "sdk": "custom-go-http-mcp-like",
+        "metadata": {
+          "name": "filesystem.write",
+          "title": null,
+          "description": "Write File: Writes content to a file",
+          "icons": [],
+          "inputSchema": {
+            "raw": "\t\t\t{\n\t\t\t\tID:          \"filesystem.write\",\n\t\t\t\tName:        \"Write File\",\n\t\t\t\tDescription: \"Writes content to a file\",\n\t\t\t\tParameters: map[string]interface{}{\n\t\t\t\t\t\"type\": \"object\",\n\t\t\t\t\t\"properties\": map[string]interface{}{\n\t\t\t\t\t\t\"path\": map[string]interface{}{\n\t\t\t\t\t\t\t\"type\":        \"string\",\n\t\t\t\t\t\t\t\"description\": \"Path to the file to write\",\n\t\t\t\t\t\t},\n\t\t\t\t\t\t\"content\": map[string]interface{}{\n\t\t\t\t\t\t\t\"type\":        \"string\",\n\t\t\t\t\t\t\t\"description\": \"Content to write to the file\",\n\t\t\t\t\t\t},\n\t\t\t\t\t\t\"encoding\": map[string]interface{}{\n\t\t\t\t\t\t\t\"type\":        \"string\",\n\t\t\t\t\t\t\t\"description\": \"Encoding of the content (text or base64)\",\n\t\t\t\t\t\t\t\"enum\":        []string{\"text\", \"base64\"},\n\t\t\t\t\t\t\t\"default\":     \"text\",\n\t\t\t\t\t\t},\n\t\t\t\t\t},\n\t\t\t\t\t\"required\": []string{\"path\", \"content\"},\n\t\t\t\t},\n\t\t\t},",
+            "schema_dialect": "source-derived",
+            "parameters": "see raw schema/source excerpt"
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "mcp/filesystem.go",
+            "line_start": 72,
+            "line_end": 96,
+            "function_name": "filesystem.write",
+            "function_content": "\t\t\t{\n\t\t\t\tID:          \"filesystem.write\",\n\t\t\t\tName:        \"Write File\",\n\t\t\t\tDescription: \"Writes content to a file\",\n\t\t\t\tParameters: map[string]interface{}{\n\t\t\t\t\t\"type\": \"object\",\n\t\t\t\t\t\"properties\": map[string]interface{}{\n\t\t\t\t\t\t\"path\": map[string]interface{}{\n\t\t\t\t\t\t\t\"type\":        \"string\",\n\t\t\t\t\t\t\t\"description\": \"Path to the file to write\",\n\t\t\t\t\t\t},\n\t\t\t\t\t\t\"content\": map[string]interface{}{\n\t\t\t\t\t\t\t\"type\":        \"string\",\n\t\t\t\t\t\t\t\"description\": \"Content to write to the file\",\n\t\t\t\t\t\t},\n\t\t\t\t\t\t\"encoding\": map[string]interface{}{\n\t\t\t\t\t\t\t\"type\":        \"string\",\n\t\t\t\t\t\t\t\"description\": \"Encoding of the content (text or base64)\",\n\t\t\t\t\t\t\t\"enum\":        []string{\"text\", \"base64\"},\n\t\t\t\t\t\t\t\"default\":     \"text\",\n\t\t\t\t\t\t},\n\t\t\t\t\t},\n\t\t\t\t\t\"required\": []string{\"path\", \"content\"},\n\t\t\t\t},\n\t\t\t},"
+          },
+          "handler_resolution": "Provider.GetInfo advertises the tool; server.handleCallTool parses tool_id provider.tool and calls provider.CallTool at server/server.go:77-118; case \"write\" calls p.writeFile(request) at mcp/filesystem.go:171-172."
+        }
+      },
+      {
+        "tool_id": "168::filesystem.delete::mcp/filesystem.go:97",
+        "sdk": "custom-go-http-mcp-like",
+        "metadata": {
+          "name": "filesystem.delete",
+          "title": null,
+          "description": "Delete File: Deletes a file or directory",
+          "icons": [],
+          "inputSchema": {
+            "raw": "\t\t\t{\n\t\t\t\tID:          \"filesystem.delete\",\n\t\t\t\tName:        \"Delete File\",\n\t\t\t\tDescription: \"Deletes a file or directory\",\n\t\t\t\tParameters: map[string]interface{}{\n\t\t\t\t\t\"type\": \"object\",\n\t\t\t\t\t\"properties\": map[string]interface{}{\n\t\t\t\t\t\t\"path\": map[string]interface{}{\n\t\t\t\t\t\t\t\"type\":        \"string\",\n\t\t\t\t\t\t\t\"description\": \"Path to the file or directory to delete\",\n\t\t\t\t\t\t},\n\t\t\t\t\t\t\"recursive\": map[string]interface{}{\n\t\t\t\t\t\t\t\"type\":        \"boolean\",\n\t\t\t\t\t\t\t\"description\": \"Whether to recursively delete directories\",\n\t\t\t\t\t\t\t\"default\":     false,\n\t\t\t\t\t\t},\n\t\t\t\t\t},\n\t\t\t\t\t\"required\": []string{\"path\"},\n\t\t\t\t},\n\t\t\t},\n\t\t},",
+            "schema_dialect": "source-derived",
+            "parameters": "see raw schema/source excerpt"
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "mcp/filesystem.go",
+            "line_start": 97,
+            "line_end": 117,
+            "function_name": "filesystem.delete",
+            "function_content": "\t\t\t{\n\t\t\t\tID:          \"filesystem.delete\",\n\t\t\t\tName:        \"Delete File\",\n\t\t\t\tDescription: \"Deletes a file or directory\",\n\t\t\t\tParameters: map[string]interface{}{\n\t\t\t\t\t\"type\": \"object\",\n\t\t\t\t\t\"properties\": map[string]interface{}{\n\t\t\t\t\t\t\"path\": map[string]interface{}{\n\t\t\t\t\t\t\t\"type\":        \"string\",\n\t\t\t\t\t\t\t\"description\": \"Path to the file or directory to delete\",\n\t\t\t\t\t\t},\n\t\t\t\t\t\t\"recursive\": map[string]interface{}{\n\t\t\t\t\t\t\t\"type\":        \"boolean\",\n\t\t\t\t\t\t\t\"description\": \"Whether to recursively delete directories\",\n\t\t\t\t\t\t\t\"default\":     false,\n\t\t\t\t\t\t},\n\t\t\t\t\t},\n\t\t\t\t\t\"required\": []string{\"path\"},\n\t\t\t\t},\n\t\t\t},\n\t\t},"
+          },
+          "handler_resolution": "Provider.GetInfo advertises the tool; server.handleCallTool parses tool_id provider.tool and calls provider.CallTool at server/server.go:77-118; case \"delete\" calls p.deleteFile(request) at mcp/filesystem.go:173-174."
+        }
+      }
+    ]
+  },
+  {
+    "repo_id": 169,
+    "repo_name": "LOFT228__Monad-MCP-Server",
+    "source": "github_full_clone",
+    "status": "no_mcp_tool_registration_found",
+    "notes": "Source is an Express REST API for Monad wallet routes. Searches found no @modelcontextprotocol SDK, FastMCP, tools/list/tools/call JSON-RPC handler, server.tool/registerTool, or comparable MCP tool registration. README/package naming says MCP, but code exposes ordinary REST endpoints only.",
+    "tool": []
+  },
+  {
+    "repo_id": 170,
+    "repo_name": "louiscklaw__hko-mcp",
+    "source": "github_full_clone",
+    "status": "tools_found",
+    "notes": "FastMCP TypeScript server. src/index.ts imports and invokes 20 add* functions, each calling server.addTool. dist duplicates compiled output and was ignored in favor of src. makeFlwRequest.ts also contains an unused named addFlw duplicate with the same name; only the default export called from src/index.ts was recorded.",
+    "tool": [
+      {
+        "tool_id": "170::fnd::src/lib/makeFndRequest.ts:54",
+        "sdk": "fastmcp-ts",
+        "metadata": {
+          "name": "fnd",
+          "title": null,
+          "description": "9-day weather forecast.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "z.object({\n      lang: z\n        .string()\n        .describe('change the language of the result')\n        .default(LANG_EN)\n    })",
+            "schema_dialect": "zod",
+            "parameters": "see raw schema/source excerpt"
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/lib/makeFndRequest.ts",
+            "line_start": 54,
+            "line_end": 88,
+            "function_name": "fnd",
+            "function_content": "  server.addTool({\n    name: 'fnd',\n    description: `\n9-day Weather Forecast (fnd) API Request\n\n Parameters:\n - lang: 'en' (English), 'tc' (Traditional Chinese), 'sc' (Simplified Chinese)\n\n Request Example:\n https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=fnd&lang=en\n\n Response Keys:\n - weatherForecast: List of daily forecasts\n - forecastDate: Forecast Date (YYYYMMDD)\n - forecastWeather: Forecast Weather\n - forecastMaxtemp: Forecast Maximum Temperature\n - forecastMintemp: Forecast Minimum Temperature\n - week: Day of the week\n - forecastWind: Wind direction and strength\n - forecastMaxrh: Maximum relative humidity\n - forecastMinrh: Minimum relative humidity\n - ForecastIcon: Weather icon code\n - PSR: Probability of Significant Rain (High, Medium High, Medium, Medium Low, Low)\n    `,\n    parameters: z.object({\n      lang: z\n        .string()\n        .describe('change the language of the result')\n        .default(LANG_EN)\n    }),\n    execute: async (args) => {\n      const result = await makeFndRequest(args.lang)\n      return result || '<error>nothing returned</error>'\n    }\n  })"
+          },
+          "handler_resolution": "FastMCP addTool called from src/index.ts for fnd"
+        }
+      },
+      {
+        "tool_id": "170::rhrread::src/lib/makeRhrreadRequest.ts:52",
+        "sdk": "fastmcp-ts",
+        "metadata": {
+          "name": "rhrread",
+          "title": null,
+          "description": "Current weather report.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "z.object({\n      lang: z\n        .string()\n        .describe('change the language of the result')\n        .default(LANG_EN)\n    })",
+            "schema_dialect": "zod",
+            "parameters": "see raw schema/source excerpt"
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/lib/makeRhrreadRequest.ts",
+            "line_start": 52,
+            "line_end": 85,
+            "function_name": "rhrread",
+            "function_content": "  server.addTool({\n    name: 'rhrread',\n    description: `\nCurrent Weather Report (rhrread) API Request\n\n Parameters:\n - lang: 'en' (English), 'tc' (Traditional Chinese), 'sc' (Simplified Chinese)\n\n Request Example:\n https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=rhrread&lang=en\n\n Response Keys:\n - humidity: Current humidity data\n - temperature: Current temperature data\n - pressure: Current pressure data\n - wind: Current wind data\n - uvindex: Current UV index data\n - visibility: Current visibility data\n - rainfall: Current rainfall data\n - specialWxTips: Special weather tips\n - updateTime: Last update time\n - warningMessage: Weather warning messages\n    `,\n    parameters: z.object({\n      lang: z\n        .string()\n        .describe('change the language of the result')\n        .default(LANG_EN)\n    }),\n    execute: async (args) => {\n      const result = await makeRhrreadRequest(args.lang)\n      return result || '<error>nothing returned</error>'\n    }\n  })"
+          },
+          "handler_resolution": "FastMCP addTool called from src/index.ts for rhrread"
+        }
+      },
+      {
+        "tool_id": "170::flw::src/lib/makeFlwRequest.ts:50",
+        "sdk": "fastmcp-ts",
+        "metadata": {
+          "name": "flw",
+          "title": null,
+          "description": "Local weather forecast.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "z.object({\n      lang: z\n        .string()\n        .describe('change the language of the result')\n        .default(LANG_EN)\n    })",
+            "schema_dialect": "zod",
+            "parameters": "see raw schema/source excerpt"
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/lib/makeFlwRequest.ts",
+            "line_start": 50,
+            "line_end": 80,
+            "function_name": "flw",
+            "function_content": "  server.addTool({\n    name: 'flw',\n    description: `\nLocal Weather Forecast (flw) API Request\n\n Parameters:\n - lang: 'en' (English), 'tc' (Traditional Chinese), 'sc' (Simplified Chinese)\n\n Request Example:\n https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=flw&lang=en\n\n Response Keys:\n - generalSituation: General weather situation\n - tcInfo: Tropical cyclone information\n - fireDangerWarning: Fire danger warning message\n - forecastPeriod: Forecast period\n - forecastDesc: Detailed forecast description\n - outlook: Weather outlook\n - updateTime: Update time in format YYYY-MM-DD'T'hh:mm:ssZ\n    `,\n    parameters: z.object({\n      lang: z\n        .string()\n        .describe('change the language of the result')\n        .default(LANG_EN)\n    }),\n    execute: async (args) => {\n      const result = await makeFlwRequest(args.lang)\n      return result || '<error>nothing returned</error>'\n    }\n  })"
+          },
+          "handler_resolution": "FastMCP addTool called from src/index.ts for flw"
+        }
+      },
+      {
+        "tool_id": "170::warningInfo::src/lib/makeWarningInfoRequest.ts:46",
+        "sdk": "fastmcp-ts",
+        "metadata": {
+          "name": "warningInfo",
+          "title": null,
+          "description": "Detailed warning information.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "z.object({\n      lang: z\n        .string()\n        .describe('change the language of the result')\n        .default(LANG_EN)\n    })",
+            "schema_dialect": "zod",
+            "parameters": "see raw schema/source excerpt"
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/lib/makeWarningInfoRequest.ts",
+            "line_start": 46,
+            "line_end": 72,
+            "function_name": "warningInfo",
+            "function_content": "  server.addTool({\n    name: 'warningInfo',\n    description: `\nWeather Warning Information (warningInfo) API Request\n\n Parameters:\n - lang: 'en' (English), 'tc' (Traditional Chinese), 'sc' (Simplified Chinese)\n\n Request Example:\n https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=warningInfo&lang=en\n\n Response Keys:\n - Warning_Summary: Array of warning summary objects\n - Special_Warning: Array of special warning objects (if any)\n - Reminder_Warning: Array of reminder warning objects (if any)\n    `,\n    parameters: z.object({\n      lang: z\n        .string()\n        .describe('change the language of the result')\n        .default(LANG_EN)\n    }),\n    execute: async (args) => {\n      const result = await makeWarningInfoRequest(args.lang)\n      return result || '<error>nothing returned</error>'\n    }\n  })"
+          },
+          "handler_resolution": "FastMCP addTool called from src/index.ts for warningInfo"
+        }
+      },
+      {
+        "tool_id": "170::warnsum::src/lib/makeWarnsumRequest.ts:49",
+        "sdk": "fastmcp-ts",
+        "metadata": {
+          "name": "warnsum",
+          "title": null,
+          "description": "Weather warning summary.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "z.object({\n      lang: z\n        .string()\n        .describe('change the language of the result')\n        .default(LANG_EN)\n    })",
+            "schema_dialect": "zod",
+            "parameters": "see raw schema/source excerpt"
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/lib/makeWarnsumRequest.ts",
+            "line_start": 49,
+            "line_end": 78,
+            "function_name": "warnsum",
+            "function_content": "  server.addTool({\n    name: 'warnsum',\n    description: `\nWeather Warning Summary (warnsum) API Request\n\n Parameters:\n - lang: 'en' (English), 'tc' (Traditional Chinese), 'sc' (Simplified Chinese)\n\n Request Example:\n https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=warnsum&lang=en\n\n Response Keys:\n * - {Property name}: Warning Statement Code (WFIRE, WFROST, WHOT, etc.)\n - name: Warning Name\n - code: Warning Code\n - actionCode: Action Code (ISSUE, REISSUE, CANCEL, etc.)\n - issueTime: Issue Time (YYYY-MM-DD'T'hh:mm:ssZ)\n - updateTime: Update Time (YYYY-MM-DD'T'hh:mm:ssZ)\n    `,\n    parameters: z.object({\n      lang: z\n        .string()\n        .describe('change the language of the result')\n        .default(LANG_EN)\n    }),\n    execute: async (args) => {\n      const result = await makeWarnsumRequest(args.lang)\n      return result || '<error>nothing returned</error>'\n    }\n  })"
+          },
+          "handler_resolution": "FastMCP addTool called from src/index.ts for warnsum"
+        }
+      },
+      {
+        "tool_id": "170::swt::src/lib/makeSwtRequest.ts:45",
+        "sdk": "fastmcp-ts",
+        "metadata": {
+          "name": "swt",
+          "title": null,
+          "description": "Special weather tips.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "z.object({\n      lang: z\n        .string()\n        .describe('change the language of the result')\n        .default(LANG_EN)\n    })",
+            "schema_dialect": "zod",
+            "parameters": "see raw schema/source excerpt"
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/lib/makeSwtRequest.ts",
+            "line_start": 45,
+            "line_end": 70,
+            "function_name": "swt",
+            "function_content": "  server.addTool({\n    name: 'swt',\n    description: `\nSpecial Weather Tips (swt) API Request\n\n Parameters:\n - lang: 'en' (English), 'tc' (Traditional Chinese), 'sc' (Simplified Chinese)\n\n Request Example:\n https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=swt&lang=en\n\n Response Keys:\n - desc: Tips Content\n - updateTime: Tips Update Time (YYYY-MM-DD'T'hh:mm:ssZ)\n    `,\n    parameters: z.object({\n      lang: z\n        .string()\n        .describe('change the language of the result')\n        .default(LANG_EN)\n    }),\n    execute: async (args) => {\n      const result = await makeSwtRequest(args.lang)\n      return result || '<error>nothing returned</error>'\n    }\n  })"
+          },
+          "handler_resolution": "FastMCP addTool called from src/index.ts for swt"
+        }
+      },
+      {
+        "tool_id": "170::qem::src/lib/makeQemRequest.ts:49",
+        "sdk": "fastmcp-ts",
+        "metadata": {
+          "name": "qem",
+          "title": null,
+          "description": "Quick earthquake messages.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "z.object({\n      lang: z\n        .string()\n        .describe('change the language of the result')\n        .default(LANG_EN)\n    })",
+            "schema_dialect": "zod",
+            "parameters": "see raw schema/source excerpt"
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/lib/makeQemRequest.ts",
+            "line_start": 49,
+            "line_end": 78,
+            "function_name": "qem",
+            "function_content": "  server.addTool({\n    name: 'qem',\n    description: `\nQuick Earthquake Messages (qem) API Request\n\n Parameters:\n - lang: 'en' (English), 'tc' (Traditional Chinese), 'sc' (Simplified Chinese)\n\n Request Example:\n https://data.weather.gov.hk/weatherAPI/opendata/earthquake.php?dataType=qem&lang=en\n\n Response Keys:\n - lat: Latitude\n - lon: Longitude\n - mag: Richter magnitude scale\n - region: Region\n - ptime: Earthquake date and time (YYYY-MM-DD'T'hh:mm:ssZ)\n - updateTime: Update time (YYYY-MM-DD'T'hh:mm:ssZ)\n    `,\n    parameters: z.object({\n      lang: z\n        .string()\n        .describe('change the language of the result')\n        .default(LANG_EN)\n    }),\n    execute: async (args) => {\n      const result = await makeQemRequest(args.lang)\n      return result || '<error>nothing returned</error>'\n    }\n  })"
+          },
+          "handler_resolution": "FastMCP addTool called from src/index.ts for qem"
+        }
+      },
+      {
+        "tool_id": "170::feltearthquake::src/lib/makeFeltEarthquakeRequest.ts:55",
+        "sdk": "fastmcp-ts",
+        "metadata": {
+          "name": "feltearthquake",
+          "title": null,
+          "description": "Locally felt earth tremor report.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "z.object({\n      lang: z\n        .string()\n        .describe('change the language of the result')\n        .default(LANG_EN)\n    })",
+            "schema_dialect": "zod",
+            "parameters": "see raw schema/source excerpt"
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/lib/makeFeltEarthquakeRequest.ts",
+            "line_start": 55,
+            "line_end": 86,
+            "function_name": "feltearthquake",
+            "function_content": "  server.addTool({\n    name: 'feltearthquake',\n    description: `\nLocally Felt Earth Tremor Report (feltearthquake) API Request\n\n Parameters:\n - lang: 'en' (English), 'tc' (Traditional Chinese), 'sc' (Simplified Chinese)\n\n Request Example:\n https://data.weather.gov.hk/weatherAPI/opendata/earthquake.php?dataType=feltearthquake&lang=en\n\n Response Keys:\n - updateTime: Last update time (YYYY-MM-DD'T'hh:mm:ssZ)\n - mag: Richter magnitude scale (Numeric value)\n - region: Region of the earthquake (Text)\n - intensity: Intensity of the earthquake (Text)\n - lat: Latitude (Numeric value)\n - lon: Longitude (Numeric value)\n - details: Earthquake details (Text)\n - ptime: Date and time of the earthquake (YYYY-MM-DD'T'hh:mm:ssZ)\n    `,\n    parameters: z.object({\n      lang: z\n        .string()\n        .describe('change the language of the result')\n        .default(LANG_EN)\n    }),\n    execute: async (args) => {\n      const result = await makeFeltEarthquakeRequest(args.lang)\n      return result || '<error>nothing returned</error>'\n    }\n  })"
+          },
+          "handler_resolution": "FastMCP addTool called from src/index.ts for feltearthquake"
+        }
+      },
+      {
+        "tool_id": "170::hhhot::src/lib/makeHhotRequest.ts:84",
+        "sdk": "fastmcp-ts",
+        "metadata": {
+          "name": "hhhot",
+          "title": null,
+          "description": "Hot weather special weather information.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "z.object({\n      station: z\n        .string()\n        .describe(\"Tide station code (e.g., 'CCH', 'CLK', etc.)\"),\n      year: z.number().describe('Year between 2022-2024'),\n      month: z.number().optional().describe('Optional month (1-12)'),\n      day: z.number().optional().describe('Optional day of month (1-31)'),\n      hour: z.number().optional().describe('Optional hour (0-23)'),\n      rformat: z\n        .string()\n        .default('json')\n        .describe(\"Output format (only 'json' supported)\")\n    })",
+            "schema_dialect": "zod",
+            "parameters": "see raw schema/source excerpt"
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/lib/makeHhotRequest.ts",
+            "line_start": 84,
+            "line_end": 128,
+            "function_name": "hhhot",
+            "function_content": "  server.addTool({\n    name: 'hhhot',\n    description: `\nHourly Heights of Astronomical Tides (HHOT) API Request\n\n Parameters:\n - station: CCH/CLK/CMW/KCT/KLW/LOP/MWC/QUB/SPW/TAO/TBT/TMW/TPK/WAG\n - year: 2022-2024\n - month: (Optional) 1-12\n - day: (Optional) 1-31\n - hour: (Optional) 0-23\n - rformat: 'json' (Response format)\n\n Request Example:\n https://data.weather.gov.hk/weatherAPI/opendata/opendata.php?dataType=HHOT&station=CCH&year=2025&rformat=json\n\n Response Keys (JSON format):\n - type: Array with data type [\"Hourly Heights of Astronomical Tides\"]\n - fields: Array with field names [\"Year\", \"Month\", \"Day\", \"Hour\", \"Height(m)\"]\n - data: Array of arrays with tide data\n - legend: Array with station information\n\n Response Keys (CSV format):\n - Type: Data type line\n - Header row: Year,Month,Day,Hour,Height(m)\n - Data rows: Actual tide data\n    `,\n    parameters: z.object({\n      station: z\n        .string()\n        .describe(\"Tide station code (e.g., 'CCH', 'CLK', etc.)\"),\n      year: z.number().describe('Year between 2022-2024'),\n      month: z.number().optional().describe('Optional month (1-12)'),\n      day: z.number().optional().describe('Optional day of month (1-31)'),\n      hour: z.number().optional().describe('Optional hour (0-23)'),\n      rformat: z\n        .string()\n        .default('json')\n        .describe(\"Output format (only 'json' supported)\")\n    }),\n    execute: async (args) => {\n      const result = await makeHhotRequest(args)\n      return result || '<error>nothing returned</error>'\n    }\n  })"
+          },
+          "handler_resolution": "FastMCP addTool called from src/index.ts for hhhot"
+        }
+      },
+      {
+        "tool_id": "170::hlt::src/lib/makeHltRequest.ts:120",
+        "sdk": "fastmcp-ts",
+        "metadata": {
+          "name": "hlt",
+          "title": null,
+          "description": "High/low temperature-related weather data.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "z.object({\n      station: z\n        .string()\n        .describe(\"Tide station code (e.g., 'CCH', 'CLK', etc.)\"),\n      year: z.number().describe('Year between 2022 and current year + 1'),\n      month: z.number().optional().describe('Optional month (1-12)'),\n      day: z.number().optional().describe('Optional day of month (1-31)'),\n      hour: z.number().optional().describe('Optional hour (1-24)'),\n      rformat: z\n        .string()\n        .default('json')\n        .describe(\"Output format: 'json' or 'csv' (default: 'json')\")\n    })",
+            "schema_dialect": "zod",
+            "parameters": "see raw schema/source excerpt"
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/lib/makeHltRequest.ts",
+            "line_start": 120,
+            "line_end": 161,
+            "function_name": "hlt",
+            "function_content": "  server.addTool({\n    name: 'hlt',\n    description: `\nTimes and Heights of Astronomical High and Low Tides (HLT) API Request\n\n Parameters:\n - station: CCH/CLK/CMW/KCT/KLW/LOP/MWC/QUB/SPW/TAO/TBT/TMW/TPK/WAG\n - year: 2022-current year+1\n - month: (Optional) 1-12\n - day: (Optional) 1-31\n - hour: (Optional) 1-24\n - rformat: 'json' or 'csv' (Response format, default: json)\n\n Request Example:\n https://data.weather.gov.hk/weatherAPI/opendata/opendata.php?dataType=HLT&station=CLK&year=2025&rformat=json\n\n Response Keys (JSON format):\n - fields: Array with field names [\"Date\", \"Time\", \"Height(m)\", \"Type\"]\n - data: Array of arrays with tide data\n\n Response Keys (CSV format):\n - Header row: Date,Time,Height(m),Type\n - Data rows: Actual tide data\n    `,\n    parameters: z.object({\n      station: z\n        .string()\n        .describe(\"Tide station code (e.g., 'CCH', 'CLK', etc.)\"),\n      year: z.number().describe('Year between 2022 and current year + 1'),\n      month: z.number().optional().describe('Optional month (1-12)'),\n      day: z.number().optional().describe('Optional day of month (1-31)'),\n      hour: z.number().optional().describe('Optional hour (1-24)'),\n      rformat: z\n        .string()\n        .default('json')\n        .describe(\"Output format: 'json' or 'csv' (default: 'json')\")\n    }),\n    execute: async (args) => {\n      const result = await makeHltRequest(args)\n      return result || '<error>nothing returned</error>'\n    }\n  })"
+          },
+          "handler_resolution": "FastMCP addTool called from src/index.ts for hlt"
+        }
+      },
+      {
+        "tool_id": "170::srs::src/lib/makeSrsRequest.ts:96",
+        "sdk": "fastmcp-ts",
+        "metadata": {
+          "name": "srs",
+          "title": null,
+          "description": "Sunrise and sunset information.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "z.object({\n      year: z.number().describe('Year between 2018-2024'),\n      month: z\n        .number()\n        .optional()\n        .describe('Optional month (1-12) when specific month data is needed'),\n      day: z\n        .number()\n        .optional()\n        .describe('Optional day (1-31) when specific day data is needed'),\n      rformat: z\n        .string()\n        .describe(\"Output format: 'json' or 'csv' (default: 'csv')\")\n        .default('csv')\n    })",
+            "schema_dialect": "zod",
+            "parameters": "see raw schema/source excerpt"
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/lib/makeSrsRequest.ts",
+            "line_start": 96,
+            "line_end": 140,
+            "function_name": "srs",
+            "function_content": "  server.addTool({\n    name: 'srs',\n    description: `\nTimes of Sunrise/Sunset (SRS) API Request\n\n Parameters:\n - year: 2018-2024\n - month: (Optional) 1-12 (requires year)\n - day: (Optional) 1-31 (requires year and month)\n - rformat: 'json' or 'csv' (Response format, default: csv)\n\n Request Example:\n https://data.weather.gov.hk/weatherAPI/opendata/opendata.php?dataType=SRS&year=2025&month=1&rformat=json\n\n Response Keys (JSON format):\n - type: Array with data type [\"Sunrise/Sunset Times\"]\n - fields: Array with field names [\"Year\", \"Month\", \"Day\", \"Sunrise\", \"Sunset\"]\n - data: Array of arrays with sunrise/sunset data\n - legend: Array with information\n\n Response Keys (CSV format):\n - Type: Data type line\n - Header row: Year,Month,Day,Sunrise,Sunset\n - Data rows: Actual sunrise/sunset data\n    `,\n    parameters: z.object({\n      year: z.number().describe('Year between 2018-2024'),\n      month: z\n        .number()\n        .optional()\n        .describe('Optional month (1-12) when specific month data is needed'),\n      day: z\n        .number()\n        .optional()\n        .describe('Optional day (1-31) when specific day data is needed'),\n      rformat: z\n        .string()\n        .describe(\"Output format: 'json' or 'csv' (default: 'csv')\")\n        .default('csv')\n    }),\n    execute: async (args) => {\n      const result = await makeSrsRequest(args)\n      return result || '<error>nothing returned</error>'\n    }\n  })"
+          },
+          "handler_resolution": "FastMCP addTool called from src/index.ts for srs"
+        }
+      },
+      {
+        "tool_id": "170::mrs::src/lib/makeMrsRequest.ts:81",
+        "sdk": "fastmcp-ts",
+        "metadata": {
+          "name": "mrs",
+          "title": null,
+          "description": "Moonrise and moonset information.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "z.object({\n      year: z.number().describe('Year between 2018-2024').default(2025),\n      month: z\n        .number()\n        .optional()\n        .describe('Optional month (1-12) when specific month data is needed'),\n      day: z\n        .number()\n        .optional()\n        .describe('Optional day (1-31) when specific day data is needed'),\n      rformat: z\n        .string()\n        .optional()\n        .describe(\"Output format: 'json' or 'csv' (default: 'csv')\")\n    })",
+            "schema_dialect": "zod",
+            "parameters": "see raw schema/source excerpt"
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/lib/makeMrsRequest.ts",
+            "line_start": 81,
+            "line_end": 115,
+            "function_name": "mrs",
+            "function_content": "  server.addTool({\n    name: 'mrs',\n    description: `\nTimes of Moonrise/Moonset (MRS) API Request\n\n Parameters:\n - dataType: 'MRS' (for Moonrise/Moonset Times)\n - rformat: 'json' or 'csv' (Response format, default: csv)\n - year: 2018-2024\n - month: (Optional) 1-12 (requires year)\n - day: (Optional) 1-31 (requires year and month)\n\n Request Example:\n https://data.weather.gov.hk/weatherAPI/opendata/opendata.php?dataType=MRS&year=2025&month=1&rformat=json\n    `,\n    parameters: z.object({\n      year: z.number().describe('Year between 2018-2024').default(2025),\n      month: z\n        .number()\n        .optional()\n        .describe('Optional month (1-12) when specific month data is needed'),\n      day: z\n        .number()\n        .optional()\n        .describe('Optional day (1-31) when specific day data is needed'),\n      rformat: z\n        .string()\n        .optional()\n        .describe(\"Output format: 'json' or 'csv' (default: 'csv')\")\n    }),\n    execute: async (args) => {\n      const result = await makeMrsRequest(args)\n      return result || '<error>nothing returned</error>'\n    }\n  })"
+          },
+          "handler_resolution": "FastMCP addTool called from src/index.ts for mrs"
+        }
+      },
+      {
+        "tool_id": "170::lhl::src/lib/makeLhlRequest.ts:80",
+        "sdk": "fastmcp-ts",
+        "metadata": {
+          "name": "lhl",
+          "title": null,
+          "description": "Local holiday/list-style HKO request.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "z.object({\n      lang: z\n        .string()\n        .describe(\n          \"Language for the response: 'en' (English), 'tc' (Traditional Chinese), 'sc' (Simplified Chinese)\"\n        )\n        .default(LANG_EN),\n      rformat: z\n        .string()\n        .describe(\"Output format: 'json' or 'csv' (default: 'csv')\")\n        .default('csv')\n    })",
+            "schema_dialect": "zod",
+            "parameters": "see raw schema/source excerpt"
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/lib/makeLhlRequest.ts",
+            "line_start": 80,
+            "line_end": 116,
+            "function_name": "lhl",
+            "function_content": "  server.addTool({\n    name: 'lhl',\n    description: `\nCloud-to-Ground and Cloud-to-Cloud Lightning Count (LHL) API Request\n\n Parameters:\n - lang: 'en', 'tc', or 'sc' (Language option, default: en)\n - rformat: 'json' or 'csv' (Response format, default: csv)\n\n Request Example:\n https://data.weather.gov.hk/weatherAPI/opendata/opendata.php?dataType=LHL&lang=en&rformat=json\n\n Response Keys (JSON format):\n - fields: Array with field names [\"Date\", \"Time\", \"CloudToGround\", \"CloudToCloud\"]\n - data: Array of arrays with lightning count data\n\n Response Keys (CSV format):\n - Header row: Date,Time,CloudToGround,CloudToCloud\n - Data rows: Actual lightning count data\n    `,\n    parameters: z.object({\n      lang: z\n        .string()\n        .describe(\n          \"Language for the response: 'en' (English), 'tc' (Traditional Chinese), 'sc' (Simplified Chinese)\"\n        )\n        .default(LANG_EN),\n      rformat: z\n        .string()\n        .describe(\"Output format: 'json' or 'csv' (default: 'csv')\")\n        .default('csv')\n    }),\n    execute: async (args) => {\n      const result = await makeLhlRequest(args)\n      return result || '<error>nothing returned</error>'\n    }\n  })"
+          },
+          "handler_resolution": "FastMCP addTool called from src/index.ts for lhl"
+        }
+      },
+      {
+        "tool_id": "170::ltmv::src/lib/makeLtmvRequest.ts:83",
+        "sdk": "fastmcp-ts",
+        "metadata": {
+          "name": "ltmv",
+          "title": null,
+          "description": "Tide information request.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "z.object({\n      lang: z\n        .string()\n        .describe(\n          \"Language for the response: 'en' (English), 'tc' (Traditional Chinese), 'sc' (Simplified Chinese)\"\n        )\n        .default(LANG_EN),\n      rformat: z\n        .string()\n        .describe(\"Output format: 'json' or 'csv' (default: 'csv')\")\n        .default('csv')\n    })",
+            "schema_dialect": "zod",
+            "parameters": "see raw schema/source excerpt"
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/lib/makeLtmvRequest.ts",
+            "line_start": 83,
+            "line_end": 122,
+            "function_name": "ltmv",
+            "function_content": "  server.addTool({\n    name: 'ltmv',\n    description: `\nLatest 10-minute Mean Visibility (LTMV) API Request\n\n Parameters:\n - lang: 'en', 'tc', or 'sc' (Language option, default: en)\n - rformat: 'json' or 'csv' (Response format, default: csv)\n\n Request Example:\n https://data.weather.gov.hk/weatherAPI/opendata/opendata.php?dataType=LTMV&lang=en&rformat=json\n\n Response Keys (JSON format):\n - type: Array with data type [\"10-minute Visibility\"]\n - fields: Array with field names [\"Automatic Weather Station\", \"Mean Visibility (km)\"]\n - data: Array of arrays with visibility data\n - legend: Array with station information\n\n Response Keys (CSV format):\n - Type: Data type line\n - Header row: Automatic Weather Station,Mean Visibility (km)\n - Data rows: Actual visibility data\n    `,\n    parameters: z.object({\n      lang: z\n        .string()\n        .describe(\n          \"Language for the response: 'en' (English), 'tc' (Traditional Chinese), 'sc' (Simplified Chinese)\"\n        )\n        .default(LANG_EN),\n      rformat: z\n        .string()\n        .describe(\"Output format: 'json' or 'csv' (default: 'csv')\")\n        .default('csv')\n    }),\n    execute: async (args) => {\n      const result = await makeLtmvRequest(args)\n      return result || '<error>nothing returned</error>'\n    }\n  })"
+          },
+          "handler_resolution": "FastMCP addTool called from src/index.ts for ltmv"
+        }
+      },
+      {
+        "tool_id": "170::clmtemp::src/lib/makeClmTempRequest.ts:97",
+        "sdk": "fastmcp-ts",
+        "metadata": {
+          "name": "clmtemp",
+          "title": null,
+          "description": "Climatological mean temperature.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "z.object({\n      station: z\n        .string()\n        .describe('Station code (e.g., HKO for Hong Kong Observatory)'),\n      year: z.number().describe('Year between 1884 and current year'),\n      month: z\n        .number()\n        .optional()\n        .describe('Optional month (1-12) when specific month data is needed'),\n      rformat: z\n        .string()\n        .default('json')\n        .describe(\"Output format: 'json' or 'csv' (default: 'json')\")\n    })",
+            "schema_dialect": "zod",
+            "parameters": "see raw schema/source excerpt"
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/lib/makeClmTempRequest.ts",
+            "line_start": 97,
+            "line_end": 140,
+            "function_name": "clmtemp",
+            "function_content": "  server.addTool({\n    name: 'clmtemp',\n    description: `\nDaily Mean Temperature (CLMTEMP) API Request\n\n Parameters:\n - station: Station code (refer to documentation for full list)\n - year: Year (1884 - current year, station-specific range)\n - month: Month (1-12, optional but requires year)\n - rformat: 'json' or 'csv' (Response format, default: csv)\n\n Request Example:\n https://data.weather.gov.hk/weatherAPI/opendata/opendata.php?dataType=CLMTEMP&station=HKO&year=2025&rformat=json\n\n Response Keys (JSON format):\n - type: Array with data type [\"Mean Temperature\"]\n - fields: Array with field names [\"Year\", \"Month\", \"Day\", \"Temperature(C)\"]\n - data: Array of arrays with temperature data\n - legend: Array with station information\n\n Response Keys (CSV format):\n - Type: Data type line\n - Header row: Year,Month,Day,Temperature(C)\n - Data rows: Actual temperature data\n    `,\n    parameters: z.object({\n      station: z\n        .string()\n        .describe('Station code (e.g., HKO for Hong Kong Observatory)'),\n      year: z.number().describe('Year between 1884 and current year'),\n      month: z\n        .number()\n        .optional()\n        .describe('Optional month (1-12) when specific month data is needed'),\n      rformat: z\n        .string()\n        .default('json')\n        .describe(\"Output format: 'json' or 'csv' (default: 'json')\")\n    }),\n    execute: async (args) => {\n      const result = await makeClmTempRequest(args)\n      return result || '<error>nothing returned</error>'\n    }\n  })"
+          },
+          "handler_resolution": "FastMCP addTool called from src/index.ts for clmtemp"
+        }
+      },
+      {
+        "tool_id": "170::clmmaxt::src/lib/makeClmMaxTempRequest.ts:97",
+        "sdk": "fastmcp-ts",
+        "metadata": {
+          "name": "clmmaxt",
+          "title": null,
+          "description": "Climatological maximum temperature.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "z.object({\n      station: z\n        .string()\n        .describe('Station code (e.g., HKO for Hong Kong Observatory)'),\n      year: z.number().describe('Year between 1884 and current year'),\n      month: z\n        .number()\n        .optional()\n        .describe('Optional month (1-12) when specific month data is needed'),\n      rformat: z\n        .string()\n        .default('json')\n        .describe(\"Output format: 'json' or 'csv' (default: 'json')\")\n    })",
+            "schema_dialect": "zod",
+            "parameters": "see raw schema/source excerpt"
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/lib/makeClmMaxTempRequest.ts",
+            "line_start": 97,
+            "line_end": 140,
+            "function_name": "clmmaxt",
+            "function_content": "  server.addTool({\n    name: 'clmmaxt',\n    description: `\nDaily Maximum Temperature (CLMMAXT) API Request\n\n Parameters:\n - station: Station code (refer to documentation for full list)\n - year: Year (1884 - current year, station-specific range)\n - month: Month (1-12, optional but requires year)\n - rformat: 'json' or 'csv' (Response format, default: csv)\n\n Request Example:\n https://data.weather.gov.hk/weatherAPI/opendata/opendata.php?dataType=CLMMAXT&station=HKO&year=2025&rformat=json\n\n Response Keys (JSON format):\n - type: Array with data type [\"Max Temperature\"]\n - fields: Array with field names [\"Year\", \"Month\", \"Day\", \"Temperature(C)\"]\n - data: Array of arrays with temperature data\n - legend: Array with station information\n\n Response Keys (CSV format):\n - Type: Data type line\n - Header row: Year,Month,Day,Temperature(C)\n - Data rows: Actual temperature data\n    `,\n    parameters: z.object({\n      station: z\n        .string()\n        .describe('Station code (e.g., HKO for Hong Kong Observatory)'),\n      year: z.number().describe('Year between 1884 and current year'),\n      month: z\n        .number()\n        .optional()\n        .describe('Optional month (1-12) when specific month data is needed'),\n      rformat: z\n        .string()\n        .default('json')\n        .describe(\"Output format: 'json' or 'csv' (default: 'json')\")\n    }),\n    execute: async (args) => {\n      const result = await makeClmMaxTempRequest(args)\n      return result || '<error>nothing returned</error>'\n    }\n  })"
+          },
+          "handler_resolution": "FastMCP addTool called from src/index.ts for clmmaxt"
+        }
+      },
+      {
+        "tool_id": "170::clmmin::src/lib/makeClmMinTempRequest.ts:97",
+        "sdk": "fastmcp-ts",
+        "metadata": {
+          "name": "clmmin",
+          "title": null,
+          "description": "Climatological minimum temperature.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "z.object({\n      station: z\n        .string()\n        .describe('Station code (e.g., HKO for Hong Kong Observatory)'),\n      year: z.number().describe('Year between 1884 and current year'),\n      month: z\n        .number()\n        .optional()\n        .describe('Optional month (1-12) when specific month data is needed'),\n      rformat: z\n        .string()\n        .default('json')\n        .describe(\"Output format: 'json' or 'csv' (default: 'json')\")\n    })",
+            "schema_dialect": "zod",
+            "parameters": "see raw schema/source excerpt"
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/lib/makeClmMinTempRequest.ts",
+            "line_start": 97,
+            "line_end": 140,
+            "function_name": "clmmin",
+            "function_content": "  server.addTool({\n    name: 'clmmin',\n    description: `\nDaily Minimum Temperature (CLMMINT) API Request\n\n Parameters:\n - station: Station code (refer to documentation for full list)\n - year: Year (1884 - current year, station-specific range)\n - month: Month (1-12, optional but requires year)\n - rformat: 'json' or 'csv' (Response format, default: csv)\n\n Request Example:\n https://data.weather.gov.hk/weatherAPI/opendata/opendata.php?dataType=CLMMINT&station=HKO&year=2025&rformat=json\n\n Response Keys (JSON format):\n - type: Array with data type [\"Min Temperature\"]\n - fields: Array with field names [\"Year\", \"Month\", \"Day\", \"Temperature(C)\"]\n - data: Array of arrays with temperature data\n - legend: Array with station information\n\n Response Keys (CSV format):\n - Type: Data type line\n - Header row: Year,Month,Day,Temperature(C)\n - Data rows: Actual temperature data\n    `,\n    parameters: z.object({\n      station: z\n        .string()\n        .describe('Station code (e.g., HKO for Hong Kong Observatory)'),\n      year: z.number().describe('Year between 1884 and current year'),\n      month: z\n        .number()\n        .optional()\n        .describe('Optional month (1-12) when specific month data is needed'),\n      rformat: z\n        .string()\n        .default('json')\n        .describe(\"Output format: 'json' or 'csv' (default: 'json')\")\n    }),\n    execute: async (args) => {\n      const result = await makeClmMinTempRequest(args)\n      return result || '<error>nothing returned</error>'\n    }\n  })"
+          },
+          "handler_resolution": "FastMCP addTool called from src/index.ts for clmmin"
+        }
+      },
+      {
+        "tool_id": "170::ryes::src/lib/makeRyesRequest.ts:103",
+        "sdk": "fastmcp-ts",
+        "metadata": {
+          "name": "ryes",
+          "title": null,
+          "description": "Radiation/meteorological observation request.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "z.object({\n      date: z.string().describe('Date of report (YYYYMMDD format)'),\n      lang: z\n        .string()\n        .describe(\n          \"Language for the response: 'en' (English), 'tc' (Traditional Chinese), 'sc' (Simplified Chinese)\"\n        )\n        .default(LANG_EN),\n      station: z\n        .string()\n        .describe('Station code (refer to documentation for full list)')\n    })",
+            "schema_dialect": "zod",
+            "parameters": "see raw schema/source excerpt"
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/lib/makeRyesRequest.ts",
+            "line_start": 103,
+            "line_end": 138,
+            "function_name": "ryes",
+            "function_content": "  server.addTool({\n    name: 'ryes',\n    description: `\nWeather and Radiation Level Report (RYES) API Request\n\n Parameters:\n - date: Date of report (YYYYMMDD format)\n - lang: 'en', 'tc', or 'sc' (Language option, default: en)\n - station: Station code (refer to documentation for full list)\n\n Request Example:\n https://data.weather.gov.hk/weatherAPI/opendata/opendata.php?dataType=RYES&date=20250101&lang=en&station=HKO\n\n Response Keys:\n - type: Data type (\"data\")\n - SolarData: Solar radiation data with unit and period-value pairs\n - AmbientTemp: Ambient temperature data with unit and period-value pairs\n - Other parameters: Additional weather parameters\n    `,\n    parameters: z.object({\n      date: z.string().describe('Date of report (YYYYMMDD format)'),\n      lang: z\n        .string()\n        .describe(\n          \"Language for the response: 'en' (English), 'tc' (Traditional Chinese), 'sc' (Simplified Chinese)\"\n        )\n        .default(LANG_EN),\n      station: z\n        .string()\n        .describe('Station code (refer to documentation for full list)')\n    }),\n    execute: async (args) => {\n      const result = await makeRyesRequest(args)\n      return result || '<error>nothing returned</error>'\n    }\n  })"
+          },
+          "handler_resolution": "FastMCP addTool called from src/index.ts for ryes"
+        }
+      },
+      {
+        "tool_id": "170::lunardate::src/lib/makeLunarDateRequest.ts:69",
+        "sdk": "fastmcp-ts",
+        "metadata": {
+          "name": "lunardate",
+          "title": null,
+          "description": "Gregorian/lunar date conversion request.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "z.object({\n      date: z.string().describe('Gregorian date to convert (YYYY-MM-DD format)')\n    })",
+            "schema_dialect": "zod",
+            "parameters": "see raw schema/source excerpt"
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/lib/makeLunarDateRequest.ts",
+            "line_start": 69,
+            "line_end": 91,
+            "function_name": "lunardate",
+            "function_content": "  server.addTool({\n    name: 'lunardate',\n    description: `\nGregorian-Lunar Calendar Conversion API Request\n\n Parameters:\n - date: Gregorian date to convert (YYYY-MM-DD format)\n\n Request Example:\n https://data.weather.gov.hk/weatherAPI/opendata/lunardate.php?date=2025-07-26\n\n Response Keys:\n - LunarYear: Lunar year in traditional Chinese with zodiac (e.g. \"癸卯年，兔\")\n - LunarDate: Lunar date in traditional Chinese (e.g. \"六月初二\")\n    `,\n    parameters: z.object({\n      date: z.string().describe('Gregorian date to convert (YYYY-MM-DD format)')\n    }),\n    execute: async (args) => {\n      const result = await makeLunarDateRequest(args)\n      return result || '<error>nothing returned</error>'\n    }\n  })"
+          },
+          "handler_resolution": "FastMCP addTool called from src/index.ts for lunardate"
+        }
+      },
+      {
+        "tool_id": "170::hourlyrainfall::src/lib/makeHourlyRainfallRequest.ts:86",
+        "sdk": "fastmcp-ts",
+        "metadata": {
+          "name": "hourlyrainfall",
+          "title": null,
+          "description": "Hourly rainfall data request.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "z.object({\n      lang: z\n        .string()\n        .describe(\n          \"Language for the response: 'en' (English), 'tc' (Traditional Chinese), 'sc' (Simplified Chinese)\"\n        )\n        .default(LANG_EN)\n    })",
+            "schema_dialect": "zod",
+            "parameters": "see raw schema/source excerpt"
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/lib/makeHourlyRainfallRequest.ts",
+            "line_start": 86,
+            "line_end": 136,
+            "function_name": "hourlyrainfall",
+            "function_content": "  server.addTool({\n    name: 'hourlyrainfall',\n    description: `\nRainfall in the Past Hour from Automatic Weather Station API Request\n\n Parameters:\n - lang: Language option (en, tc, sc) - default: en\n\n Request Example:\n https://data.weather.gov.hk/weatherAPI/opendata/hourlyRainfall.php?lang=en\n\n Response Keys:\n - obsTime: Observation time in ISO 8601 format\n - hourlyRainfall: Array of rainfall data from automatic weather stations\n   - automaticWeatherStation: Name of the weather station\n   - automaticWeatherStationID: ID of the weather station\n   - value: Rainfall amount\n   - unit: Measurement unit (mm)\n\n Response example:\n {\n   \"obsTime\": \"2025-01-01T08:00:00+08:00\",\n   \"hourlyRainfall\": [\n     {\n       \"automaticWeatherStation\": \"Lau Fau Shan\",\n       \"automaticWeatherStationID\": \"RF001\",\n       \"value\": \"0\",\n       \"unit\": \"mm\"\n     },\n     {\n       \"automaticWeatherStation\": \"Wetland Park\",\n       \"automaticWeatherStationID\": \"RF002\",\n       \"value\": \"2\",\n       \"unit\": \"mm\"\n     }\n   ]\n }\n    `,\n    parameters: z.object({\n      lang: z\n        .string()\n        .describe(\n          \"Language for the response: 'en' (English), 'tc' (Traditional Chinese), 'sc' (Simplified Chinese)\"\n        )\n        .default(LANG_EN)\n    }),\n    execute: async (args) => {\n      const result = await makeHourlyRainfallRequest(args)\n      return result || '<error>nothing returned</error>'\n    }\n  })"
+          },
+          "handler_resolution": "FastMCP addTool called from src/index.ts for hourlyrainfall"
+        }
+      }
+    ]
+  }
+]

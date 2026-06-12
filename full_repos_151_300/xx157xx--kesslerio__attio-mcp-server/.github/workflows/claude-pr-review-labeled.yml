@@ -1,0 +1,1539 @@
+name: Claude PR Review (labeled)
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: 'PR number'
+        required: true
+      label:
+        description: 'claude:review or claude:ultra'
+        required: true
+      source:
+        description: 'Dispatch source for debugging'
+        required: false
+        default: 'gate'
+  pull_request:
+    types: [reopened] # optional: manual nudge path for reopened PRs
+
+concurrency:
+  group: claude-pr-labeled-${{ github.event.inputs.pr || github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  actions: read
+  checks: read
+
+jobs:
+  review:
+    # Run for workflow_dispatch or PR reopened (with Claude label)
+    if: |
+      (github.event_name == 'workflow_dispatch') ||
+      (github.event_name == 'pull_request' && github.event.action == 'reopened' &&
+       (contains(github.event.pull_request.labels.*.name, 'claude:review') ||
+        contains(github.event.pull_request.labels.*.name, 'claude:ultra')))
+
+    runs-on: ubuntu-latest
+
+    concurrency:
+      group: pr-${{ github.event.inputs.pr || github.event.pull_request.number }}-claude-review
+      cancel-in-progress: true
+
+    steps:
+      - name: Resolve inputs
+        id: resolve
+        run: |
+          echo "pr=${{ github.event.inputs.pr || github.event.pull_request.number }}" >> $GITHUB_OUTPUT
+          echo "label=${{ github.event.inputs.label || 'claude:review' }}" >> $GITHUB_OUTPUT
+          echo "source=${{ github.event.inputs.source || 'reopened' }}" >> $GITHUB_OUTPUT
+          echo "🔍 Dispatch source: ${{ github.event.inputs.source || 'reopened' }}"
+
+      # Fast label check to short-circuit unrelated label churn
+      - name: Has claude label?
+        id: haslabel
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = '${{ steps.resolve.outputs.pr }}';
+            const labels = await github.paginate(github.rest.issues.listLabelsOnIssue, {
+              owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber, per_page: 100
+            });
+            const names = new Set(labels.map(l => l.name));
+            const hasReview = names.has('claude:review');
+            const hasUltra  = names.has('claude:ultra');
+            core.setOutput('has', String(hasReview || hasUltra));
+            core.setOutput('has_review', String(hasReview));
+            core.setOutput('has_ultra',  String(hasUltra));
+
+      - name: Skip if not a Claude label
+        if: steps.haslabel.outputs.has != 'true' && github.event_name == 'pull_request'
+        run: exit 0
+
+      # Optional (audit egress): set to "audit" first; switch to "block" once stable
+      - name: Harden Runner (egress audit)
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
+      - name: Get PR info & determine environment
+        id: decide
+        if: steps.haslabel.outputs.has == 'true' || (github.event_name == 'pull_request' && github.event.action == 'reopened') || github.event_name == 'workflow_dispatch'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Get PR number from resolved inputs
+            const prNumber = '${{ steps.resolve.outputs.pr }}';
+            if (!prNumber) {
+              core.setFailed('No PR number resolved'); return;
+            }
+
+            // Always fetch the PR fresh
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber
+            });
+
+            const internal = pr.head.repo.full_name === `${context.repo.owner}/${context.repo.repo}`;
+            const changed = pr.changed_files || 0;
+            const additions = pr.additions || 0;
+            const deletions = pr.deletions || 0;
+            const totalLines = additions + deletions;
+
+            // Optional debug (shows up in logs)
+            core.info(`PR #${pr.number}: internal=${internal}, changed=${changed} files, lines=${totalLines}`);
+
+            core.setOutput('internal', String(internal));
+            core.setOutput('pr', String(pr.number));
+            core.setOutput('sha', pr.head.sha);
+            core.setOutput('changed', String(changed));
+            core.setOutput('lines', String(totalLines));
+            core.setOutput('base_sha', pr.base.sha);
+            core.setOutput('base_ref', pr.base.ref);
+            core.setOutput('author_association', pr.author_association || 'NONE');
+            core.setOutput('author_login', pr.user?.login || 'unknown');
+
+      - name: Calculate turn limits based on PR size
+        id: turns
+        run: |
+          lines=${{ steps.decide.outputs.lines || 0 }}
+          files=${{ steps.decide.outputs.changed || 0 }}
+
+          # Scale turns with diff size (bigger diff → more turns)
+          if   [ $lines -le 400  ]; then sonnet_cap=22; opus_cap=26
+          elif [ $lines -le 1500 ]; then sonnet_cap=32; opus_cap=38
+          elif [ $lines -le 4000 ]; then sonnet_cap=44; opus_cap=52
+          else                         sonnet_cap=56; opus_cap=64
+          fi
+
+          # Calculate cutoff turns (when to stop using tools)
+          sonnet_cutoff=$((sonnet_cap - 10))
+          opus_cutoff=$((opus_cap - 12))
+
+          # Calculate dynamic timeouts (turn_count * 20 seconds, minimum 10 minutes)
+          # Formula: max(10, ceil(turns * 20 / 60)) minutes
+          sonnet_timeout_calc=$(( (sonnet_cap * 20 + 59) / 60 ))
+          opus_timeout_calc=$(( (opus_cap * 20 + 59) / 60 ))
+          sonnet_timeout=$(( sonnet_timeout_calc > 10 ? sonnet_timeout_calc : 10 ))
+          opus_timeout=$(( opus_timeout_calc > 10 ? opus_timeout_calc : 10 ))
+
+          echo "sonnet_turns=$sonnet_cap" >> $GITHUB_OUTPUT
+          echo "opus_turns=$opus_cap" >> $GITHUB_OUTPUT
+          echo "sonnet_cutoff=$sonnet_cutoff" >> $GITHUB_OUTPUT
+          echo "opus_cutoff=$opus_cutoff" >> $GITHUB_OUTPUT
+          echo "sonnet_timeout=$sonnet_timeout" >> $GITHUB_OUTPUT
+          echo "opus_timeout=$opus_timeout" >> $GITHUB_OUTPUT
+
+          # Summary for maintainers in both logs and step summary
+          summary="🎯 PR size: $lines lines, $files files → Sonnet: $sonnet_cap turns (${sonnet_timeout}m timeout), Opus: $opus_cap turns (${opus_timeout}m timeout)"
+          echo "$summary"
+          echo "$summary" >> $GITHUB_STEP_SUMMARY
+
+      - name: Detect contributor status and prepare context
+        id: contributor_context
+        run: |
+          association="${{ steps.decide.outputs.author_association }}"
+          author="${{ steps.decide.outputs.author_login }}"
+
+          # Check if first-time contributor
+          if [[ "$association" == "FIRST_TIME_CONTRIBUTOR" || "$association" == "NONE" ]]; then
+            echo "is_first_time=true" >> $GITHUB_OUTPUT
+            echo "contributor_message=⭐ FIRST-TIME CONTRIBUTOR: Please be encouraging and provide detailed explanations for any suggestions. Welcome them to the project!" >> $GITHUB_OUTPUT
+          else
+            echo "is_first_time=false" >> $GITHUB_OUTPUT
+            echo "contributor_message=" >> $GITHUB_OUTPUT
+          fi
+
+          echo "📊 Contributor: ${author} (${association})" >> $GITHUB_STEP_SUMMARY
+
+      - name: Extract PR Context for Review
+        id: pr_context
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PR_NUM="${{ steps.resolve.outputs.pr }}"
+
+          # Fetch PR metadata with retry logic (handle transient network errors)
+          PR_DATA=""
+          RETRY_COUNT=0
+          MAX_RETRIES=3
+
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            if PR_DATA=$(gh pr view "$PR_NUM" --repo "${{ github.repository }}" --json title,body,labels,closingIssuesReferences 2>&1); then
+              break  # Success
+            else
+              EXIT_CODE=$?
+              RETRY_COUNT=$((RETRY_COUNT + 1))
+
+              # Check if error is transient (network/API) vs permanent (not found)
+              if echo "$PR_DATA" | grep -qi "could not resolve to a PullRequest\|not found"; then
+                echo "⚠️ PR #$PR_NUM not found (permanent error), skipping retries" >> $GITHUB_STEP_SUMMARY
+                echo "gh pr view failed (permanent): $PR_DATA" >&2
+                PR_DATA=""
+                break
+              elif [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+                BACKOFF=$((2 ** RETRY_COUNT))  # Exponential backoff: 2, 4, 8 seconds
+                echo "⚠️ Transient error fetching PR metadata (attempt $RETRY_COUNT/$MAX_RETRIES), retrying in ${BACKOFF}s..." >> $GITHUB_STEP_SUMMARY
+                echo "gh pr view failed (attempt $RETRY_COUNT): exit $EXIT_CODE, output: $PR_DATA" >&2
+                sleep $BACKOFF
+              else
+                echo "❌ Failed to fetch PR metadata after $MAX_RETRIES attempts" >> $GITHUB_STEP_SUMMARY
+                echo "gh pr view failed after retries: exit $EXIT_CODE, output: $PR_DATA" >&2
+                PR_DATA=""
+              fi
+            fi
+          done
+
+          # Process PR data if successfully fetched
+          if [ -n "$PR_DATA" ] && echo "$PR_DATA" | jq -e . >/dev/null 2>&1; then
+            # Extract title (always present)
+            PR_TITLE=$(echo "$PR_DATA" | jq -r '.title // "Untitled PR"')
+            echo "pr_title=$PR_TITLE" >> $GITHUB_OUTPUT
+
+            # Extract body with truncation if needed (max 4000 chars for prompt efficiency)
+            PR_BODY=$(echo "$PR_DATA" | jq -r '.body // "No description provided"')
+            if [ ${#PR_BODY} -gt 4000 ]; then
+              PR_BODY="${PR_BODY:0:4000}... (truncated)"
+            fi
+
+            # Store body using heredoc with dynamic delimiter (prevents collision)
+            DELIMITER="PR_BODY_EOF_${{ github.run_id }}"
+            {
+              echo "pr_body<<${DELIMITER}"
+              echo "$PR_BODY"
+              printf '\n'  # Ensure newline before delimiter
+              echo "${DELIMITER}"
+            } >> "$GITHUB_OUTPUT"
+
+            # Extract linked issues (closing/fixes references)
+            ISSUE_REFS=$(echo "$PR_DATA" | jq -r '[.closingIssuesReferences[]? | "#\(.number)"] | join(", ") | if . == "" then "None" else . end')
+            echo "issue_refs=$ISSUE_REFS" >> $GITHUB_OUTPUT
+
+            # Extract labels
+            LABELS=$(echo "$PR_DATA" | jq -r '[.labels[]? | .name] | join(", ") | if . == "" then "None" else . end')
+            echo "labels=$LABELS" >> $GITHUB_OUTPUT
+
+            echo "✅ PR Context extracted: $PR_TITLE" >> $GITHUB_STEP_SUMMARY
+          else
+            # Fallback if PR metadata fetch fails
+            echo "⚠️ Failed to fetch PR metadata, review will proceed without context" >> $GITHUB_STEP_SUMMARY
+            echo "pr_title=Unknown PR (metadata unavailable)" >> $GITHUB_OUTPUT
+            echo "pr_body=Unable to fetch PR description. The review will proceed with file changes only." >> $GITHUB_OUTPUT
+            echo "issue_refs=None" >> $GITHUB_OUTPUT
+            echo "labels=None" >> $GITHUB_OUTPUT
+          fi
+
+      # Fork PRs won't have repo secrets -> comment guidance and skip
+      - name: Handle forks (no secrets in PR context)
+        if: steps.decide.outputs.internal != 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = Number('${{ steps.decide.outputs.pr }}');
+            const body =
+              `🔒 This is a fork PR. For security, secrets are not available in PR jobs.\n\n` +
+              `To run Claude reviews with full checkout, use **Actions → Claude Trusted Review (manual)** on PR #${prNumber}, or approve a maintainer-run workflow.`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber, body
+            });
+
+      - name: Exit on forks
+        if: steps.decide.outputs.internal != 'true'
+        run: exit 0
+
+      - name: Checkout PR HEAD
+        if: steps.decide.outputs.internal == 'true' && (steps.haslabel.outputs.has == 'true' || github.event_name == 'workflow_dispatch')
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.decide.outputs.sha }}
+          fetch-depth: 0
+          persist-credentials: false # defensive; we're not pushing
+
+      - name: Compute review scope (trusted inline)
+        if: steps.decide.outputs.internal == 'true' && (steps.haslabel.outputs.has == 'true' || github.event_name == 'workflow_dispatch')
+        id: scope
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          SCOPE_DIR=".github/claude-cache/${{ github.run_id }}"
+          mkdir -p "$SCOPE_DIR"
+
+          base_sha="${{ steps.decide.outputs.base_sha || '' }}"
+          head_sha="${{ steps.decide.outputs.sha || '' }}"
+
+          if [ -z "$base_sha" ] || [ -z "$head_sha" ]; then
+            echo '[]' > "$SCOPE_DIR/ring0.json"
+            echo '[]' > "$SCOPE_DIR/ring1.json"
+            echo '[]' > "$SCOPE_DIR/alias-resolutions.json"
+            jq -n '{ring0Count:0,ring1Count:0,deletionsCount:0,fallback:true,reason:"missing-sha"}' > "$SCOPE_DIR/scope-summary.json"
+            exit 0
+          fi
+
+          mapfile -t changed_files < <(git diff --name-only --diff-filter=ACMR "$base_sha...$head_sha" || true)
+          mapfile -t deleted_files < <(git diff --name-only --diff-filter=D "$base_sha...$head_sha" || true)
+
+          printf '%s\n' "${changed_files[@]:-}" | jq -R -s 'split("\n") | map(select(length>0)) | unique' > "$SCOPE_DIR/ring0.json"
+          echo '[]' > "$SCOPE_DIR/ring1.json"
+          echo '[]' > "$SCOPE_DIR/alias-resolutions.json"
+
+          if [ "${#deleted_files[@]}" -gt 0 ]; then
+            {
+              echo '# Deleted files'
+              echo
+              for file in "${deleted_files[@]}"; do
+                echo "- $file"
+              done
+            } > "$SCOPE_DIR/DELETIONS.md"
+          fi
+
+          ring0_count=$(jq 'length' "$SCOPE_DIR/ring0.json")
+          deletions_count=${#deleted_files[@]}
+
+          jq -n \
+            --argjson ring0 "$ring0_count" \
+            --argjson deletions "$deletions_count" \
+            --arg base "$base_sha" \
+            --arg head "$head_sha" \
+            '{ring0Count:$ring0, ring1Count:0, deletionsCount:$deletions, fallback:true, baseRef:$base, headRef:$head}' \
+            > "$SCOPE_DIR/scope-summary.json"
+
+      - name: Apply sparse checkout scope
+        if: steps.decide.outputs.internal == 'true' && (steps.haslabel.outputs.has == 'true' || github.event_name == 'workflow_dispatch')
+        id: sparse
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          SCOPE_DIR=".github/claude-cache/${{ github.run_id }}"
+          RING0_JSON_PATH="$SCOPE_DIR/ring0.json"
+          RING1_JSON_PATH="$SCOPE_DIR/ring1.json"
+          SUMMARY_PATH="$SCOPE_DIR/scope-summary.json"
+          DELETIONS_PATH="$SCOPE_DIR/DELETIONS.md"
+
+          if [ ! -f "$SUMMARY_PATH" ]; then
+            echo "scope-summary.json missing; skipping sparse checkout"
+            exit 0
+          fi
+
+          ring0_json=$(jq -c '.' "$RING0_JSON_PATH")
+          ring1_json=$(jq -c '.' "$RING1_JSON_PATH")
+          # Normalize .js -> .ts for source paths; keeps everything JSON-safe
+          ring1_json=$(jq -c 'map(if endswith(".js") then sub("\\.js$"; ".ts") else . end)' <<< "$ring1_json")
+          fallback=$(jq -r '.fallback // false' "$SUMMARY_PATH")
+
+          printf 'RING0_JSON=%s\n' "$ring0_json" >> "$GITHUB_ENV"
+          printf 'RING1_JSON=%s\n' "$ring1_json" >> "$GITHUB_ENV"
+          printf 'RING_SCOPE_FALLBACK=%s\n' "$fallback" >> "$GITHUB_ENV"
+
+          # Check for deletions summary and read content BEFORE sparse checkout
+          if [ -f "$DELETIONS_PATH" ]; then
+            printf 'HAS_DELETIONS=true\n' >> "$GITHUB_ENV"
+
+            # Read deletions content with dynamic delimiter (prevents collision)
+            DELIMITER="DELETIONS_EOF_${{ github.run_id }}"
+            {
+              echo "DELETIONS_CONTENT<<${DELIMITER}"
+              cat "$DELETIONS_PATH"
+              printf '\n'  # Ensure newline before delimiter (heredoc safety)
+              echo "${DELIMITER}"
+            } >> "$GITHUB_ENV"
+          else
+            printf 'HAS_DELETIONS=false\n' >> "$GITHUB_ENV"
+          fi
+
+          # Load alias resolutions if available (pre-computed from full repo)
+          # Filter to only confirmed existing paths so prompt claim is accurate
+          ALIAS_PATH="$SCOPE_DIR/alias-resolutions.json"
+          if [ -f "$ALIAS_PATH" ]; then
+            alias_json=$(jq -c '[.[] | select(.exists == true)]' "$ALIAS_PATH")
+            printf 'ALIAS_RESOLUTIONS=%s\n' "$alias_json" >> "$GITHUB_ENV"
+          else
+            printf 'ALIAS_RESOLUTIONS=[]\n' >> "$GITHUB_ENV"
+          fi
+
+          ring0_count=$(jq -r '.ring0Count' "$SUMMARY_PATH")
+          ring1_count=$(jq -r '.ring1Count' "$SUMMARY_PATH")
+          deletions_count=$(jq -r '.deletionsCount // 0' "$SUMMARY_PATH")
+          base_ref=$(jq -r '.baseRef // empty' "$SUMMARY_PATH")
+          head_ref=$(jq -r '.headRef // empty' "$SUMMARY_PATH")
+
+          {
+            echo "📂 Claude scope: Ring 0 = ${ring0_count}, Ring 1 = ${ring1_count}, Deletions = ${deletions_count}, fallback=${fallback}";
+            if [ -n "$base_ref" ] || [ -n "$head_ref" ]; then
+              echo "Base: ${base_ref:-unknown} → Head: ${head_ref:-unknown}";
+            fi
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+          # Skip sparse checkout for trivial PRs (optimization for <3 files)
+          total_files=$((ring0_count + ring1_count))
+          if [ "$total_files" -lt 3 ]; then
+            echo "⚡ Trivial PR ($total_files files) - skipping sparse checkout for faster CI"
+            echo "⚡ Trivial PR ($total_files files) - skipping sparse checkout for faster CI" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          # Prepare sparse checkout patterns (optimized with jq deduplication)
+          tmpfile=$(mktemp)
+          jq -rs --argjson static '["/.github/**", "/scripts/claude/**", "/configs/**"]' \
+            '$static + add | unique | .[]' \
+            "$RING0_JSON_PATH" "$RING1_JSON_PATH" > "$tmpfile"
+
+          if [ ! -s "$tmpfile" ]; then
+            echo "No scope paths detected; skipping sparse checkout"
+            rm -f "$tmpfile"
+            exit 0
+          fi
+
+          # Init with sparse index for performance
+          git sparse-checkout init --sparse-index
+
+          # Silence the sparse index expanding hint for cleaner logs
+          git config --local advice.sparseIndexExpanded false || true
+
+          # Use non-cone mode so individual file patterns are honored
+          if git sparse-checkout set -h 2>&1 | grep -q -- '--no-cone'; then
+            git sparse-checkout set --no-cone --stdin < "$tmpfile"
+          else
+            # Legacy fallback: disable cone via config, then set patterns
+            git config --local core.sparseCheckoutCone false
+            git sparse-checkout set --stdin < "$tmpfile"
+          fi
+
+          # Sanity check
+          echo "Sparse checkout patterns applied:"
+          git sparse-checkout list || true
+          rm -f "$tmpfile"
+
+      - name: Load unified diff for review scope
+        if: steps.decide.outputs.internal == 'true' && (steps.haslabel.outputs.has == 'true' || github.event_name == 'workflow_dispatch')
+        id: load_diff
+        run: |
+          SCOPE_DIR=".github/claude-cache/${{ github.run_id }}"
+          DIFF_PATH="$SCOPE_DIR/diff.txt"
+
+          if [ -f "$DIFF_PATH" ]; then
+            DELIMITER="DIFF_EOF_${{ github.run_id }}"
+            {
+              echo "PR_DIFF<<${DELIMITER}"
+              cat "$DIFF_PATH"
+              printf '\n'
+              echo "${DELIMITER}"
+            } >> "$GITHUB_ENV"
+            echo "has_diff=true" >> "$GITHUB_OUTPUT"
+            echo "✅ Loaded unified diff for line-level review scope" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "has_diff=false" >> "$GITHUB_OUTPUT"
+            echo "⚠️ No unified diff available (fallback mode or generation failed)" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Claude Review (Sonnet)
+        if: steps.decide.outputs.internal == 'true' && (steps.haslabel.outputs.has_review == 'true' || (github.event_name == 'workflow_dispatch' && steps.resolve.outputs.label == 'claude:review'))
+        id: claude_sonnet
+        timeout-minutes: ${{ fromJSON(steps.turns.outputs.sonnet_timeout) }}
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ github.token }}
+          claude_args: >-
+            --model claude-sonnet-4-5
+            --max-turns ${{ steps.turns.outputs.sonnet_turns }}
+            --allowed-tools Read,Glob,Grep
+            --output-format stream-json
+          prompt: |
+            IMPORTANT EXECUTION RULES
+            ${{ steps.contributor_context.outputs.contributor_message }}
+            - Do NOT run `npm install` or add dependencies; if tests/lint aren't available, skip them.
+            - By turn ${{ steps.turns.outputs.sonnet_cutoff }}, STOP using tools and write the final Markdown report.
+            - Always emit a single final report with sections per the Categorized Feedback structure below.
+            - End the report with the exact marker: END-OF-REPORT
+            - Start the report with the heading `# PR Review Report`.
+            - Respect the scope rules below. If you cannot remain in scope, say so explicitly.
+
+            LANGUAGE SEMANTICS VERIFICATION (critical rule)
+            NOTE: Keep this section in sync with both Sonnet and Opus prompts to prevent drift
+            - When making claims about JavaScript/TypeScript operator behavior (??/||/&&/etc):
+              * If you're confident, state it directly with evidence
+              * If uncertain, phrase as a question: "Does X operator work this way?" and recommend writing a test
+              * Say "I'm not certain about the semantics of [operator]" instead of making incorrect claims
+              * Prefer empirical testing over theoretical reasoning when possible
+              * If tools don't allow verification, clearly state: "Cannot verify [claim] without running code"
+            - Common pitfalls to avoid:
+              * Confusing ?? (nullish coalescing) with || (logical OR)
+              * Assuming null/undefined are equivalent in all contexts
+              * Making absolute statements about runtime behavior without evidence
+
+            TOOLS POLICY (hard rule)
+            - Use only: Read, Glob, Grep. Do NOT use Bash, Web*, NotebookEdit, or TodoWrite.
+            - If a command/build/test is needed, SKIP it and write the report instead.
+            - If you can't find a symbol after 3 tool calls, stop tool use and write the report.
+
+            PR CONTEXT
+            Title: ${{ steps.pr_context.outputs.pr_title }}
+
+            Description:
+            ${{ steps.pr_context.outputs.pr_body }}
+
+            Linked Issues: ${{ steps.pr_context.outputs.issue_refs }}
+            Labels: ${{ steps.pr_context.outputs.labels }}
+
+            REVIEW CALIBRATION (adjust review approach based on PR intent)
+
+            1. **Detect PR Type from Title/Body:**
+               - If title/body contains "redundant", "cleanup", "remove", "delete" AND provides justification:
+                 * This is intentional tech debt reduction
+                 * Focus: Verify claims are accurate (coverage exists elsewhere, tests pass)
+                 * Tone: Trust developer intent, validate execution
+                 * Risk: Base on justification quality, not deletion count
+                 * Example: If PR says "removes redundant tests, coverage tracked in #123-#125" → verify those issues exist and describe coverage
+
+               - If title/body contains "refactor", "reorganize", "restructure":
+                 * This is code improvement without behavior change
+                 * Focus: Verify no behavior changes, test coverage maintained
+                 * Tone: Constructive, focus on maintainability gains
+                 * Risk: MEDIUM unless breaking changes detected
+
+               - If title/body contains "feat:", "feature:", "add", "implement":
+                 * This is new functionality
+                 * Focus: Apply full code quality standards (SRP, size limits, test coverage)
+                 * Tone: Thorough review with actionable feedback
+                 * Risk: Base on complexity and test coverage
+
+               - If title/body contains "fix:", "bug:", "hotfix:":
+                 * This is bug fix
+                 * Focus: Root cause addressed, regression test exists
+                 * Tone: Verify fix quality and prevent recurrence
+                 * Risk: Base on criticality and test coverage
+
+               - If title/body contains "docs:", "chore:", "ci:":
+                 * This is maintenance/documentation
+                 * Focus: Accuracy, clarity, completeness
+                 * Tone: Light review, focus on value-add
+                 * Risk: LOW unless impacting critical workflows
+
+            2. **Risk Calibration Rules:**
+               - If PR explicitly justifies deletions with coverage tracking (e.g., "tracked in #X, #Y") → Risk should be LOW-MEDIUM, not HIGH
+               - If PR deletes code without justification or coverage plan → Risk should be HIGH
+               - If PR adds complex features without tests → Risk should be HIGH
+               - If PR refactors with full test suite → Risk should be LOW-MEDIUM
+               - Always cite specific evidence from PR description when assessing risk
+
+            3. **What NOT to Do:**
+               - Don't raise alarms for intentional, justified changes
+               - Don't demand explanations already provided in PR description
+               - Don't assign HIGH risk to cleanup PRs with proper coverage tracking
+               - Don't ignore red flags in feature PRs just because they're additive
+
+            SCOPE RULES
+            - Ring 0: Files changed in the PR (JSON supplied separately); findings must cite Ring 0 paths only.
+            - Ring 1: Neighbor/test/import context only. Use Ring 1 to reason, never as independent findings.
+            - Ignore absolute/tsconfig-path imports. Stay within the sparse checkout tree.
+            - Fallback mode (current: ${{ env.RING_SCOPE_FALLBACK }}):
+              * true = Ring 1 expansion failed/exceeded limit. Work with Ring 0 + standards only.
+              * false = Full Ring 0 + Ring 1 context available.
+            - If Ring 1 is unavailable, work with Ring 0 alone rather than expanding scope.
+
+            SPARSE CHECKOUT LIMITATIONS (CRITICAL):
+            - This review runs in a sparse checkout environment
+            - Only Ring 0 files, Ring 1 files, /.github/**, /scripts/claude/**, and /configs/** are available
+            - If Glob/Read returns "no files found" for paths outside these scopes:
+              * DO NOT report as "missing files" - they likely exist but aren't checked out
+              * State: "could not verify - outside sparse checkout scope"
+              * Or skip verification and focus on Ring 0 changes only
+            - Never claim files are missing based solely on Glob "no files found" results
+            - If a file or function name is **referenced in Ring 0 code** but Glob/Grep cannot find it:
+              * Assume it exists **outside sparse checkout scope**, not that it's missing
+              * Say "could not verify (outside sparse checkout scope)" rather than "missing"
+              * This applies especially to dynamic imports like `await import('@/...')`
+              * Check the "Pre-computed alias resolutions" section above - those paths are CONFIRMED to exist
+
+            PATH RESOLUTION RULES
+            - Source files use ESM imports like "../foo.js" but live on disk as "../foo.ts".
+            - When a Read(...) of a "*.js" path fails, immediately retry the same path with ".ts".
+            - Never treat missing "*.js" as missing code if a ".ts" twin exists.
+
+            JAVASCRIPT/TYPESCRIPT OPERATOR REFERENCE (for accuracy)
+            Quick reference for common operators (verify claims against these definitions):
+
+            - **Nullish Coalescing (??)**: Returns right side when left is null OR undefined
+              * null ?? "fallback" → "fallback"
+              * undefined ?? "fallback" → "fallback"
+              * "" ?? "fallback" → "" (empty string is NOT nullish)
+              * 0 ?? "fallback" → 0 (zero is NOT nullish)
+
+            - **Logical OR (||)**: Returns right side when left is falsy
+              * null || "fallback" → "fallback"
+              * undefined || "fallback" → "fallback"
+              * "" || "fallback" → "fallback" (empty string IS falsy)
+              * 0 || "fallback" → "fallback" (zero IS falsy)
+
+            - **Optional Chaining (?.)**: Short-circuits to undefined if left is null/undefined
+              * obj?.prop → undefined (if obj is null/undefined)
+              * obj?.prop → obj.prop (if obj exists)
+
+            If uncertain about operator semantics, say "Cannot verify without running code" rather than making incorrect claims.
+
+            Changed files (Ring 0 JSON):
+            ${{ env.RING0_JSON }}
+
+            Context files (Ring 1 JSON):
+            ${{ env.RING1_JSON }}
+
+            Pre-computed alias resolutions (verified from full repo before sparse checkout):
+            ${{ env.ALIAS_RESOLUTIONS }}
+            NOTE: These paths are CONFIRMED to exist in the full repository. If Glob/Grep cannot find them in sparse checkout, they exist outside the checkout scope - do NOT report them as missing.
+
+            ${{ env.HAS_DELETIONS == 'true' && format('
+            {0}
+            ', env.DELETIONS_CONTENT) || '' }}
+
+            ${{ env.PR_DIFF && format('
+            ACTUAL CHANGES (unified diff):
+            ```diff
+            {0}
+            ```
+
+            CRITICAL SCOPE RULE FOR REVIEW:
+            - Lines starting with + are ADDITIONS - these are the NEW code you MUST review
+            - Lines starting with - are DELETIONS - verify removal is safe
+            - Lines WITHOUT +/- prefix are CONTEXT ONLY - do NOT flag issues in unchanged lines
+            - When flagging an issue, you MUST cite the specific + or - line from the diff
+            - Pre-existing code is NOT part of this review unless directly affected by changes
+            - If an issue exists in surrounding context but was NOT changed in this PR, do NOT report it
+            ', env.PR_DIFF) || '' }}
+
+            Perform a PR review with full working tree access.
+
+            Enforce:
+            ## Code Quality Standards
+            ### Single Responsibility Principle (SRP)
+            - One class/module → one reason to change. Detect mixed concerns, many dependencies, multiple change reasons.
+
+            ### Size Limits & Refactoring Triggers
+            - Functions: ≤30–40 lines; Classes/Files: ≤500 lines; Methods per class: ≤20–30.
+            - Trigger refactor on complexity or mixed concerns.
+
+            ### Refactoring Best Practices
+            - Small steps; test each change. Don't mix refactors with bug fixes.
+            - Deduplicate first; add focused tests.
+
+            ### Universal Coding Standards
+            - TypeScript: prefer Record<string, unknown> over any
+            - PascalCase (classes/interfaces), camelCase (functions/variables)
+            - Imports: node → external → internal; remove unused
+            - Commits: conventional or repo override; keep #issue linkage
+
+            Output Markdown with Categorized Feedback:
+
+            ## Summary
+            Brief overview of changes and overall assessment.
+
+            **Required**: For any IMPORTANT or CRITICAL suggestions involving language semantics:
+            - State your confidence level: "High Confidence" / "Medium Confidence" / "Low Confidence - Cannot Verify"
+            - If Low Confidence, recommend manual verification instead of implementation
+
+            ## ⚠️ CRITICAL Issues (Fix before merge)
+            Issues that MUST be addressed before merging:
+            - Security vulnerabilities or critical bugs
+            - Missing issue linkage (#XX required in PR description)
+            - Breaking functionality without migration path
+            - Simple fixes that don't expand scope
+
+            ## 📋 IMPORTANT Suggestions (Consider follow-up)
+            Good ideas that could become follow-up issues:
+            - Performance improvements requiring benchmarking/analysis
+            - Documentation enhancements not critical to current functionality
+            - Refactoring suggestions that don't affect core functionality
+            - Check if issues already exist before creating new ones
+
+            ## 💡 NICE-TO-HAVE (Optional improvements)
+            Minor improvements with unclear value:
+            - Style preferences already covered by linting
+            - Minor optimizations without clear performance data
+            - Features that may never be needed (YAGNI principle)
+
+            ## ❌ OVERENGINEERING Concerns (Reject)
+            Suggestions that add unnecessary complexity:
+            - Premature optimization without profiling data
+            - Over-abstraction for current use case
+            - Violates KISS (Keep It Simple, Stupid) principle
+
+            ## Suggested Tests
+            Specific test cases needed (file + test name).
+
+            ## Risk Level
+            Overall risk assessment with rationale (Low/Medium/High/Critical).
+
+      - name: Claude Review (Opus)
+        if: steps.decide.outputs.internal == 'true' && (steps.haslabel.outputs.has_ultra == 'true' || (github.event_name == 'workflow_dispatch' && steps.resolve.outputs.label == 'claude:ultra'))
+        id: claude_opus
+        timeout-minutes: ${{ fromJSON(steps.turns.outputs.opus_timeout) }}
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ github.token }}
+          claude_args: >-
+            --model claude-opus-4-5-20251101
+            --max-turns ${{ steps.turns.outputs.opus_turns }}
+            --allowed-tools Read,Glob,Grep
+            --output-format stream-json
+          prompt: |
+            IMPORTANT EXECUTION RULES
+            ${{ steps.contributor_context.outputs.contributor_message }}
+            - Do NOT run `npm install` or add dependencies; if tests/lint aren't available, skip them.
+            - By turn ${{ steps.turns.outputs.opus_cutoff }}, STOP using tools and write the final Markdown report.
+            - Always emit a single final report with sections per the Categorized Feedback structure below.
+            - End the report with the exact marker: END-OF-REPORT
+            - Start the report with the heading `# PR Review Report`.
+            - Respect the scope rules below. If you cannot remain in scope, say so explicitly.
+
+            LANGUAGE SEMANTICS VERIFICATION (critical rule)
+            NOTE: Keep this section in sync with both Sonnet and Opus prompts to prevent drift
+            - When making claims about JavaScript/TypeScript operator behavior (??/||/&&/etc):
+              * If you're confident, state it directly with evidence
+              * If uncertain, phrase as a question: "Does X operator work this way?" and recommend writing a test
+              * Say "I'm not certain about the semantics of [operator]" instead of making incorrect claims
+              * Prefer empirical testing over theoretical reasoning when possible
+              * If tools don't allow verification, clearly state: "Cannot verify [claim] without running code"
+            - Common pitfalls to avoid:
+              * Confusing ?? (nullish coalescing) with || (logical OR)
+              * Assuming null/undefined are equivalent in all contexts
+              * Making absolute statements about runtime behavior without evidence
+
+            TOOLS POLICY (hard rule)
+            - Use only: Read, Glob, Grep. Do NOT use Bash, Web*, NotebookEdit, or TodoWrite.
+            - If a command/build/test is needed, SKIP it and write the report instead.
+            - If you can't find a symbol after 3 tool calls, stop tool use and write the report.
+
+            PR CONTEXT
+            Title: ${{ steps.pr_context.outputs.pr_title }}
+
+            Description:
+            ${{ steps.pr_context.outputs.pr_body }}
+
+            Linked Issues: ${{ steps.pr_context.outputs.issue_refs }}
+            Labels: ${{ steps.pr_context.outputs.labels }}
+
+            REVIEW CALIBRATION (adjust review approach based on PR intent)
+
+            1. **Detect PR Type from Title/Body:**
+               - If title/body contains "redundant", "cleanup", "remove", "delete" AND provides justification:
+                 * This is intentional tech debt reduction
+                 * Focus: Verify claims are accurate (coverage exists elsewhere, tests pass)
+                 * Tone: Trust developer intent, validate execution
+                 * Risk: Base on justification quality, not deletion count
+                 * Example: If PR says "removes redundant tests, coverage tracked in #123-#125" → verify those issues exist and describe coverage
+
+               - If title/body contains "refactor", "reorganize", "restructure":
+                 * This is code improvement without behavior change
+                 * Focus: Verify no behavior changes, test coverage maintained
+                 * Tone: Constructive, focus on maintainability gains
+                 * Risk: MEDIUM unless breaking changes detected
+
+               - If title/body contains "feat:", "feature:", "add", "implement":
+                 * This is new functionality
+                 * Focus: Apply full code quality standards (SRP, size limits, test coverage)
+                 * Tone: Thorough review with actionable feedback
+                 * Risk: Base on complexity and test coverage
+
+               - If title/body contains "fix:", "bug:", "hotfix:":
+                 * This is bug fix
+                 * Focus: Root cause addressed, regression test exists
+                 * Tone: Verify fix quality and prevent recurrence
+                 * Risk: Base on criticality and test coverage
+
+               - If title/body contains "docs:", "chore:", "ci:":
+                 * This is maintenance/documentation
+                 * Focus: Accuracy, clarity, completeness
+                 * Tone: Light review, focus on value-add
+                 * Risk: LOW unless impacting critical workflows
+
+            2. **Risk Calibration Rules:**
+               - If PR explicitly justifies deletions with coverage tracking (e.g., "tracked in #X, #Y") → Risk should be LOW-MEDIUM, not HIGH
+               - If PR deletes code without justification or coverage plan → Risk should be HIGH
+               - If PR adds complex features without tests → Risk should be HIGH
+               - If PR refactors with full test suite → Risk should be LOW-MEDIUM
+               - Always cite specific evidence from PR description when assessing risk
+
+            3. **What NOT to Do:**
+               - Don't raise alarms for intentional, justified changes
+               - Don't demand explanations already provided in PR description
+               - Don't assign HIGH risk to cleanup PRs with proper coverage tracking
+               - Don't ignore red flags in feature PRs just because they're additive
+
+            SCOPE RULES
+            - Ring 0: Files changed in the PR (JSON supplied separately); findings must cite Ring 0 paths only.
+            - Ring 1: Neighbor/test/import context only. Use Ring 1 to reason, never as independent findings.
+            - Ignore absolute/tsconfig-path imports. Stay within the sparse checkout tree.
+            - Fallback mode (current: ${{ env.RING_SCOPE_FALLBACK }}):
+              * true = Ring 1 expansion failed/exceeded limit. Work with Ring 0 + standards only.
+              * false = Full Ring 0 + Ring 1 context available.
+            - If Ring 1 is unavailable, work with Ring 0 alone rather than expanding scope.
+
+            SPARSE CHECKOUT LIMITATIONS (CRITICAL):
+            - This review runs in a sparse checkout environment
+            - Only Ring 0 files, Ring 1 files, /.github/**, /scripts/claude/**, and /configs/** are available
+            - If Glob/Read returns "no files found" for paths outside these scopes:
+              * DO NOT report as "missing files" - they likely exist but aren't checked out
+              * State: "could not verify - outside sparse checkout scope"
+              * Or skip verification and focus on Ring 0 changes only
+            - Never claim files are missing based solely on Glob "no files found" results
+            - If a file or function name is **referenced in Ring 0 code** but Glob/Grep cannot find it:
+              * Assume it exists **outside sparse checkout scope**, not that it's missing
+              * Say "could not verify (outside sparse checkout scope)" rather than "missing"
+              * This applies especially to dynamic imports like `await import('@/...')`
+              * Check the "Pre-computed alias resolutions" section above - those paths are CONFIRMED to exist
+
+            PATH RESOLUTION RULES
+            - Source files use ESM imports like "../foo.js" but live on disk as "../foo.ts".
+            - When a Read(...) of a "*.js" path fails, immediately retry the same path with ".ts".
+            - Never treat missing "*.js" as missing code if a ".ts" twin exists.
+
+            JAVASCRIPT/TYPESCRIPT OPERATOR REFERENCE (for accuracy)
+            Quick reference for common operators (verify claims against these definitions):
+
+            - **Nullish Coalescing (??)**: Returns right side when left is null OR undefined
+              * null ?? "fallback" → "fallback"
+              * undefined ?? "fallback" → "fallback"
+              * "" ?? "fallback" → "" (empty string is NOT nullish)
+              * 0 ?? "fallback" → 0 (zero is NOT nullish)
+
+            - **Logical OR (||)**: Returns right side when left is falsy
+              * null || "fallback" → "fallback"
+              * undefined || "fallback" → "fallback"
+              * "" || "fallback" → "fallback" (empty string IS falsy)
+              * 0 || "fallback" → "fallback" (zero IS falsy)
+
+            - **Optional Chaining (?.)**: Short-circuits to undefined if left is null/undefined
+              * obj?.prop → undefined (if obj is null/undefined)
+              * obj?.prop → obj.prop (if obj exists)
+
+            If uncertain about operator semantics, say "Cannot verify without running code" rather than making incorrect claims.
+
+            Changed files (Ring 0 JSON):
+            ${{ env.RING0_JSON }}
+
+            Context files (Ring 1 JSON):
+            ${{ env.RING1_JSON }}
+
+            Pre-computed alias resolutions (verified from full repo before sparse checkout):
+            ${{ env.ALIAS_RESOLUTIONS }}
+            NOTE: These paths are CONFIRMED to exist in the full repository. If Glob/Grep cannot find them in sparse checkout, they exist outside the checkout scope - do NOT report them as missing.
+
+            ${{ env.HAS_DELETIONS == 'true' && format('
+            {0}
+            ', env.DELETIONS_CONTENT) || '' }}
+
+            ${{ env.PR_DIFF && format('
+            ACTUAL CHANGES (unified diff):
+            ```diff
+            {0}
+            ```
+
+            CRITICAL SCOPE RULE FOR REVIEW:
+            - Lines starting with + are ADDITIONS - these are the NEW code you MUST review
+            - Lines starting with - are DELETIONS - verify removal is safe
+            - Lines WITHOUT +/- prefix are CONTEXT ONLY - do NOT flag issues in unchanged lines
+            - When flagging an issue, you MUST cite the specific + or - line from the diff
+            - Pre-existing code is NOT part of this review unless directly affected by changes
+            - If an issue exists in surrounding context but was NOT changed in this PR, do NOT report it
+            ', env.PR_DIFF) || '' }}
+
+            Perform a PR review with full working tree access.
+
+            Enforce:
+            ## Code Quality Standards
+            ### Single Responsibility Principle (SRP)
+            - One class/module → one reason to change. Detect mixed concerns, many dependencies, multiple change reasons.
+
+            ### Size Limits & Refactoring Triggers
+            - Functions: ≤30–40 lines; Classes/Files: ≤500 lines; Methods per class: ≤20–30.
+            - Trigger refactor on complexity or mixed concerns.
+
+            ### Refactoring Best Practices
+            - Small steps; test each change. Don't mix refactors with bug fixes.
+            - Deduplicate first; add focused tests.
+
+            ### Universal Coding Standards
+            - TypeScript: prefer Record<string, unknown> over any
+            - PascalCase (classes/interfaces), camelCase (functions/variables)
+            - Imports: node → external → internal; remove unused
+            - Commits: conventional or repo override; keep #issue linkage
+
+            Output Markdown with Categorized Feedback:
+
+            ## Summary
+            Brief overview of changes and overall assessment.
+
+            **Required**: For any IMPORTANT or CRITICAL suggestions involving language semantics:
+            - State your confidence level: "High Confidence" / "Medium Confidence" / "Low Confidence - Cannot Verify"
+            - If Low Confidence, recommend manual verification instead of implementation
+
+            ## ⚠️ CRITICAL Issues (Fix before merge)
+            Issues that MUST be addressed before merging:
+            - Security vulnerabilities or critical bugs
+            - Missing issue linkage (#XX required in PR description)
+            - Breaking functionality without migration path
+            - Simple fixes that don't expand scope
+
+            ## 📋 IMPORTANT Suggestions (Consider follow-up)
+            Good ideas that could become follow-up issues:
+            - Performance improvements requiring benchmarking/analysis
+            - Documentation enhancements not critical to current functionality
+            - Refactoring suggestions that don't affect core functionality
+            - Check if issues already exist before creating new ones
+
+            ## 💡 NICE-TO-HAVE (Optional improvements)
+            Minor improvements with unclear value:
+            - Style preferences already covered by linting
+            - Minor optimizations without clear performance data
+            - Features that may never be needed (YAGNI principle)
+
+            ## ❌ OVERENGINEERING Concerns (Reject)
+            Suggestions that add unnecessary complexity:
+            - Premature optimization without profiling data
+            - Over-abstraction for current use case
+            - Violates KISS (Keep It Simple, Stupid) principle
+
+            ## Suggested Tests
+            Specific test cases needed (file + test name).
+
+            ## Risk Level
+            Overall risk assessment with rationale (Low/Medium/High/Critical).
+
+            If mode is **ultra**, go deeper on security, performance, concurrency, error-handling, and propose minimal diffs.
+
+      - name: Capture Sonnet Review Output
+        if: steps.claude_sonnet.outcome == 'success' && steps.claude_sonnet.outputs.execution_file != ''
+        uses: actions/github-script@v7
+        env:
+          EXEC_FILE: ${{ steps.claude_sonnet.outputs.execution_file }}
+        with:
+          script: |
+            const fs = require('fs');
+
+            // Inline extract-text.js functions (require() doesn't work in GitHub Actions)
+            function extractTextFromEntry(entry, out, state = { sawStream: false }) {
+              if (entry?.type === 'content_block_delta' && entry?.delta?.text) {
+                state.sawStream = true;
+                out.push(entry.delta.text);
+              }
+              if (entry?.delta?.text) {
+                state.sawStream = true;
+                out.push(entry.delta.text);
+              }
+              if (typeof entry?.text === 'string') out.push(entry.text);
+              const content = entry?.message?.content ?? entry?.content;
+              if (Array.isArray(content)) {
+                for (const block of content) {
+                  if (block?.type === 'text' && typeof block.text === 'string') {
+                    if (!state.sawStream) out.push(block.text);
+                  } else if (block?.type === 'tool_result' && Array.isArray(block?.content)) {
+                    for (const inner of block.content) {
+                      if (inner?.type === 'text' && typeof inner.text === 'string') {
+                        out.push(inner.text);
+                      }
+                    }
+                  }
+                }
+              }
+            }
+
+            function extractAllTextFromSession(raw) {
+              const chunks = [];
+              const state = { sawStream: false };
+              let sessionLog;
+              try {
+                sessionLog = JSON.parse(raw);
+              } catch {
+                for (const line of raw.split(/\r?\n/)) {
+                  const trimmed = line.trim();
+                  if (!trimmed) continue;
+                  try {
+                    const parsed = JSON.parse(trimmed);
+                    extractTextFromEntry(parsed, chunks, state);
+                  } catch {}
+                }
+                return chunks;
+              }
+              if (Array.isArray(sessionLog)) {
+                for (const entry of sessionLog) {
+                  extractTextFromEntry(entry, chunks, state);
+                }
+              }
+              return chunks;
+            }
+
+            function dedupeAdjacent(arr) {
+              const out = [];
+              for (const s of arr) {
+                if (!out.length || out[out.length - 1] !== s) out.push(s);
+              }
+              return out;
+            }
+
+            const execFile = process.env.EXEC_FILE;
+            if (!execFile || !fs.existsSync(execFile)) {
+              core.info('No Sonnet execution file to parse.');
+              return;
+            }
+
+            const raw = fs.readFileSync(execFile, 'utf8');
+            const chunks = extractAllTextFromSession(raw);
+            let review = dedupeAdjacent(chunks).join('');
+
+            // Normalize newline before header for consistent parsing
+            // WHY: Streaming JSON format quirk - header may appear without preceding newline,
+            // making regex matching unreliable. This ensures consistent "# PR Review Report" detection.
+            const idx = review.search(/#[ \t]*PR Review Report\b/i);
+            if (idx > 0 && review[idx - 1] !== '\n') {
+              review = review.slice(0, idx) + '\n' + review.slice(idx);
+            }
+
+            const trimReport = (input) => {
+              if (!input) return '';
+              // Find the first markdown header with "PR Review Report" anywhere in the string
+              const m = input.match(/#[ \t]*PR Review Report\b/i);
+              if (m && typeof m.index === 'number') input = input.slice(m.index);
+
+              // Fallback: if a hash exists before any newline but no match above, still cut to first '#'
+              if (!m) {
+                const firstHash = input.indexOf('#');
+                if (firstHash > -1) input = input.slice(firstHash);
+              }
+
+              const endIndex = input.indexOf('END-OF-REPORT');
+              if (endIndex !== -1) input = input.slice(0, endIndex);
+
+              return input.trim();
+            };
+
+            review = trimReport(review);
+            if (!review) {
+              core.warning('No Sonnet review content found after trimming.');
+              return;
+            }
+
+            // Require a proper report header; otherwise don't export anything
+            if (!/^#\s*PR Review Report\b/m.test(review)) {
+              core.warning('No PR Review header detected; skipping RESULT_SONNET export.');
+              return;
+            }
+            core.exportVariable('RESULT_SONNET', review);
+            core.info(`Captured Sonnet review content (${review.length} chars).`);
+
+      - name: Capture Opus Review Output
+        if: steps.claude_opus.outcome == 'success' && steps.claude_opus.outputs.execution_file != ''
+        uses: actions/github-script@v7
+        env:
+          EXEC_FILE: ${{ steps.claude_opus.outputs.execution_file }}
+        with:
+          script: |
+            const fs = require('fs');
+
+            // Inline extract-text.js functions (require() doesn't work in GitHub Actions)
+            function extractTextFromEntry(entry, out, state = { sawStream: false }) {
+              if (entry?.type === 'content_block_delta' && entry?.delta?.text) {
+                state.sawStream = true;
+                out.push(entry.delta.text);
+              }
+              if (entry?.delta?.text) {
+                state.sawStream = true;
+                out.push(entry.delta.text);
+              }
+              if (typeof entry?.text === 'string') out.push(entry.text);
+              const content = entry?.message?.content ?? entry?.content;
+              if (Array.isArray(content)) {
+                for (const block of content) {
+                  if (block?.type === 'text' && typeof block.text === 'string') {
+                    if (!state.sawStream) out.push(block.text);
+                  } else if (block?.type === 'tool_result' && Array.isArray(block?.content)) {
+                    for (const inner of block.content) {
+                      if (inner?.type === 'text' && typeof inner.text === 'string') {
+                        out.push(inner.text);
+                      }
+                    }
+                  }
+                }
+              }
+            }
+
+            function extractAllTextFromSession(raw) {
+              const chunks = [];
+              const state = { sawStream: false };
+              let sessionLog;
+              try {
+                sessionLog = JSON.parse(raw);
+              } catch {
+                for (const line of raw.split(/\r?\n/)) {
+                  const trimmed = line.trim();
+                  if (!trimmed) continue;
+                  try {
+                    const parsed = JSON.parse(trimmed);
+                    extractTextFromEntry(parsed, chunks, state);
+                  } catch {}
+                }
+                return chunks;
+              }
+              if (Array.isArray(sessionLog)) {
+                for (const entry of sessionLog) {
+                  extractTextFromEntry(entry, chunks, state);
+                }
+              }
+              return chunks;
+            }
+
+            function dedupeAdjacent(arr) {
+              const out = [];
+              for (const s of arr) {
+                if (!out.length || out[out.length - 1] !== s) out.push(s);
+              }
+              return out;
+            }
+
+            const execFile = process.env.EXEC_FILE;
+            if (!execFile || !fs.existsSync(execFile)) {
+              core.info('No Opus execution file to parse.');
+              return;
+            }
+
+            const raw = fs.readFileSync(execFile, 'utf8');
+            const chunks = extractAllTextFromSession(raw);
+            let review = dedupeAdjacent(chunks).join('');
+
+            // Normalize newline before header for consistent parsing
+            // WHY: Streaming JSON format quirk - header may appear without preceding newline,
+            // making regex matching unreliable. This ensures consistent "# PR Review Report" detection.
+            const idx = review.search(/#[ \t]*PR Review Report\b/i);
+            if (idx > 0 && review[idx - 1] !== '\n') {
+              review = review.slice(0, idx) + '\n' + review.slice(idx);
+            }
+
+            const trimReport = (input) => {
+              if (!input) return '';
+              // Find the first markdown header with "PR Review Report" anywhere in the string
+              const m = input.match(/#[ \t]*PR Review Report\b/i);
+              if (m && typeof m.index === 'number') input = input.slice(m.index);
+
+              // Fallback: if a hash exists before any newline but no match above, still cut to first '#'
+              if (!m) {
+                const firstHash = input.indexOf('#');
+                if (firstHash > -1) input = input.slice(firstHash);
+              }
+
+              const endIndex = input.indexOf('END-OF-REPORT');
+              if (endIndex !== -1) input = input.slice(0, endIndex);
+
+              return input.trim();
+            };
+
+            review = trimReport(review);
+            if (!review) {
+              core.warning('No Opus review content found after trimming.');
+              return;
+            }
+
+            // Require a proper report header; otherwise don't export anything
+            if (!/^#\s*PR Review Report\b/m.test(review)) {
+              core.warning('No PR Review header detected; skipping RESULT_OPUS export.');
+              return;
+            }
+            core.exportVariable('RESULT_OPUS', review);
+            core.info(`Captured Opus review content (${review.length} chars).`);
+
+      - name: Validate Review for Common False Positives
+        if: always() && (steps.claude_sonnet.outcome == 'success' || steps.claude_opus.outcome == 'success')
+        run: |
+          # Check for common false positive patterns in review output
+          # Uses -F (fixed-string) to avoid regex interpretation of special chars like '?'
+          VALIDATION_WARNINGS=""
+          DOC_LINK="See: .github/docs/claude-review-known-issues.md"
+
+          if [ -n "$RESULT_SONNET" ]; then
+            if printf '%s' "$RESULT_SONNET" | grep -Fq '?? operator'; then
+              VALIDATION_WARNINGS="${VALIDATION_WARNINGS}⚠️ Sonnet review mentions ?? operator - verify semantics manually. ${DOC_LINK}\n"
+            fi
+            if printf '%s' "$RESULT_SONNET" | grep -Fq 'nullish coalescing'; then
+              VALIDATION_WARNINGS="${VALIDATION_WARNINGS}⚠️ Sonnet review mentions nullish coalescing - verify semantics manually. ${DOC_LINK}\n"
+            fi
+          fi
+
+          if [ -n "$RESULT_OPUS" ]; then
+            if printf '%s' "$RESULT_OPUS" | grep -Fq '?? operator'; then
+              VALIDATION_WARNINGS="${VALIDATION_WARNINGS}⚠️ Opus review mentions ?? operator - verify semantics manually. ${DOC_LINK}\n"
+            fi
+            if printf '%s' "$RESULT_OPUS" | grep -Fq 'nullish coalescing'; then
+              VALIDATION_WARNINGS="${VALIDATION_WARNINGS}⚠️ Opus review mentions nullish coalescing - verify semantics manually. ${DOC_LINK}\n"
+            fi
+          fi
+
+          if [ -n "$VALIDATION_WARNINGS" ]; then
+            echo -e "$VALIDATION_WARNINGS"
+            echo -e "$VALIDATION_WARNINGS" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ No common false positive patterns detected"
+            echo "✅ No common false positive patterns detected" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Debug review env
+        run: |
+          echo "RESULT_SONNET chars:" $(printf %s "$RESULT_SONNET" | wc -c)
+          echo "RESULT_OPUS chars:" $(printf %s "$RESULT_OPUS" | wc -c)
+          ls -l "${{ steps.claude_sonnet.outputs.execution_file }}" 2>/dev/null || true
+          ls -l "${{ steps.claude_opus.outputs.execution_file }}" 2>/dev/null || true
+
+      - name: Post PR review (robust)
+        if: always() && steps.decide.outputs.internal == 'true' && (steps.haslabel.outputs.has == 'true' || github.event_name == 'workflow_dispatch')
+        uses: actions/github-script@v7
+        env:
+          EXEC_FILE_SONNET: ${{ steps.claude_sonnet.outputs.execution_file }}
+          EXEC_FILE_OPUS: ${{ steps.claude_opus.outputs.execution_file }}
+        with:
+          script: |
+            const fs = require('fs');
+            const LIMIT = 65000;
+
+            const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+            async function withRetries(fn, label, { attempts = 3, baseDelayMs = 1000 } = {}) {
+              let lastError;
+              for (let attempt = 1; attempt <= attempts; attempt++) {
+                try {
+                  return await fn();
+                } catch (error) {
+                  lastError = error;
+                  const status = error?.status || error?.response?.status;
+                  const retryable = !status || status >= 500;
+                  if (!retryable || attempt === attempts) {
+                    throw error;
+                  }
+                  const delay = baseDelayMs * attempt;
+                  core.warning(`Attempt ${attempt} for ${label} failed (${error.message || error}). Retrying in ${delay}ms...`);
+                  await sleep(delay);
+                }
+              }
+              throw lastError;
+            }
+
+            // Event-agnostic PR number detection
+            const prNumber = Number('${{ steps.resolve.outputs.pr }}');
+
+            if (!prNumber) {
+              core.info('No PR number found; skipping comment posting.');
+              return;
+            }
+
+            const headSha = '${{ steps.decide.outputs.sha }}';
+            const runTag = `<!-- claude-run-${context.runId} -->`;
+            const marker = `<!-- claude-review sha=${headSha} -->`;
+
+            const comments = await withRetries(() =>
+              github.paginate(github.rest.issues.listComments, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                per_page: 100
+              }),
+              'github.paginate issues.listComments'
+            );
+
+            // Prefer updating the most recent Claude comment (if any)
+            let prior = null;
+            for (const c of [...comments].reverse()) {
+              const body = c.body || '';
+              if (c.user?.type === 'Bot' && /<!--\s*claude-review\s+sha=/.test(body)) {
+                prior = c;
+                break;
+              }
+            }
+
+            let priorSha = null;
+            let sameSha = false;
+            if (prior) {
+              const priorShaMatch = (prior.body || '').match(/<!--\s*claude-review\s+sha=([^\s>]+)\s*-->/);
+              priorSha = priorShaMatch ? priorShaMatch[1] : null;
+              sameSha = priorSha === headSha;
+              core.info(`Prior Claude review SHA=${priorSha || 'none'}, current SHA=${headSha}, sameSha=${sameSha}`);
+            } else {
+              core.info('No prior Claude review comment found.');
+            }
+
+            // Prefer the deeper Opus pass if both exist
+            let body = (process.env.RESULT_OPUS || process.env.RESULT_SONNET || '').trim();
+
+            if (!body) {
+              // Inline extract-text.js functions (require() doesn't work in GitHub Actions)
+              function extractTextFromEntry(entry, out, state = { sawStream: false }) {
+                if (entry?.type === 'content_block_delta' && entry?.delta?.text) {
+                  state.sawStream = true;
+                  out.push(entry.delta.text);
+                }
+                if (entry?.delta?.text) {
+                  state.sawStream = true;
+                  out.push(entry.delta.text);
+                }
+                if (typeof entry?.text === 'string') out.push(entry.text);
+                const content = entry?.message?.content ?? entry?.content;
+                if (Array.isArray(content)) {
+                  for (const block of content) {
+                    if (block?.type === 'text' && typeof block.text === 'string') {
+                      if (!state.sawStream) out.push(block.text);
+                    } else if (block?.type === 'tool_result' && Array.isArray(block?.content)) {
+                      for (const inner of block.content) {
+                        if (inner?.type === 'text' && typeof inner.text === 'string') {
+                          out.push(inner.text);
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+
+              function extractAllTextFromSession(raw) {
+                const chunks = [];
+                const state = { sawStream: false };
+                let sessionLog;
+                try {
+                  sessionLog = JSON.parse(raw);
+                } catch {
+                  for (const line of raw.split(/\r?\n/)) {
+                    const trimmed = line.trim();
+                    if (!trimmed) continue;
+                    try {
+                      const parsed = JSON.parse(trimmed);
+                      extractTextFromEntry(parsed, chunks, state);
+                    } catch {}
+                  }
+                  return chunks;
+                }
+                if (Array.isArray(sessionLog)) {
+                  for (const entry of sessionLog) {
+                    extractTextFromEntry(entry, chunks, state);
+                  }
+                }
+                return chunks;
+              }
+
+              function dedupeAdjacent(arr) {
+                const out = [];
+                for (const s of arr) {
+                  if (!out.length || out[out.length - 1] !== s) out.push(s);
+                }
+                return out;
+              }
+
+              const execFile = process.env.EXEC_FILE_SONNET || process.env.EXEC_FILE_OPUS;
+              if (execFile && fs.existsSync(execFile)) {
+                try {
+                  const raw = fs.readFileSync(execFile, 'utf8');
+                  const chunks = extractAllTextFromSession(raw);
+                  body = dedupeAdjacent(chunks).join('').trim();
+
+                  // Normalize newline before header for consistent parsing
+                  // WHY: Streaming JSON format quirk - header may appear without preceding newline,
+                  // making regex matching unreliable. This ensures consistent "# PR Review Report" detection.
+                  const fallbackIdx = body.search(/#[ \t]*PR Review Report\b/i);
+                  if (fallbackIdx > 0 && body[fallbackIdx - 1] !== '\n') {
+                    body = body.slice(0, fallbackIdx) + '\n' + body.slice(fallbackIdx);
+                  }
+
+                  // Cut at the sentinel if present
+                  const end = body.indexOf('END-OF-REPORT');
+                  if (end !== -1) body = body.slice(0, end);
+                } catch (e) {
+                  core.warning(`Failed to parse execution file: ${e.message}`);
+                }
+              }
+            }
+
+            if (!body) {
+              core.info('No review content found; skipping comment posting.');
+              return; // don't post placeholders
+            }
+
+            const trimReport = (input) => {
+              if (!input) return '';
+              // Find the first markdown header with "PR Review Report" anywhere in the string
+              const m = input.match(/#[ \t]*PR Review Report\b/i); // no newline required
+              if (m && typeof m.index === 'number') input = input.slice(m.index);
+
+              // Fallback: if a hash exists before any newline but no match above, still cut to first '#'
+              if (!m) {
+                const firstHash = input.indexOf('#');
+                if (firstHash > -1) input = input.slice(firstHash);
+              }
+
+              const endIndex = input.indexOf('END-OF-REPORT');
+              if (endIndex !== -1) input = input.slice(0, endIndex);
+
+              return input.trim();
+            };
+
+            body = trimReport(body);
+
+            // Don't post unless it's a real report
+            if (!/^#\s*PR Review Report\b/m.test(body)) {
+              core.info('No final report detected; skipping comment to avoid posting process narration.');
+              return;
+            }
+
+            const ring0Set = new Set();
+            try {
+              JSON.parse(process.env.RING0_JSON || '[]').forEach((file) => {
+                if (typeof file === 'string' && file) ring0Set.add(file);
+              });
+            } catch (error) {
+              core.warning(`Failed to parse RING0_JSON: ${error.message}`);
+            }
+
+            const outOfScope = [];
+            if (ring0Set.size) {
+              const filteredLines = [];
+              for (const line of body.split(/\n/)) {
+                const match = line.match(/([A-Za-z0-9_./\\-]+\.[A-Za-z0-9]+):\d/);
+                if (match) {
+                  const rawPath = match[1].replace(/[)\]]+$/, '');
+                  let normalizedPath = rawPath.replace(/\\/g, '/');
+                  if (normalizedPath.startsWith('./')) normalizedPath = normalizedPath.slice(2);
+                  if (!ring0Set.has(normalizedPath)) {
+                    if (outOfScope.length < 3) outOfScope.push(line.trim());
+                    continue;
+                  }
+                }
+                filteredLines.push(line);
+              }
+              body = filteredLines.join('\n').trim();
+            }
+
+            if (!body) {
+              core.info('Review content empty after scope filtering; skipping comment posting.');
+              return;
+            }
+
+            if (outOfScope.length) {
+              body = `${body}\n\n### Optional, out-of-scope notes\n- ${outOfScope.join('\n- ')}`;
+              core.info(`Out-of-scope notes bucketed: ${outOfScope.length}`);
+              if (core?.summary?.addRaw) {
+                await core.summary.addRaw(`Claude scope filtering: out-of-scope notes bucketed = ${outOfScope.length}\n`).write();
+              }
+            }
+
+            // Compose final message with fresh markers
+            const finalBody = `${marker}\n${body}\n\n${runTag}`;
+
+            if (finalBody.length <= LIMIT) {
+              if (prior && sameSha) {
+                await withRetries(() => github.rest.issues.updateComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: prior.id,
+                  body: finalBody
+                }), 'github.rest.issues.updateComment (final single)');
+                core.info('Updated existing Claude review comment (same SHA).');
+              } else {
+                await withRetries(() => github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: prNumber,
+                  body: finalBody
+                }), 'github.rest.issues.createComment (final single)');
+                core.info(prior ? 'Created new Claude review comment (SHA changed).' : 'Posted new Claude review comment.');
+              }
+            } else {
+              // Chunk: update the first (or create it), then add append-only parts
+              const parts = [];
+              for (let i = 0; i < body.length; i += LIMIT) parts.push(body.slice(i, i + LIMIT));
+
+              const first = `${marker}\n${parts[0]}\n\n<!-- claude-run-${context.runId}-0/${parts.length} -->`;
+              if (prior && sameSha) {
+                await withRetries(() => github.rest.issues.updateComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: prior.id,
+                  body: first
+                }), 'github.rest.issues.updateComment (chunk base)');
+              } else {
+                await withRetries(() => github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: prNumber,
+                  body: first
+                }), 'github.rest.issues.createComment (chunk base)');
+              }
+
+              if (!(prior && sameSha)) {
+                core.info(prior ? `Created new Claude review (chunked) base comment due to SHA change. Total parts=${parts.length}.` : `Posted new Claude review comment (chunked). Total parts=${parts.length}.`);
+              } else {
+                core.info(`Updated existing Claude review comment (chunked, same SHA). Total parts=${parts.length}.`);
+              }
+
+              for (let i = 1; i < parts.length; i++) {
+                const piece = `${marker}\n${parts[i]}\n\n<!-- claude-run-${context.runId}-${i}/${parts.length} -->`;
+                await withRetries(() => github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: prNumber,
+                  body: piece
+                }), `github.rest.issues.createComment (chunk ${i})`);
+              }
+              if (parts.length > 1) {
+                core.info(`Posted PR review in ${parts.length} parts.`);
+              }
+            }
+
+      # Remove claude label after review completes to prevent auto re-runs on subsequent pushes
+      - name: Remove claude label (prevents auto re-run)
+        if: always() && steps.decide.outputs.internal == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = Number('${{ steps.resolve.outputs.pr }}');
+
+            // Check which label was applied by looking at completed steps
+            const sonnetRan = '${{ steps.claude_sonnet.outcome }}' !== '';
+            const opusRan = '${{ steps.claude_opus.outcome }}' !== '';
+
+            const labelsToRemove = [];
+            if (sonnetRan) labelsToRemove.push('claude:review');
+            if (opusRan) labelsToRemove.push('claude:ultra');
+
+            for (const label of labelsToRemove) {
+              try {
+                await github.rest.issues.removeLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: prNumber,
+                  name: label
+                });
+                core.info(`Removed ${label} label to prevent auto re-runs on future pushes.`);
+              } catch (e) {
+                if (e.status === 404) {
+                  core.info(`Label ${label} was already removed.`);
+                } else {
+                  core.warning(`Failed to remove label ${label}: ${e.message}`);
+                }
+              }
+            }

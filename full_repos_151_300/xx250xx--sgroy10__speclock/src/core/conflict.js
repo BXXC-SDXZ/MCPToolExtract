@@ -1,0 +1,614 @@
+/**
+ * SpecLock Conflict Detection Module
+ * Conflict checking, drift detection, lock suggestions, audit.
+ * Extracted from engine.js for modularity.
+ *
+ * Developed by Sandeep Roy (https://github.com/sgroy10)
+ */
+
+import fs from "fs";
+import path from "path";
+import {
+  nowIso,
+  readBrain,
+  writeBrain,
+  readEvents,
+  addViolation,
+} from "./storage.js";
+import { getStagedFiles } from "./git.js";
+import { analyzeConflict } from "./semantics.js";
+import { checkAllTypedConstraints, CONSTRAINT_TYPES } from "./typed-constraints.js";
+import { ensureInit } from "./memory.js";
+
+// --- Legacy helpers (kept for pre-commit audit backward compat) ---
+
+const NEGATION_WORDS = ["no", "not", "never", "without", "dont", "don't", "cannot", "can't", "shouldn't", "mustn't", "avoid", "prevent", "prohibit", "forbid", "disallow"];
+
+function hasNegation(text) {
+  const lower = text.toLowerCase();
+  return NEGATION_WORDS.some((neg) => lower.includes(neg));
+}
+
+const FILE_KEYWORD_PATTERNS = [
+  { keywords: ["auth", "authentication", "login", "signup", "signin", "sign-in", "sign-up"], patterns: ["**/Auth*", "**/auth*", "**/Login*", "**/login*", "**/SignUp*", "**/signup*", "**/SignIn*", "**/signin*", "**/*Auth*", "**/*auth*"] },
+  { keywords: ["database", "db", "supabase", "firebase", "mongo", "postgres", "sql", "prisma"], patterns: ["**/supabase*", "**/firebase*", "**/database*", "**/db.*", "**/db/**", "**/prisma/**", "**/*Client*", "**/*client*"] },
+  { keywords: ["payment", "pay", "stripe", "billing", "checkout", "subscription"], patterns: ["**/payment*", "**/Payment*", "**/pay*", "**/Pay*", "**/stripe*", "**/Stripe*", "**/billing*", "**/Billing*", "**/checkout*", "**/Checkout*"] },
+  { keywords: ["api", "endpoint", "route", "routes"], patterns: ["**/api/**", "**/routes/**", "**/endpoints/**"] },
+  { keywords: ["config", "configuration", "settings", "env"], patterns: ["**/config*", "**/Config*", "**/settings*", "**/Settings*"] },
+];
+
+function patternMatchesFile(pattern, filePath) {
+  const clean = pattern.replace(/\\/g, "/");
+  const fileLower = filePath.toLowerCase();
+  const patternLower = clean.toLowerCase();
+  const namePattern = patternLower.replace(/^\*\*\//, "");
+  if (!namePattern.includes("/")) {
+    const fileName = fileLower.split("/").pop();
+    const regex = new RegExp("^" + namePattern.replace(/\*/g, ".*") + "$");
+    if (regex.test(fileName)) return true;
+    const corePattern = namePattern.replace(/\*/g, "");
+    if (corePattern.length > 2 && fileName.includes(corePattern)) return true;
+  }
+  const regex = new RegExp("^" + patternLower.replace(/\*\*\//g, "(.*/)?").replace(/\*/g, "[^/]*") + "$");
+  return regex.test(fileLower);
+}
+
+const GUARD_TAG = "SPECLOCK-GUARD";
+
+// --- Core functions ---
+
+/**
+ * Detect if the first argument is a file-system path (brain mode)
+ * or natural text (direct mode for cross-platform usage).
+ * Must be strict: "spay/neuter" is NOT a path, "/app" IS a path.
+ */
+function isDirectoryPath(str) {
+  if (!str || typeof str !== "string") return false;
+  // Absolute paths: /foo, C:\foo, \\server
+  if (/^[A-Z]:/i.test(str)) return true;                 // C:\Users\...
+  if (str.startsWith("\\\\")) return true;                 // \\server\share
+  if (str.startsWith("/") && !str.includes(" ")) return true; // /app, /usr/local (no spaces = likely path)
+  // Relative path starting with . or ..
+  if (/^\.\.?[/\\]/.test(str)) return true;                // ./foo, ../bar
+  if (str === "." || str === "..") return true;
+  // Natural language with / in the middle (spay/neuter, TCP/IP, etc.) is NOT a path
+  return false;
+}
+
+/**
+ * Direct-mode conflict check: action text + lock text(s) directly.
+ * No brain.json needed. Works on any platform.
+ * @param {string} actionText - The proposed action
+ * @param {string|string[]} locks - Lock text or array of lock texts
+ * @returns {Object} Same shape as brain-mode checkConflict
+ */
+function checkConflictDirect(actionText, locks) {
+  const lockList = Array.isArray(locks) ? locks : [locks];
+  const conflicting = [];
+  let maxNonConflictScore = 0;
+
+  for (const lockText of lockList) {
+    const result = analyzeConflict(actionText, lockText);
+    if (result.isConflict) {
+      conflicting.push({
+        id: "direct",
+        text: lockText,
+        matchedKeywords: [],
+        confidence: result.confidence,
+        level: result.level,
+        reasons: result.reasons,
+      });
+    } else if (result.confidence > maxNonConflictScore) {
+      maxNonConflictScore = result.confidence;
+    }
+  }
+
+  if (conflicting.length === 0) {
+    return {
+      hasConflict: false,
+      conflictingLocks: [],
+      _maxNonConflictScore: maxNonConflictScore,
+      analysis: `Checked against ${lockList.length} lock(s). No conflicts detected.`,
+    };
+  }
+
+  conflicting.sort((a, b) => b.confidence - a.confidence);
+  const details = conflicting
+    .map(
+      (c) =>
+        `- [${c.level}] "${c.text}" (confidence: ${c.confidence}%)\n  Reasons: ${c.reasons.join("; ")}`
+    )
+    .join("\n");
+
+  return {
+    hasConflict: true,
+    conflictingLocks: conflicting,
+    _maxNonConflictScore: maxNonConflictScore,
+    analysis: `Potential conflict with ${conflicting.length} lock(s):\n${details}\nReview before proceeding.`,
+  };
+}
+
+/**
+ * Check conflicts. Supports TWO calling patterns:
+ *   1. Brain mode:  checkConflict(rootDir, proposedAction)
+ *   2. Direct mode:  checkConflict(actionText, lockText)
+ *                    checkConflict(actionText, [lock1, lock2, ...])
+ * Automatically detects which mode based on the first argument.
+ */
+export function checkConflict(rootOrAction, proposedActionOrLock) {
+  // Direct mode: first arg is not a directory path → treat as (action, lock)
+  if (!isDirectoryPath(rootOrAction)) {
+    return checkConflictDirect(rootOrAction, proposedActionOrLock);
+  }
+
+  // Brain mode: first arg is a directory path → read locks from brain.json
+  const root = rootOrAction;
+  const proposedAction = proposedActionOrLock;
+  const brain = ensureInit(root);
+  const activeLocks = (brain.specLock?.items || []).filter((l) => l.active !== false);
+  if (activeLocks.length === 0) {
+    return {
+      hasConflict: false,
+      conflictingLocks: [],
+      _maxNonConflictScore: 0,
+      analysis: "No active locks. No constraints to check against.",
+    };
+  }
+
+  const conflicting = [];
+  let maxNonConflictScore = 0;
+  for (const lock of activeLocks) {
+    const result = analyzeConflict(proposedAction, lock.text);
+    if (result.isConflict) {
+      conflicting.push({
+        id: lock.id,
+        text: lock.originalText || lock.text,
+        engineText: lock.originalText ? lock.text : undefined,
+        matchedKeywords: [],
+        confidence: result.confidence,
+        level: result.level,
+        reasons: result.reasons,
+      });
+    } else if (result.confidence > maxNonConflictScore) {
+      maxNonConflictScore = result.confidence;
+    }
+  }
+
+  if (conflicting.length === 0) {
+    return {
+      hasConflict: false,
+      conflictingLocks: [],
+      _maxNonConflictScore: maxNonConflictScore,
+      analysis: `Checked against ${activeLocks.length} active lock(s). No conflicts detected (semantic analysis v2). Proceed with caution.`,
+    };
+  }
+
+  conflicting.sort((a, b) => b.confidence - a.confidence);
+
+  const details = conflicting
+    .map(
+      (c) =>
+        `- [${c.level}] "${c.text}" (confidence: ${c.confidence}%)\n  Reasons: ${c.reasons.join("; ")}`
+    )
+    .join("\n");
+
+  const result = {
+    hasConflict: true,
+    conflictingLocks: conflicting,
+    _maxNonConflictScore: maxNonConflictScore,
+    analysis: `Potential conflict with ${conflicting.length} lock(s):\n${details}\nReview before proceeding.`,
+  };
+
+  addViolation(brain, {
+    at: nowIso(),
+    action: proposedAction,
+    locks: conflicting.map((c) => ({ id: c.id, text: c.text, confidence: c.confidence, level: c.level })),
+    topLevel: conflicting[0].level,
+    topConfidence: conflicting[0].confidence,
+  });
+  writeBrain(root, brain);
+
+  return result;
+}
+
+/**
+ * Default proxy URL for npm-install users who don't have their own LLM API key.
+ * The Railway-hosted SpecLock server provides Gemini LLM checking via /api/check.
+ * Disable with SPECLOCK_NO_PROXY=true. Override with SPECLOCK_PROXY_URL.
+ */
+const DEFAULT_PROXY_URL = "https://speclock-mcp-production.up.railway.app/api/check";
+
+/**
+ * Call the Railway proxy for LLM-powered conflict checking.
+ * Used when no local LLM API key is available.
+ * @returns {Object|null} Proxy result or null on failure
+ */
+async function callProxy(actionText, lockTexts) {
+  if (process.env.SPECLOCK_NO_PROXY === "true") return null;
+  const proxyUrl = process.env.SPECLOCK_PROXY_URL || DEFAULT_PROXY_URL;
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 2000); // 2s timeout
+
+    const resp = await fetch(proxyUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: actionText, locks: lockTexts }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
+    if (!resp.ok) return null;
+    const data = await resp.json();
+
+    if (!data || typeof data.hasConflict !== "boolean") return null;
+
+    // Convert proxy response to internal format
+    const conflicts = (data.conflicts || []).map((c) => ({
+      id: "proxy",
+      text: c.lockText,
+      matchedKeywords: [],
+      confidence: c.confidence,
+      level: c.level || "MEDIUM",
+      reasons: c.reasons || [],
+    }));
+
+    return {
+      hasConflict: data.hasConflict,
+      conflictingLocks: conflicts,
+      analysis: data.hasConflict
+        ? `${conflicts.length} conflict(s) detected via proxy (${data.source}).`
+        : `Proxy verified as safe (${data.source}). No conflicts.`,
+    };
+  } catch (_) {
+    // Proxy unavailable — graceful degradation
+    return null;
+  }
+}
+
+/**
+ * Async conflict check with LLM fallback for grey-zone cases.
+ * Supports both brain mode and direct mode (same as checkConflict).
+ * Strategy: Run heuristic first (fast, free, offline).
+ *   - Score > 70% on ALL conflicts → trust heuristic (skip LLM)
+ *   - Everything else → call LLM for universal domain coverage
+ *   - If no local LLM key → call Railway proxy for Gemini coverage
+ */
+export async function checkConflictAsync(rootOrAction, proposedActionOrLock) {
+  // 1. Always run the fast heuristic first (handles both brain + direct mode)
+  const heuristicResult = checkConflict(rootOrAction, proposedActionOrLock);
+  const isDirect = !isDirectoryPath(rootOrAction);
+
+  // 2. Fast path: all conflicts are HIGH (>70%) → heuristic is certain, skip LLM
+  if (
+    heuristicResult.hasConflict &&
+    heuristicResult.conflictingLocks.every((c) => c.confidence > 70)
+  ) {
+    return heuristicResult;
+  }
+
+  // 3. Try local LLM first (if user has their own API key)
+  try {
+    const { llmCheckConflict } = await import("./llm-checker.js");
+    let llmResult;
+    if (isDirect) {
+      const lockTexts = Array.isArray(proposedActionOrLock)
+        ? proposedActionOrLock
+        : [proposedActionOrLock];
+      const activeLocks = lockTexts.map((t, i) => ({
+        id: `direct-${i}`,
+        text: t,
+        active: true,
+      }));
+      llmResult = await llmCheckConflict(null, rootOrAction, activeLocks);
+    } else {
+      llmResult = await llmCheckConflict(rootOrAction, proposedActionOrLock);
+    }
+
+    if (llmResult) {
+      return mergeLLMResult(heuristicResult, llmResult);
+    }
+  } catch (_) {
+    // Local LLM not available
+  }
+
+  // 4. No local LLM → call Railway proxy for Gemini coverage
+  try {
+    let lockTexts;
+    if (isDirect) {
+      lockTexts = Array.isArray(proposedActionOrLock)
+        ? proposedActionOrLock
+        : [proposedActionOrLock];
+    } else {
+      // Brain mode: extract lock texts from brain
+      const brain = ensureInit(rootOrAction);
+      const activeLocks = (brain.specLock?.items || []).filter((l) => l.active !== false);
+      lockTexts = activeLocks.map((l) => l.text);
+    }
+
+    const actionText = isDirect ? rootOrAction : proposedActionOrLock;
+    if (lockTexts.length > 0) {
+      const proxyResult = await callProxy(actionText, lockTexts);
+      if (proxyResult) {
+        return mergeLLMResult(heuristicResult, proxyResult);
+      }
+    }
+  } catch (_) {
+    // Proxy unavailable — graceful degradation
+  }
+
+  return heuristicResult;
+}
+
+/**
+ * Merge heuristic result with LLM/proxy result.
+ * Takes MAX(heuristic, LLM) confidence per lock — neither engine can override the other.
+ * The heuristic catches domain-specific patterns; the LLM catches cross-domain vocabulary.
+ */
+function mergeLLMResult(heuristicResult, llmResult) {
+  const allHeuristic = heuristicResult.conflictingLocks || [];
+  const llmConflicts = llmResult.conflictingLocks || [];
+  const merged = [...allHeuristic, ...llmConflicts];
+
+  // Deduplicate by lock text, keeping the higher-confidence entry (MAX per lock)
+  const byText = new Map();
+  for (const c of merged) {
+    const existing = byText.get(c.text);
+    if (!existing || c.confidence > existing.confidence) {
+      byText.set(c.text, c);
+    }
+  }
+  const unique = [...byText.values()];
+
+  if (unique.length === 0) {
+    return {
+      hasConflict: false,
+      conflictingLocks: [],
+      analysis: `Both heuristic and LLM agree: no conflicts detected.`,
+    };
+  }
+
+  unique.sort((a, b) => b.confidence - a.confidence);
+  const heuristicCount = allHeuristic.filter(c => !llmConflicts.some(l => l.text === c.text)).length;
+  const llmOnlyCount = llmConflicts.filter(l => !allHeuristic.some(h => h.text === l.text)).length;
+  return {
+    hasConflict: true,
+    conflictingLocks: unique,
+    analysis: `${unique.length} conflict(s) detected (${heuristicCount} heuristic-only, ${llmOnlyCount} LLM-only, ${unique.length - heuristicCount - llmOnlyCount} both).`,
+  };
+}
+
+export function suggestLocks(root) {
+  const brain = ensureInit(root);
+  const suggestions = [];
+
+  for (const dec of brain.decisions) {
+    const lower = dec.text.toLowerCase();
+    if (/\b(always|must|only|exclusively|never|required)\b/.test(lower)) {
+      suggestions.push({
+        text: dec.text,
+        source: "decision",
+        sourceId: dec.id,
+        reason: `Decision contains strong commitment language — consider promoting to a lock`,
+      });
+    }
+  }
+
+  for (const note of brain.notes) {
+    const lower = note.text.toLowerCase();
+    if (/\b(never|must not|do not|don't|avoid|prohibit|forbidden)\b/.test(lower)) {
+      suggestions.push({
+        text: note.text,
+        source: "note",
+        sourceId: note.id,
+        reason: `Note contains prohibitive language — consider promoting to a lock`,
+      });
+    }
+  }
+
+  const existingLockTexts = brain.specLock.items
+    .filter((l) => l.active)
+    .map((l) => l.text.toLowerCase());
+
+  const commonPatterns = [
+    { keyword: "api", suggestion: "No breaking changes to public API" },
+    { keyword: "database", suggestion: "No destructive database migrations without backup" },
+    { keyword: "deploy", suggestion: "All deployments must pass CI checks" },
+    { keyword: "security", suggestion: "No secrets or credentials in source code" },
+    { keyword: "test", suggestion: "No merging without passing tests" },
+  ];
+
+  const allText = [
+    brain.goal.text,
+    ...brain.decisions.map((d) => d.text),
+    ...brain.notes.map((n) => n.text),
+  ].join(" ").toLowerCase();
+
+  for (const pattern of commonPatterns) {
+    if (allText.includes(pattern.keyword)) {
+      const alreadyLocked = existingLockTexts.some((t) =>
+        t.includes(pattern.keyword)
+      );
+      if (!alreadyLocked) {
+        suggestions.push({
+          text: pattern.suggestion,
+          source: "pattern",
+          sourceId: null,
+          reason: `Project mentions "${pattern.keyword}" but has no lock protecting it`,
+        });
+      }
+    }
+  }
+
+  return { suggestions, totalLocks: brain.specLock.items.filter((l) => l.active).length };
+}
+
+export function detectDrift(root) {
+  const brain = ensureInit(root);
+  const activeLocks = brain.specLock.items.filter((l) => l.active !== false);
+  if (activeLocks.length === 0) {
+    return { drifts: [], status: "no_locks", message: "No active locks to check against." };
+  }
+
+  const drifts = [];
+
+  for (const change of brain.state.recentChanges) {
+    for (const lock of activeLocks) {
+      const result = analyzeConflict(change.summary, lock.text);
+      if (result.isConflict) {
+        drifts.push({
+          lockId: lock.id,
+          lockText: lock.text,
+          changeEventId: change.eventId,
+          changeSummary: change.summary,
+          changeAt: change.at,
+          matchedTerms: result.reasons,
+          severity: result.level === "HIGH" ? "high" : "medium",
+        });
+      }
+    }
+  }
+
+  for (const revert of brain.state.reverts) {
+    drifts.push({
+      lockId: null,
+      lockText: "(git revert detected)",
+      changeEventId: revert.eventId,
+      changeSummary: `Git ${revert.kind} to ${revert.target.substring(0, 12)}`,
+      changeAt: revert.at,
+      matchedTerms: ["revert"],
+      severity: "high",
+    });
+  }
+
+  const status = drifts.length === 0 ? "clean" : "drift_detected";
+  const message = drifts.length === 0
+    ? `All clear. ${activeLocks.length} lock(s) checked against ${brain.state.recentChanges.length} recent change(s). No drift detected.`
+    : `WARNING: ${drifts.length} potential drift(s) detected. Review immediately.`;
+
+  return { drifts, status, message };
+}
+
+export function generateReport(root) {
+  const brain = ensureInit(root);
+  const violations = brain.state.violations || [];
+
+  if (violations.length === 0) {
+    return {
+      totalViolations: 0,
+      violationsByLock: {},
+      mostTestedLocks: [],
+      recentViolations: [],
+      summary: "No violations recorded yet. SpecLock is watching.",
+    };
+  }
+
+  const byLock = {};
+  for (const v of violations) {
+    for (const lock of v.locks) {
+      if (!byLock[lock.text]) {
+        byLock[lock.text] = { count: 0, lockId: lock.id, text: lock.text };
+      }
+      byLock[lock.text].count++;
+    }
+  }
+
+  const mostTested = Object.values(byLock).sort((a, b) => b.count - a.count);
+  const recent = violations.slice(0, 10).map((v) => ({
+    at: v.at,
+    action: v.action,
+    topLevel: v.topLevel,
+    topConfidence: v.topConfidence,
+    lockCount: v.locks.length,
+  }));
+
+  const oldest = violations[violations.length - 1];
+  const newest = violations[0];
+
+  return {
+    totalViolations: violations.length,
+    timeRange: { from: oldest.at, to: newest.at },
+    violationsByLock: byLock,
+    mostTestedLocks: mostTested.slice(0, 5),
+    recentViolations: recent,
+    summary: `SpecLock blocked ${violations.length} violation(s). Most tested lock: "${mostTested[0].text}" (${mostTested[0].count} blocks).`,
+  };
+}
+
+export function auditStagedFiles(root) {
+  const brain = ensureInit(root);
+  const activeLocks = brain.specLock.items.filter((l) => l.active !== false);
+
+  if (activeLocks.length === 0) {
+    return { passed: true, violations: [], checkedFiles: 0, activeLocks: 0, message: "No active locks. Audit passed." };
+  }
+
+  const stagedFiles = getStagedFiles(root);
+  if (stagedFiles.length === 0) {
+    return { passed: true, violations: [], checkedFiles: 0, activeLocks: activeLocks.length, message: "No staged files. Audit passed." };
+  }
+
+  const violations = [];
+
+  for (const file of stagedFiles) {
+    const fullPath = path.join(root, file);
+    if (fs.existsSync(fullPath)) {
+      try {
+        const content = fs.readFileSync(fullPath, "utf-8");
+        if (content.includes(GUARD_TAG)) {
+          violations.push({
+            file,
+            reason: "File has SPECLOCK-GUARD header — it is locked and must not be modified",
+            lockText: "(file-level guard)",
+            severity: "HIGH",
+          });
+          continue;
+        }
+      } catch (_) {}
+    }
+
+    const fileLower = file.toLowerCase();
+    for (const lock of activeLocks) {
+      const lockLower = lock.text.toLowerCase();
+      const lockHasNegation = hasNegation(lockLower);
+      if (!lockHasNegation) continue;
+
+      for (const group of FILE_KEYWORD_PATTERNS) {
+        const lockMatchesKeyword = group.keywords.some((kw) => lockLower.includes(kw));
+        if (!lockMatchesKeyword) continue;
+
+        const fileMatchesPattern = group.patterns.some((pattern) => patternMatchesFile(pattern, fileLower) || patternMatchesFile(pattern, fileLower.split("/").pop()));
+        if (fileMatchesPattern) {
+          violations.push({
+            file,
+            reason: `File matches lock keyword pattern`,
+            lockText: lock.text,
+            severity: "MEDIUM",
+          });
+          break;
+        }
+      }
+    }
+  }
+
+  const seen = new Set();
+  const unique = violations.filter((v) => {
+    if (seen.has(v.file)) return false;
+    seen.add(v.file);
+    return true;
+  });
+
+  const passed = unique.length === 0;
+  const message = passed
+    ? `Audit passed. ${stagedFiles.length} file(s) checked against ${activeLocks.length} lock(s).`
+    : `AUDIT FAILED: ${unique.length} violation(s) in ${stagedFiles.length} staged file(s).`;
+
+  return {
+    passed,
+    violations: unique,
+    checkedFiles: stagedFiles.length,
+    activeLocks: activeLocks.length,
+    message,
+  };
+}

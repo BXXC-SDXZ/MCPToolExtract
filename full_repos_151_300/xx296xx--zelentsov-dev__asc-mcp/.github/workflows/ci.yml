@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+    tags: ['*']
+  pull_request:
+    branches: [main, develop]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Build & Test
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_26.2.app
+
+      - name: Build
+        run: swift build
+
+      - name: Release build
+        run: swift build -c release 2>&1 | tee /tmp/asc_mcp_release.log
+
+      - name: Fail on release warnings
+        run: '! grep -q "warning:" /tmp/asc_mcp_release.log'
+
+      - name: OpenAPI coverage tooling smoke
+        run: |
+          swift run asc-mcp openapi-coverage \
+            --spec Tests/ASCMCPTests/Fixtures/openapi_minimal.oas.json \
+            --output /tmp/asc_openapi_coverage.md \
+            --generated-at 2026-05-07
+          test -s /tmp/asc_openapi_coverage.md
+
+      - name: Test
+        run: swift test

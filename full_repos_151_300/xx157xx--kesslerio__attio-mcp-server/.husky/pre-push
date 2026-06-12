@@ -1,0 +1,46 @@
+# Skip hooks in CI or when explicitly requested
+[ "${CI:-}" = "true" ] && exit 0
+[ "${SKIP_PREPUSH:-}" = "1" ] && exit 0
+
+# Skip validation for branch deletion pushes
+while read local_ref local_sha remote_ref remote_sha; do
+  if [ "$local_sha" = "0000000000000000000000000000000000000000" ]; then
+    echo "🗑️  Branch deletion detected - skipping pre-push validation"
+    exit 0
+  fi
+done
+
+# Skip validation for force deletion pushes (git push origin --delete)
+if echo "$*" | grep -q "\-\-delete"; then
+  echo "🗑️  Branch deletion detected - skipping pre-push validation"
+  exit 0
+fi
+
+echo "🔍 Validating branch name..."
+./build/validate_workflow.py --validate-branch || {
+  echo "❌ Branch validation failed"
+  exit 1
+}
+
+echo "🔍 Running TypeScript check..."
+bun run typecheck || {
+  echo "❌ TypeScript errors found"
+  exit 1
+}
+
+echo "🔍 Running fast tests..."
+if [ -n "${PREPUSH_TEST_CMD:-}" ]; then
+  sh -lc "$PREPUSH_TEST_CMD"
+else
+  bun run test:offline:run --silent -- --reporter=dot --bail=1
+fi || {
+  echo "❌ Tests failed"
+  exit 1
+}
+
+# Reminder: Check if CHANGELOG was updated (warning only)
+if ! git diff origin/main...HEAD --name-only 2>/dev/null | grep -q "CHANGELOG.md"; then
+  echo "⚠️  CHANGELOG.md not updated - remember to add entry before PR merge (if user-facing)"
+fi
+
+echo "✅ Pre-push validation complete"

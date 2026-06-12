@@ -1,0 +1,216 @@
+"""Search broker router."""
+
+import os
+from typing import Optional
+
+from argus.broker.budgets import BudgetTracker
+from argus.broker.cache import SearchCache
+from argus.broker.execution import ProviderExecutor
+from argus.broker.health import HealthTracker
+from argus.broker.pipeline import SearchResultPipeline
+from argus.broker.policies import resolve_routing
+from argus.broker.reachability import ReachabilityMatrix
+from argus.broker.session_flow import SessionSearchService
+from argus.config import EgressNode, get_config
+from argus.logging import get_logger
+from argus.models import ProviderName, SearchQuery, SearchResponse
+from argus.persistence.db import SearchPersistenceGateway
+from argus.providers.base import BaseProvider
+
+logger = get_logger("broker.router")
+
+
+class SearchBroker:
+    def __init__(
+        self,
+        providers: dict[ProviderName, BaseProvider],
+        cache: Optional[SearchCache] = None,
+        health_tracker: Optional[HealthTracker] = None,
+        budget_tracker: Optional[BudgetTracker] = None,
+        session_store=None,
+        executor: Optional[ProviderExecutor] = None,
+        result_pipeline: Optional[SearchResultPipeline] = None,
+        session_service: Optional[SessionSearchService] = None,
+        reachability: ReachabilityMatrix | None = None,
+        egress_nodes: dict[str, EgressNode] | None = None,
+    ):
+        self._providers = providers
+        self._cache = cache or SearchCache()
+        self._health = health_tracker or HealthTracker()
+        self._budgets = budget_tracker or BudgetTracker(
+            persist_path=os.environ.get("ARGUS_BUDGET_DB_PATH", None)
+        )
+        self._config = get_config()
+        self._session_store = session_store
+        self._reachability = reachability or ReachabilityMatrix()
+        self._egress_nodes = egress_nodes or {}
+        self._executor = executor or ProviderExecutor(
+            providers=self._providers,
+            health_tracker=self._health,
+            budget_tracker=self._budgets,
+            reachability=self._reachability,
+            egress_nodes=self._egress_nodes,
+        )
+        self._pipeline = result_pipeline or SearchResultPipeline(
+            cache=self._cache,
+            persistence=SearchPersistenceGateway(),
+        )
+        self._session_service = session_service or SessionSearchService(session_store=session_store)
+
+        budget_map = {
+            ProviderName.BRAVE: self._config.brave.monthly_budget_usd,
+            ProviderName.SERPER: self._config.serper.monthly_budget_usd,
+            ProviderName.TAVILY: self._config.tavily.monthly_budget_usd,
+            ProviderName.EXA: self._config.exa.monthly_budget_usd,
+            ProviderName.SEARCHAPI: self._config.searchapi.monthly_budget_usd,
+            ProviderName.YOU: self._config.you.monthly_budget_usd,
+            ProviderName.PARALLEL: self._config.parallel.monthly_budget_usd,
+            ProviderName.LINKUP: self._config.linkup.monthly_budget_usd,
+            ProviderName.VALYU: self._config.valyu.monthly_budget_usd,
+            ProviderName.WOLFRAM: self._config.wolfram.monthly_budget_usd,
+        }
+        for pname, budget in budget_map.items():
+            if budget > 0:
+                self._budgets.set_budget(pname, budget)
+
+    @property
+    def cache(self) -> SearchCache:
+        return self._cache
+
+    @property
+    def health_tracker(self) -> HealthTracker:
+        return self._health
+
+    @property
+    def budget_tracker(self) -> BudgetTracker:
+        return self._budgets
+
+    async def search(self, query: SearchQuery, compute_attribution: bool = False) -> SearchResponse:
+        cache_run_id = os.urandom(8).hex()
+        cached = self._pipeline.get_cached(
+            query,
+            cache_run_id,
+            compute_attribution=compute_attribution,
+        )
+        if cached is not None:
+            logger.debug("Cache hit for query: %s (mode=%s)", query.query, query.mode)
+            return cached
+
+        # Phase 4/5: Residential Search Policy
+        res_policy = self._config.residential.policy
+        if res_policy != "off":
+            if res_policy == "always":
+                query.metadata["prefer_residential"] = True
+            elif res_policy == "prefer_on_datacenter" and self._config.node.egress_type != "residential":
+                query.metadata["prefer_residential"] = True
+
+        provider_order = resolve_routing(query.mode, query.providers)
+        outcome = await self._executor.execute(query, provider_order)
+        response = self._pipeline.build_response(
+            query,
+            outcome.provider_results,
+            outcome.traces,
+            budget_warnings=outcome.budget_pace_warnings,
+            compute_attribution=compute_attribution,
+        )
+
+        logger.info(
+            "Search complete: query=%r mode=%s providers=%d results=%d run=%s",
+            query.query,
+            query.mode.value,
+            outcome.live_providers_used,
+            len(response.results),
+            response.search_run_id,
+        )
+
+        if outcome.budget_pace_warnings:
+            for w in outcome.budget_pace_warnings:
+                logger.warning("Budget pace: %s", w)
+
+        return response
+
+    async def search_with_session(
+        self,
+        query: SearchQuery,
+        session_id: Optional[str] = None,
+        compute_attribution: bool = False,
+    ) -> tuple[SearchResponse, Optional[str]]:
+        return await self._session_service.search_with_session(
+            query,
+            lambda effective_query: self.search(
+                effective_query,
+                compute_attribution=compute_attribution,
+            ),
+            session_id=session_id,
+        )
+
+    def get_provider_status(self, provider: ProviderName) -> dict:
+        """Get combined status for a provider (config + health + budget)."""
+        provider_obj = self._providers.get(provider)
+        base_status = provider_obj.status() if provider_obj else "unknown"
+
+        health_status = self._health.get_status(provider)
+        budget_status = self._budgets.check_status(provider)
+
+        effective = base_status
+        if health_status:
+            effective = health_status.value
+        if budget_status:
+            effective = budget_status.value
+
+        return {
+            "provider": provider.value,
+            "config_status": base_status,
+            "health": self._health.get_health(provider).__dict__ if provider in self._health._health else None,
+            "budget_remaining": self._budgets.get_remaining_budget(provider),
+            "effective_status": effective,
+        }
+
+
+def create_broker() -> SearchBroker:
+    """Factory: create a SearchBroker with all configured providers."""
+    from argus.providers.brave import BraveProvider
+    from argus.providers.duckduckgo import DuckDuckGoProvider
+    from argus.providers.exa import ExaProvider
+    from argus.providers.linkup import LinkupProvider
+    from argus.providers.parallel import ParallelProvider
+    from argus.providers.searchapi import SearchApiProvider
+    from argus.providers.searxng import SearXNGProvider
+    from argus.providers.serper import SerperProvider
+    from argus.providers.tavily import TavilyProvider
+    from argus.providers.valyu import ValyuProvider
+    from argus.providers.github import GitHubProvider
+    from argus.providers.you import YouProvider
+    from argus.providers.wolfram import WolframProvider
+    from argus.providers.yahoo import YahooProvider
+
+    config = get_config()
+    egress_nodes = {n.name: n for n in config.egress_nodes}
+    reachability = ReachabilityMatrix()
+
+    providers: dict[ProviderName, BaseProvider] = {
+        ProviderName.SEARXNG: SearXNGProvider(config.searxng),
+        ProviderName.DUCKDUCKGO: DuckDuckGoProvider(),
+        ProviderName.YAHOO: YahooProvider(config.yahoo),
+        ProviderName.BRAVE: BraveProvider(config.brave),
+        ProviderName.SERPER: SerperProvider(config.serper),
+        ProviderName.TAVILY: TavilyProvider(config.tavily),
+        ProviderName.EXA: ExaProvider(config.exa),
+        ProviderName.SEARCHAPI: SearchApiProvider(config.searchapi),
+        ProviderName.YOU: YouProvider(config.you),
+        ProviderName.PARALLEL: ParallelProvider(config.parallel),
+        ProviderName.LINKUP: LinkupProvider(config.linkup),
+        ProviderName.VALYU: ValyuProvider(config.valyu),
+        ProviderName.GITHUB: GitHubProvider(config.github),
+        ProviderName.WOLFRAM: WolframProvider(config.wolfram),
+    }
+
+    from argus.sessions import SessionStore
+
+    session_store = SessionStore()
+    return SearchBroker(
+        providers=providers,
+        session_store=session_store,
+        reachability=reachability,
+        egress_nodes=egress_nodes,
+    )

@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SpecLock vs Ruler — Sync Your AI Rules vs Enforce Them</title>
+    <meta name="description" content="SpecLock vs Ruler compared. Ruler syncs your rules consistently across Copilot, Claude, and Cursor — but doesn't enforce them. SpecLock adds the runtime enforcement layer that blocks violations of your CLAUDE.md.">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#x1F512;</text></svg>">
+    <!-- Open Graph -->
+    <meta property="og:title" content="SpecLock vs Ruler — Sync vs Enforce Your AI Rules">
+    <meta property="og:description" content="Ruler distributes your rules across agents. SpecLock enforces them at runtime. See the honest side-by-side comparison.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://sgroy10.github.io/speclock/vs/speclock-vs-ruler.html">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="SpecLock vs Ruler — Sync vs Enforce Your AI Rules">
+    <meta name="twitter:description" content="Ruler distributes your rules across agents. SpecLock enforces them at runtime. See the honest side-by-side comparison.">
+    <link rel="canonical" href="https://sgroy10.github.io/speclock/vs/speclock-vs-ruler.html">
+    <!-- JSON-LD -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebPage",
+      "name": "SpecLock vs Ruler",
+      "description": "A fair comparison of SpecLock and Ruler (intellectronica/ruler): Ruler syncs AI rules across agents; SpecLock enforces them at runtime.",
+      "url": "https://sgroy10.github.io/speclock/vs/speclock-vs-ruler.html",
+      "author": {
+        "@type": "Person",
+        "name": "Sandeep Roy",
+        "url": "https://github.com/sgroy10"
+      },
+      "mainEntity": {
+        "@type": "SoftwareApplication",
+        "name": "SpecLock",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "Cross-platform",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        }
+      }
+    }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #ffffff;
+            --surface: #f8f9fb;
+            --surface-2: #f0f2f5;
+            --border: #e2e5ea;
+            --text: #1a1d23;
+            --text-dim: #6b7280;
+            --accent: #FF6B2C;
+            --accent-light: #ffe8dc;
+            --accent-glow: rgba(255, 107, 44, 0.12);
+            --green: #16a34a;
+            --green-light: #dcfce7;
+            --blue: #2563eb;
+            --blue-light: #dbeafe;
+            --yellow: #d97706;
+            --yellow-light: #fef3c7;
+            --code-bg: #1e293b;
+            --code-text: #e2e8f0;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            overflow-x: hidden;
+            line-height: 1.6;
+        }
+
+        .mono { font-family: 'JetBrains Mono', monospace; }
+
+        /* NAV */
+        nav {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+            padding: 14px 40px;
+            display: flex; align-items: center; justify-content: space-between;
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+        }
+        .nav-logo {
+            display: flex; align-items: center; gap: 10px;
+            font-weight: 800; font-size: 1.2rem; letter-spacing: -0.5px; color: var(--text);
+            text-decoration: none;
+        }
+        .nav-logo .lock-icon {
+            width: 30px; height: 30px; background: var(--accent);
+            border-radius: 8px; display: flex; align-items: center; justify-content: center;
+            font-size: 14px; color: white;
+        }
+        .nav-links { display: flex; gap: 28px; align-items: center; }
+        .nav-links a { color: var(--text-dim); text-decoration: none; font-size: 0.88rem; font-weight: 500; transition: color 0.2s; }
+        .nav-links a:hover { color: var(--text); }
+        .btn-nav-cta {
+            background: #fff3ec; color: var(--accent); padding: 8px 18px;
+            border-radius: 8px; text-decoration: none; font-weight: 700;
+            font-size: 0.85rem; transition: all 0.2s; border: 1.5px solid var(--accent); cursor: pointer;
+        }
+        .btn-nav-cta:hover { background: var(--accent); color: white; }
+
+        /* PAGE HEADER */
+        .page-header {
+            padding: 140px 24px 60px;
+            text-align: center;
+            background: linear-gradient(180deg, #fff 0%, var(--surface) 100%);
+        }
+        .page-header .badge {
+            display: inline-flex; align-items: center; gap: 8px;
+            background: var(--blue-light); border: 1px solid #bfdbfe;
+            padding: 6px 16px; border-radius: 100px; font-size: 0.78rem;
+            color: var(--blue); margin-bottom: 28px;
+            font-family: 'JetBrains Mono', monospace; font-weight: 600;
+        }
+        .page-header h1 {
+            font-size: clamp(2rem, 5vw, 3.2rem); font-weight: 900;
+            line-height: 1.1; letter-spacing: -1.5px; max-width: 800px;
+            margin: 0 auto 16px;
+        }
+        .page-header h1 .red { color: var(--accent); }
+        .page-header p {
+            font-size: 1.1rem; color: var(--text-dim); max-width: 650px;
+            margin: 0 auto; line-height: 1.7;
+        }
+
+        /* CONTENT PROSE */
+        .prose {
+            max-width: 800px; margin: 0 auto; padding: 0 24px;
+        }
+        .prose h2 {
+            font-size: 1.6rem; font-weight: 800; letter-spacing: -0.6px;
+            margin: 48px 0 14px;
+        }
+        .prose h3 {
+            font-size: 1.15rem; font-weight: 800; letter-spacing: -0.3px;
+            margin: 28px 0 8px;
+        }
+        .prose p { color: var(--text-dim); font-size: 1rem; line-height: 1.75; margin-bottom: 14px; }
+        .prose strong { color: var(--text); }
+        .prose code {
+            background: var(--surface-2); padding: 2px 6px; border-radius: 4px;
+            font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;
+        }
+        .prose a { color: var(--accent); text-decoration: none; font-weight: 600; }
+        .prose a:hover { text-decoration: underline; }
+
+        /* COMPARISON TABLE */
+        .compare-section {
+            max-width: 1000px; margin: 0 auto; padding: 40px 24px 40px;
+        }
+        .compare-table-wrap {
+            overflow-x: auto;
+            border-radius: 14px;
+            border: 1px solid var(--border);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+        }
+        table {
+            width: 100%; border-collapse: collapse; min-width: 600px;
+        }
+        thead th {
+            background: var(--code-bg);
+            color: var(--code-text);
+            padding: 16px 20px;
+            text-align: center;
+            font-size: 0.88rem;
+            font-weight: 700;
+            letter-spacing: -0.3px;
+        }
+        thead th:first-child {
+            text-align: left;
+            border-radius: 0;
+        }
+        thead th.speclock-col {
+            background: var(--accent);
+            color: white;
+            position: relative;
+        }
+        tbody td {
+            padding: 14px 20px;
+            text-align: center;
+            font-size: 0.9rem;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-dim);
+        }
+        tbody td:first-child {
+            text-align: left;
+            font-weight: 600;
+            color: var(--text);
+        }
+        tbody tr:last-child td {
+            border-bottom: none;
+        }
+        tbody tr:hover {
+            background: var(--surface);
+        }
+        td.speclock-col {
+            background: rgba(255, 107, 44, 0.05);
+            font-weight: 600;
+        }
+        .check {
+            color: var(--green);
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+        .cross {
+            color: #d1d5db;
+            font-size: 1.1rem;
+        }
+        .partial {
+            color: var(--yellow);
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        /* VERDICT */
+        .verdict-section {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 24px 80px;
+            text-align: center;
+        }
+        .verdict-box {
+            background: linear-gradient(135deg, var(--accent-light), #fff7f3);
+            border: 2px solid var(--accent);
+            border-radius: 16px;
+            padding: 48px 36px;
+        }
+        .verdict-box h2 {
+            font-size: 1.8rem;
+            font-weight: 900;
+            letter-spacing: -1px;
+            margin-bottom: 12px;
+        }
+        .verdict-box p {
+            color: var(--text-dim);
+            font-size: 1rem;
+            line-height: 1.7;
+            max-width: 560px;
+            margin: 0 auto 28px;
+        }
+        .verdict-box code {
+            background: #fff; border: 1px solid var(--accent-light);
+            padding: 3px 8px; border-radius: 6px;
+            font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; color: var(--accent);
+        }
+        .verdict-box .cta-buttons {
+            display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;
+        }
+
+        /* FOOTER CTA */
+        .footer-cta {
+            text-align: center; padding: 80px 24px;
+            background: var(--surface);
+        }
+        .footer-cta .section-label {
+            font-family: 'JetBrains Mono', monospace; font-size: 0.72rem;
+            color: var(--accent); text-transform: uppercase; letter-spacing: 3px;
+            margin-bottom: 12px; font-weight: 600;
+        }
+        .footer-cta h2 { font-size: 2.2rem; font-weight: 800; letter-spacing: -1px; margin-bottom: 14px; }
+        .footer-cta p { color: var(--text-dim); font-size: 1.05rem; margin-bottom: 36px; }
+        .footer-cta .cta-buttons { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+        .btn-primary {
+            background: var(--accent); color: white; padding: 13px 28px;
+            border-radius: 10px; text-decoration: none; font-weight: 700;
+            font-size: 0.95rem; transition: all 0.2s; border: none; cursor: pointer;
+        }
+        .btn-primary:hover { background: #e85a1e; transform: translateY(-1px); box-shadow: 0 6px 20px var(--accent-glow); }
+        .btn-secondary {
+            background: white; color: var(--text); padding: 13px 28px;
+            border-radius: 10px; text-decoration: none; font-weight: 600;
+            font-size: 0.95rem; border: 1px solid var(--border); transition: all 0.2s; cursor: pointer;
+        }
+        .btn-secondary:hover { border-color: var(--text-dim); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
+
+        footer {
+            text-align: center; padding: 24px; font-size: 0.82rem; color: var(--text-dim);
+            border-top: 1px solid var(--border);
+        }
+        footer a { color: var(--text-dim); text-decoration: none; }
+        footer a:hover { color: var(--text); }
+
+        @media (max-width: 768px) {
+            nav { padding: 14px 16px; }
+            .nav-links { display: none; }
+            .page-header { padding: 110px 16px 40px; }
+            .compare-section { padding: 24px 16px; }
+            .verdict-section { padding: 24px 16px 60px; }
+            thead th, tbody td { padding: 10px 12px; font-size: 0.8rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <nav>
+        <a href="../index.html" class="nav-logo">
+            <div class="lock-icon">&#x1F512;</div>
+            SpecLock
+        </a>
+        <div class="nav-links">
+            <a href="../index.html">Home</a>
+            <a href="../faq.html">FAQ</a>
+            <a href="../vs.html" style="color: var(--accent); font-weight: 600;">Compare</a>
+            <a href="https://github.com/sgroy10/speclock" target="_blank">GitHub</a>
+            <a href="https://smithery.ai/servers/sgroy10/speclock" target="_blank" class="btn-nav-cta">Get on Smithery</a>
+        </div>
+    </nav>
+
+    <section class="page-header">
+        <div class="badge">SPECLOCK vs RULER</div>
+        <h1><span class="red">SpecLock</span> vs Ruler: sync your AI rules, or enforce them?</h1>
+        <p>Ruler keeps one set of rules consistent across every AI agent. SpecLock makes those rules unbreakable at runtime. Here's an honest look at where they overlap &mdash; and where SpecLock adds the layer Ruler was never built to provide.</p>
+    </section>
+
+    <div class="prose">
+        <p><a href="https://github.com/intellectronica/ruler" target="_blank">Ruler</a> (by intellectronica, ~2.7k stars) is the clear category leader for <strong>rule synchronization</strong>. You write your AI instructions once in a central <code>.ruler/</code> directory, and Ruler distributes them into the native formats each agent expects &mdash; GitHub Copilot, Claude Code, Cursor, and more. It solves a real, annoying problem: keeping the same guidance in sync when every tool wants its own rules file.</p>
+        <p>But Ruler is honest about what it is: a <strong>distribution</strong> tool. It puts the same rules in front of every agent. What it does <em>not</em> do &mdash; and doesn't claim to &mdash; is <strong>stop the AI from ignoring them</strong>. Once the rules are synced, the model is still free to forget, dilute, or override any line, exactly as it would with a single hand-maintained rules file.</p>
+        <p>That's the gap SpecLock fills. <strong>SpecLock reads the same rules file you already wrote</strong> (CLAUDE.md, .cursorrules, AGENTS.md) and compiles its prose into runtime hard constraints &mdash; <em>locks</em> &mdash; that block conflicting changes before they reach your codebase, across Claude Code, Cursor, Windsurf, Cline, and Copilot.</p>
+    </div>
+
+    <section class="compare-section">
+        <div class="compare-table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Capability</th>
+                        <th class="speclock-col">SpecLock</th>
+                        <th>Ruler</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Reads YOUR existing rules file</td>
+                        <td class="speclock-col"><span class="check">&#10003;</span></td>
+                        <td><span class="check">&#10003;</span> <span style="font-size:0.8rem;">as source</span></td>
+                    </tr>
+                    <tr>
+                        <td>Syncs rules across agents</td>
+                        <td class="speclock-col"><span class="check">&#10003;</span></td>
+                        <td><span class="check">&#10003;</span></td>
+                    </tr>
+                    <tr>
+                        <td>Cross-agent (Claude, Cursor, Windsurf, Cline, Copilot)</td>
+                        <td class="speclock-col"><span class="check">&#10003;</span></td>
+                        <td><span class="check">&#10003;</span></td>
+                    </tr>
+                    <tr>
+                        <td>Enforces rules (blocks violations at runtime)</td>
+                        <td class="speclock-col"><span class="check">&#10003;</span></td>
+                        <td><span class="cross">&#10005;</span> <span class="partial">suggests only</span></td>
+                    </tr>
+                    <tr>
+                        <td>Semantic conflict detection</td>
+                        <td class="speclock-col"><span class="check">&#10003;</span></td>
+                        <td><span class="cross">&#10005;</span></td>
+                    </tr>
+                    <tr>
+                        <td>Pre-commit blocking</td>
+                        <td class="speclock-col"><span class="check">&#10003;</span></td>
+                        <td><span class="cross">&#10005;</span></td>
+                    </tr>
+                    <tr>
+                        <td>Drift detection &amp; scoring</td>
+                        <td class="speclock-col"><span class="check">&#10003;</span></td>
+                        <td><span class="cross">&#10005;</span></td>
+                    </tr>
+                    <tr>
+                        <td>MCP server integration</td>
+                        <td class="speclock-col"><span class="check">&#10003;</span> <span style="font-size:0.8rem; color:var(--accent);">51 tools</span></td>
+                        <td><span class="cross">&#10005;</span></td>
+                    </tr>
+                    <tr>
+                        <td>Shareable proof of blocked actions</td>
+                        <td class="speclock-col"><span class="check">&#10003;</span> <span style="font-size:0.8rem; color:var(--accent);">speclock wins</span></td>
+                        <td><span class="cross">&#10005;</span></td>
+                    </tr>
+                    <tr>
+                        <td>Free &amp; open source</td>
+                        <td class="speclock-col"><span class="check">&#10003;</span></td>
+                        <td><span class="check">&#10003;</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <div class="prose">
+        <h2>When to use which</h2>
+        <p>This isn't strictly an either/or. Ruler and SpecLock solve adjacent problems, and you can run them together.</p>
+        <h3>Use Ruler if&hellip;</h3>
+        <p>Your main pain is <strong>fragmentation</strong> &mdash; you maintain the same guidance in five different rules files and they keep drifting apart. Ruler's central <code>.ruler/</code> source of truth and fan-out to native formats is purpose-built for that, and it's the most mature option in the sync category.</p>
+        <h3>Use SpecLock if&hellip;</h3>
+        <p>Your pain is that the AI <strong>ignores the rules even when it can see them</strong> &mdash; it touches files you told it never to touch, or quietly refactors locked architecture. Syncing the same rule to more agents doesn't fix that; only enforcement does. SpecLock turns the rule into a hard stop and hands you a receipt of every block.</p>
+        <h3>Use both if&hellip;</h3>
+        <p>You want one canonical rule set <em>and</em> teeth behind it. Let Ruler keep your rules consistent across every agent; let SpecLock enforce the ones that must never be broken. They're complementary &mdash; Ruler is the distribution layer, SpecLock is the enforcement layer.</p>
+    </div>
+
+    <section class="verdict-section">
+        <div class="verdict-box">
+            <h2>Ruler distributes. SpecLock enforces.</h2>
+            <p>Ruler is excellent at making your rules consistent everywhere. But consistent rules the AI can still ignore are still just suggestions. SpecLock is the layer that makes them stick &mdash; one command, no new files to write.</p>
+            <p><code>npx speclock protect</code></p>
+            <div class="cta-buttons">
+                <a href="https://smithery.ai/servers/sgroy10/speclock" target="_blank" class="btn-primary">Get SpecLock on Smithery</a>
+                <a href="https://github.com/intellectronica/ruler" target="_blank" class="btn-secondary">View Ruler on GitHub</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="footer-cta">
+        <div class="section-label">Get Started</div>
+        <h2>Your synced rules, finally enforced.</h2>
+        <p>Distribution isn't enough. SpecLock makes your AI respect the boundaries you already wrote. Free &amp; open source.</p>
+        <div class="cta-buttons">
+            <a href="https://smithery.ai/servers/sgroy10/speclock" target="_blank" class="btn-primary">Get SpecLock on Smithery</a>
+            <a href="https://github.com/sgroy10/speclock" target="_blank" class="btn-secondary">GitHub Repository</a>
+            <a href="https://sgroy10.github.io/speclock/" class="btn-secondary">Homepage</a>
+        </div>
+    </section>
+
+    <footer>
+        <p>Built by <strong>Sandeep Roy</strong> &middot; SpecLock v5.7.0 &mdash; AI Constraint Engine &middot; <a href="https://sgroy10.github.io/speclock/">Home</a> &middot; <a href="../vs.html">Compare</a> &middot; <a href="https://github.com/sgroy10/speclock" target="_blank">GitHub</a> &middot; <a href="https://www.npmjs.com/package/speclock" target="_blank">npm</a></p>
+    </footer>
+
+</body>
+</html>

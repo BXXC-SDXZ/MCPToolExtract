@@ -1,0 +1,157 @@
+---
+title: "Meta Tools"
+description: "Create and manage Meta (Facebook/Instagram) ad campaigns from your AI agent."
+---
+
+<Note>Meta tools require a Scout plan or higher. You need `META_ADS_ACCESS_TOKEN`, `META_ADS_ACCOUNT_ID`, and `META_PAGE_ID` set in your config.</Note>
+
+---
+
+## check_setup
+
+Before doing anything else, call this tool. It checks whether your license key is valid and your ad platform credentials are working. It tells you exactly what's connected and what isn't — so you don't waste time debugging later.
+
+```json
+{}
+```
+
+No inputs needed. Returns your license tier, connection status for each platform, and whether you're ready to run.
+
+---
+
+## get_ad_account_info
+
+Use this to check your current ad account balance and total spend before launching a campaign. If the balance is too low, your campaign won't run.
+
+```json
+{}
+```
+
+Returns your account name, status, currency, available balance, and total amount spent to date.
+
+---
+
+## list_meta_campaigns
+
+Get a list of all your Meta campaigns with their IDs, names, status, and budgets. Use this to find campaign IDs before calling other tools, or to get an overview of what's currently running.
+
+```json
+{
+  "limit": 20,
+  "status": "ACTIVE"
+}
+```
+
+- `limit` — how many campaigns to return (default 20)
+- `status` — filter by `ACTIVE`, `PAUSED`, or `ARCHIVED`. Leave it out to return all campaigns.
+
+---
+
+## create_meta_campaign
+
+This is the main tool. One call creates everything — the campaign, ad set, targeting, creative, and ad. You don't need to call multiple tools or set up each piece separately.
+
+**The campaign starts PAUSED.** This is intentional — so you can review it before it starts spending money. Call `enable_meta_campaign` when you're ready to go live.
+
+```json
+{
+  "name": "Summer Sale — US",
+  "objective": "OUTCOME_TRAFFIC",
+  "daily_budget_usd": 25,
+  "destination_url": "https://yoursite.com/sale",
+  "ad_headline": "50% Off This Week",
+  "ad_body": "Limited time offer. Free shipping on all orders.",
+  "targeting_countries": ["US", "CA"],
+  "age_min": 25,
+  "age_max": 54
+}
+```
+
+**What each field does:**
+- `name` — the campaign name as it appears in Ads Manager
+- `objective` — what you want the campaign to achieve (see table below)
+- `daily_budget_usd` — maximum spend per day in USD
+- `destination_url` — where users land when they click the ad
+- `ad_headline` — the bold text at the top of the ad
+- `ad_body` — the main ad copy underneath the headline
+- `targeting_countries` — list of country codes to target (e.g. `"US"`, `"GB"`, `"AU"`)
+- `age_min` / `age_max` — age range of people to target (13–65+)
+
+**Objectives — pick the one that matches your goal:**
+
+| Objective | When to use it |
+|-----------|----------------|
+| `OUTCOME_TRAFFIC` | You want people to visit your website |
+| `OUTCOME_LEADS` | You want people to fill out a lead form |
+| `OUTCOME_SALES` | You want purchases (requires Meta Pixel on your site) |
+| `OUTCOME_ENGAGEMENT` | You want likes, comments, and shares on a post |
+| `OUTCOME_AWARENESS` | You want as many people as possible to see the ad |
+
+The response includes `campaign_id`, `adset_id`, `ad_id`, and `creative_id` — save the `campaign_id` to use with other tools.
+
+---
+
+## enable_meta_campaign
+
+Activates a paused campaign. It starts spending immediately after you call this.
+
+```json
+{ "campaign_id": "120210001234567" }
+```
+
+Only call this when you're confident the campaign is ready. Once active, it will start charging your ad account.
+
+---
+
+## pause_meta_campaign
+
+Stops a live campaign from spending. The campaign and all its settings are preserved — you can re-enable it anytime. Use this when a campaign is underperforming or you want to take a break.
+
+```json
+{ "campaign_id": "120210001234567" }
+```
+
+---
+
+## get_meta_campaign_stats
+
+Pull performance data for a campaign. Use this to understand how your ads are performing — whether they're getting clicks, how much you've spent, and whether the cost is worth it.
+
+```json
+{ "campaign_id": "120210001234567", "date_preset": "last_7d" }
+```
+
+**Date presets you can use:**
+
+| Preset | What it covers |
+|--------|----------------|
+| `today` | Today only |
+| `yesterday` | Yesterday only |
+| `last_7d` | The past 7 days |
+| `last_14d` | The past 14 days |
+| `last_30d` | The past 30 days |
+| `this_month` | Current calendar month |
+
+Returns impressions (how many times the ad was shown), clicks, spend, CTR (click-through rate), and CPM (cost per 1,000 impressions).
+
+---
+
+## update_meta_campaign_budget
+
+Change how much the campaign spends per day. Takes effect immediately — no need to pause or recreate the campaign. Use this to scale up a campaign that's performing well, or cut back on one that isn't.
+
+```json
+{ "campaign_id": "120210001234567", "daily_budget_usd": 50 }
+```
+
+Minimum is $1/day. There is no maximum, but be careful — higher budgets mean faster spend.
+
+---
+
+## delete_meta_campaign
+
+Permanently deletes a campaign and everything inside it — ad sets, creatives, and ads. **This cannot be undone.** If you might want to run the campaign again, use `pause_meta_campaign` instead.
+
+```json
+{ "campaign_id": "120210001234567" }
+```

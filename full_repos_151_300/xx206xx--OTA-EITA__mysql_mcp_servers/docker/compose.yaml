@@ -1,0 +1,75 @@
+services:
+  # MySQLデータベースサービス
+  mysql:
+    image: mysql:8.0
+    container_name: mysql-container
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-rootpassword}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+    ports:
+      - "${MYSQL_HOST_PORT:-3306}:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./setup.sql:/docker-entrypoint-initdb.d/setup.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-rootpassword}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - mcp-network
+
+  # MCPサーバーサービス
+  mysql-mcp-server:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: mysql-mcp-container
+    environment:
+      # MySQLへの接続設定
+      - MYSQL_HOST=mysql-container
+      - MYSQL_PORT=${MYSQL_PORT}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      # ログ設定
+      - LOG_LEVEL=${LOG_LEVEL}
+      # データベース接続設定
+      - DB_CONNECTION_RETRIES=${DB_CONNECTION_RETRIES}
+      - DB_CONNECTION_TIMEOUT=${DB_CONNECTION_TIMEOUT}
+      # セキュリティ設定
+      - RESTRICTED_QUERIES=${RESTRICTED_QUERIES}
+    # 標準入出力をインタラクティブモードで使用
+    stdin_open: true
+    tty: true
+    # 再起動ポリシー - 障害発生時に自動的に再起動
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    # ヘルスチェックオプション
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os; os.stat('/app/src/mcp_server.py'); import sys; sys.exit(0)"]
+      interval: ${HEALTHCHECK_INTERVAL}
+      timeout: ${HEALTHCHECK_TIMEOUT}
+      retries: ${HEALTHCHECK_RETRIES}
+      start_period: ${HEALTHCHECK_START_PERIOD}
+    # リソース制限
+    deploy:
+      resources:
+        limits:
+          cpus: '${RESOURCE_LIMIT_CPU}'
+          memory: ${RESOURCE_LIMIT_MEMORY}
+    networks:
+      - mcp-network
+
+networks:
+  mcp-network:
+    driver: bridge
+
+volumes:
+  mysql-data:

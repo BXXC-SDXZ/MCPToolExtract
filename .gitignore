@@ -1,0 +1,24 @@
+__pycache__/
+*.pyc
+.DS_Store
+.venv/
+venv/
+node_modules/
+dist/
+build/
+target/
+.next/
+coverage/
+
+# Local datasets and large generated outputs
+data/
+datasets/
+raw_repos/
+mcpso_13k/
+outputs/
+cache/
+logs/
+*.log
+*.tar
+*.tar.gz
+*.zip

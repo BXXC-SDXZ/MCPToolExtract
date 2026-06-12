@@ -1,0 +1,69 @@
+.
+├── Dockerfile
+├── LICENSE
+├── README.md
+├── changelog.md
+├── docker-compose.yaml
+├── env.example
+├── package.json
+├── src
+│   ├── core
+│   │   ├── application
+│   │   │   ├── factories
+│   │   │   │   └── server.factory.ts
+│   │   │   ├── services
+│   │   │   │   ├── prompt.service.ts
+│   │   │   │   ├── resource.service.ts
+│   │   │   │   ├── tool.service.ts
+│   │   │   │   └── transport.service.ts
+│   │   │   └── usecases
+│   │   │       └── server.usecase.ts
+│   │   ├── domain
+│   │   │   ├── interfaces
+│   │   │   │   ├── logger.interface.ts
+│   │   │   │   ├── prompt.interface.ts
+│   │   │   │   ├── resource.interface.ts
+│   │   │   │   ├── tool.interface.ts
+│   │   │   │   └── transport.interface.ts
+│   │   │   └── models
+│   │   │       ├── server-config.model.ts
+│   │   │       └── transport-config.model.ts
+│   │   ├── infrastructure
+│   │   │   ├── config
+│   │   │   │   └── config.ts
+│   │   │   ├── logging
+│   │   │   │   └── console-logger.ts
+│   │   │   └── transport
+│   │   │       ├── sse-transport.adapter.ts
+│   │   │       ├── stdio-transport.adapter.ts
+│   │   │       └── transport-factory.ts
+│   │   └── presentation
+│   │       ├── api
+│   │       │   ├── app.ts
+│   │       │   ├── middleware
+│   │       │   │   └── error.middleware.ts
+│   │       │   ├── routes
+│   │       │   │   └── sse.routes.ts
+│   │       │   └── server.ts
+│   │       └── controllers
+│   │           └── sse.controller.ts
+│   ├── index.ts
+│   ├── prompts
+│   │   ├── conversation.prompt.ts
+│   │   └── index.ts
+│   ├── resources
+│   │   ├── greeting.resource.ts
+│   │   ├── index.ts
+│   │   └── weather.resource.ts
+│   └── tools
+│       ├── index.ts
+│       ├── math
+│       │   └── sum.tool.ts
+│       └── system
+│           └── ping.tool.ts
+├── structure.txt
+├── structure_temp.txt
+├── tsconfig.json
+└── yarn.lock
+
+24 directories, 43 files

@@ -1,0 +1,16 @@
+# Basic test configuration for e2e testing
+model:
+  provider: openai
+  name: gpt-4o
+  api_key: test-key
+
+evals:
+  - name: basic_test_eval
+    description: Test basic tool functionality
+    prompt: "Use the test_tool with query 'hello world' and scenario 'success'"
+    expected_result: "Should return a successful response with test data"
+
+  - name: math_test_eval
+    description: Test math tool functionality
+    prompt: "Use the math_tool to add 5 and 3"
+    expected_result: "Should return the correct sum of 8"

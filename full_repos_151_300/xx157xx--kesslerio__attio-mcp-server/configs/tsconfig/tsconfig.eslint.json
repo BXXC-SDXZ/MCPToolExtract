@@ -1,0 +1,21 @@
+{
+  "extends": "../../tsconfig.json",
+  "include": [
+    "../../src/**/*",
+    "../../test/**/*",
+    "../../scripts/**/*",
+    "../../*.ts",
+    "../../*.js",
+    "../../*.cjs",
+    "../../*.mjs"
+  ],
+  "exclude": [
+    "../../node_modules",
+    "../../dist",
+    "../../build"
+  ]
+  // Note: We are intentionally not specifying compilerOptions.rootDir here.
+  // It will be inherited from the base tsconfig.json. If ESLint still has issues
+  // with rootDir from the base config, we might need to set it to "." here,
+  // but that could have other implications. Let's try without it first.
+}

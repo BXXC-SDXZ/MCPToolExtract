@@ -1,0 +1,28 @@
+{
+    "mcpServers": {
+      "mysql": {
+        "command": "wsl.exe",
+        "args": [
+          "bash",
+          "-c",
+          "cd /path/to/mysql_mcp_server/ && bash uv-start.sh"
+        ],
+        "env": {
+            "MYSQL_HOST": "localhost",
+            "MYSQL_PORT": "port_number",
+            "MYSQL_USER": "user_name",
+            "MYSQL_PASSWORD": "user_password",
+            "MYSQL_DATABASE": "db_name"
+        }
+    },
+      "claude_code": {
+        "command": "wsl.exe",
+        "args": [
+            "bash",
+            "-c",
+            "npx -y @modelcontextprotocol/server-filesystem path/to/mcp_servers/"
+          ],
+        "env": {}
+      }
+    }
+  }

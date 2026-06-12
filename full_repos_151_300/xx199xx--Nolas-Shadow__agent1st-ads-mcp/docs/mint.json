@@ -1,0 +1,55 @@
+{
+  "name": "Meta & TikTok Ads MCP",
+  "logo": {
+    "dark": "/mcp-icon.png",
+    "light": "/mcp-icon.png"
+  },
+  "favicon": "/mcp-icon.png",
+  "colors": {
+    "primary": "#00f5ff",
+    "light": "#00f5ff",
+    "dark": "#0a0a0f",
+    "background": {
+      "dark": "#0a0a0f",
+      "light": "#ffffff"
+    }
+  },
+  "topbarLinks": [
+    { "name": "Pricing", "url": "https://agent1st.io/ads/" },
+    { "name": "Support", "url": "mailto:Info@Agent1st.io" }
+  ],
+  "topbarCtaButton": {
+    "name": "Get License Key",
+    "url": "https://agent1st.io/ads/"
+  },
+  "tabs": [],
+  "anchors": [
+    {
+      "name": "npm Package",
+      "icon": "box",
+      "url": "https://www.npmjs.com/package/meta-tiktok-ads-from-agent1st"
+    },
+    {
+      "name": "agent1st.io",
+      "icon": "globe",
+      "url": "https://agent1st.io"
+    }
+  ],
+  "navigation": [
+    {
+      "group": "Getting Started",
+      "pages": ["introduction", "quickstart", "configuration"]
+    },
+    {
+      "group": "Tools",
+      "pages": ["tools/meta", "tools/tiktok"]
+    },
+    {
+      "group": "Reference",
+      "pages": ["workflows", "pricing", "errors"]
+    }
+  ],
+  "footerSocials": {
+    "website": "https://agent1st.io"
+  }
+}

@@ -1,0 +1,3616 @@
+[
+  {
+    "repo_id": "211",
+    "repo_name": "petercort__act-mcp-server",
+    "source": "github_full_clone",
+    "status": "NO_SOURCE_OR_README_ONLY",
+    "notes": "Clone working tree contains README/license only; no MCP server source or tool registration found.",
+    "tool": []
+  },
+  {
+    "repo_id": "212",
+    "repo_name": "phoityne__pty-mcp-server",
+    "source": "github_full_clone",
+    "status": "NOT_CONCRETE_MCP_TOOL_SERVER",
+    "notes": "Haskell app entry point and Cabal package reference external/local PMS packages; no concrete MCP tools/list or tool definitions are present in this clone to extract.",
+    "tool": []
+  },
+  {
+    "repo_id": "213",
+    "repo_name": "pierrebrunelle__mcp-server-openai",
+    "source": "github_full_clone",
+    "status": "TOOL_SERVER_SOURCE_CONFIRMED",
+    "notes": "Python MCP SDK Server in src/mcp_server_openai/server.py uses @server.list_tools and @server.call_tool; one ask-openai tool.",
+    "tool": [
+      {
+        "tool_id": "213::ask-openai::src/mcp_server_openai/server.py:24",
+        "sdk": "python-sdk Server.list_tools/call_tool",
+        "metadata": {
+          "name": "ask-openai",
+          "title": null,
+          "description": "Ask my assistant models a direct question",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "type": "object",
+              "properties": {
+                "query": {
+                  "type": "string",
+                  "description": "Ask assistant"
+                },
+                "model": {
+                  "type": "string",
+                  "default": "gpt-4",
+                  "enum": [
+                    "gpt-4",
+                    "gpt-3.5-turbo"
+                  ]
+                },
+                "temperature": {
+                  "type": "number",
+                  "default": 0.7,
+                  "minimum": 0,
+                  "maximum": 2
+                },
+                "max_tokens": {
+                  "type": "integer",
+                  "default": 500,
+                  "minimum": 1,
+                  "maximum": 4000
+                }
+              },
+              "required": [
+                "query"
+              ]
+            },
+            "schema_dialect": "json-schema/raw",
+            "parameters": [
+              {
+                "name": "query",
+                "type": "string",
+                "required": true,
+                "default": null,
+                "description": "Ask assistant",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "model",
+                "type": "string",
+                "required": false,
+                "default": "gpt-4",
+                "description": null,
+                "enum": [
+                  "gpt-4",
+                  "gpt-3.5-turbo"
+                ],
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "temperature",
+                "type": "number",
+                "required": false,
+                "default": "0.7",
+                "description": null,
+                "enum": null,
+                "constraints": {
+                  "minimum": 0,
+                  "maximum": 2,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "max_tokens",
+                "type": "integer",
+                "required": false,
+                "default": "500",
+                "description": null,
+                "enum": null,
+                "constraints": {
+                  "minimum": 1,
+                  "maximum": 4000,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              }
+            ]
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/mcp_server_openai/server.py",
+            "line_start": 24,
+            "line_end": null,
+            "function_name": "types.Tool in handle_list_tools",
+            "function_content": null
+          },
+          "handler_resolution": "handle_tool_call branch name == \"ask-openai\" at src/mcp_server_openai/server.py:46"
+        }
+      }
+    ]
+  },
+  {
+    "repo_id": "214",
+    "repo_name": "portel-dev__ncp",
+    "source": "github_full_clone",
+    "status": "TOOL_SERVER_SOURCE_CONFIRMED",
+    "notes": "NCP MCP server in src/server/mcp-server.ts registers ListToolsRequestSchema/CallToolRequestSchema. getToolDefinitions returns find plus either run (default find-and-run) or code (find-and-code) depending on enableCodeMode; switch handler supports find/run/code. Test dummy/mock MCP servers ignored.",
+    "tool": [
+      {
+        "tool_id": "214::find::src/server/mcp-server.ts:346",
+        "sdk": "typescript-sdk Server.setRequestHandler(ListToolsRequestSchema/CallToolRequestSchema)",
+        "metadata": {
+          "name": "find",
+          "title": null,
+          "description": "Search or list MCP tools. Call as find() - no prefix needed. With description param: vector search tools by capability. Without description: list all available tools. Use pipe separator for multi-query (\"gmail | slack\").",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "type": "object",
+              "properties": {
+                "description": {
+                  "type": "string",
+                  "description": "Search query describing capability you need (e.g. \"send email\", \"read file\"). OMIT this parameter entirely to list all tools (do not pass \"list all\" or empty string). Use pipe separator for multi-query (\"gmail | slack\")."
+                },
+                "limit": {
+                  "type": "number",
+                  "description": "Max results per page (default: 5 search, 20 list)"
+                },
+                "page": {
+                  "type": "number",
+                  "description": "Page number (default: 1)"
+                },
+                "confidence_threshold": {
+                  "type": "number",
+                  "description": "Min confidence 0.0-1.0 (default: 0.35). Lower=more results, higher=precise."
+                },
+                "depth": {
+                  "type": "number",
+                  "description": "Detail level: 0=names, 1=+descriptions, 2=+parameters (default: 2)"
+                }
+              }
+            },
+            "schema_dialect": "json-schema/raw",
+            "parameters": [
+              {
+                "name": "description",
+                "type": "string",
+                "required": false,
+                "default": null,
+                "description": "Search query describing capability you need (e.g. \"send email\", \"read file\"). OMIT this parameter entirely to list all tools (do not pass \"list all\" or empty string). Use pipe separator for multi-query (\"gmail | slack\").",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "limit",
+                "type": "number",
+                "required": false,
+                "default": null,
+                "description": "Max results per page (default: 5 search, 20 list)",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "page",
+                "type": "number",
+                "required": false,
+                "default": null,
+                "description": "Page number (default: 1)",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "confidence_threshold",
+                "type": "number",
+                "required": false,
+                "default": null,
+                "description": "Min confidence 0.0-1.0 (default: 0.35). Lower=more results, higher=precise.",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "depth",
+                "type": "number",
+                "required": false,
+                "default": null,
+                "description": "Detail level: 0=names, 1=+descriptions, 2=+parameters (default: 2)",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              }
+            ]
+          },
+          "outputSchema": {
+            "raw": {
+              "type": "object",
+              "title": "ToolSearchResults",
+              "description": "Structured tool search results with metadata"
+            },
+            "schema_dialect": "json-schema/raw"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/server/mcp-server.ts",
+            "line_start": 346,
+            "line_end": null,
+            "function_name": "Tool object findTool in getToolDefinitions",
+            "function_content": null
+          },
+          "handler_resolution": "CallToolRequestSchema switch case 'find' at src/server/mcp-server.ts:223"
+        }
+      },
+      {
+        "tool_id": "214::run::src/server/mcp-server.ts:429",
+        "sdk": "typescript-sdk Server.setRequestHandler(ListToolsRequestSchema/CallToolRequestSchema)",
+        "metadata": {
+          "name": "run",
+          "title": null,
+          "description": "Execute MCP tool (format: mcp:tool). Provides suggestions if not found.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "type": "object",
+              "properties": {
+                "tool": {
+                  "type": "string",
+                  "description": "Tool to execute (format: mcp:tool)"
+                },
+                "parameters": {
+                  "type": "object",
+                  "description": "Tool parameters"
+                },
+                "dry_run": {
+                  "type": "boolean",
+                  "description": "Preview without executing (default: false)"
+                }
+              },
+              "required": [
+                "tool"
+              ]
+            },
+            "schema_dialect": "json-schema/raw",
+            "parameters": [
+              {
+                "name": "tool",
+                "type": "string",
+                "required": true,
+                "default": null,
+                "description": "Tool to execute (format: mcp:tool)",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "parameters",
+                "type": "object",
+                "required": false,
+                "default": null,
+                "description": "Tool parameters",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "dry_run",
+                "type": "boolean",
+                "required": false,
+                "default": null,
+                "description": "Preview without executing (default: false)",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              }
+            ]
+          },
+          "outputSchema": {
+            "raw": {
+              "type": "object",
+              "title": "ToolExecutionResult",
+              "description": "Result from tool execution"
+            },
+            "schema_dialect": "json-schema/raw"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/server/mcp-server.ts",
+            "line_start": 429,
+            "line_end": null,
+            "function_name": "Tool object runTool in getToolDefinitions",
+            "function_content": null
+          },
+          "handler_resolution": "CallToolRequestSchema switch case 'run' at src/server/mcp-server.ts:227"
+        }
+      },
+      {
+        "tool_id": "214::code::src/server/mcp-server.ts:476",
+        "sdk": "typescript-sdk Server.setRequestHandler(ListToolsRequestSchema/CallToolRequestSchema)",
+        "metadata": {
+          "name": "code",
+          "title": null,
+          "description": "Execute TypeScript code with automatic tool discovery and parameter mapping.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "description": "TypeScript code. Use ncp.do(\"intent\", { params }) for automatic tool discovery and param mapping."
+                },
+                "timeout": {
+                  "type": "number",
+                  "description": "Timeout in ms (default: 30000, max: 300000)"
+                }
+              },
+              "required": [
+                "code"
+              ]
+            },
+            "schema_dialect": "json-schema/raw",
+            "parameters": [
+              {
+                "name": "code",
+                "type": "string",
+                "required": true,
+                "default": null,
+                "description": "TypeScript code. Use ncp.do(\"intent\", { params }) for automatic tool discovery and param mapping.",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "timeout",
+                "type": "number",
+                "required": false,
+                "default": null,
+                "description": "Timeout in ms (default: 30000, max: 300000)",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              }
+            ]
+          },
+          "outputSchema": {
+            "raw": {
+              "type": "object",
+              "title": "CodeExecutionResult",
+              "description": "Result from TypeScript code execution"
+            },
+            "schema_dialect": "json-schema/raw"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/server/mcp-server.ts",
+            "line_start": 476,
+            "line_end": null,
+            "function_name": "Tool object codeTool in getToolDefinitions",
+            "function_content": null
+          },
+          "handler_resolution": "CallToolRequestSchema switch case 'code' at src/server/mcp-server.ts:231"
+        }
+      }
+    ]
+  },
+  {
+    "repo_id": "215",
+    "repo_name": "PortgasXDXMajd__mcp-servers",
+    "source": "github_full_clone",
+    "status": "TOOL_SERVER_SOURCE_CONFIRMED",
+    "notes": "Two Python FastMCP demo servers under servers/calculator and servers/local; all @mcp.tool handlers recorded.",
+    "tool": [
+      {
+        "tool_id": "215::add::servers/calculator/tools.py:10",
+        "sdk": "python-sdk FastMCP",
+        "metadata": {
+          "name": "add",
+          "title": null,
+          "description": null,
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "type": "object",
+              "properties": {
+                "a": {
+                  "type": "integer"
+                },
+                "b": {
+                  "type": "integer"
+                }
+              }
+            },
+            "schema_dialect": "pydantic-derived/raw",
+            "parameters": [
+              {
+                "name": "a",
+                "type": "integer",
+                "required": true,
+                "default": null,
+                "description": null,
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "b",
+                "type": "integer",
+                "required": true,
+                "default": null,
+                "description": null,
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              }
+            ]
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "servers/calculator/tools.py",
+            "line_start": 10,
+            "line_end": null,
+            "function_name": "decorated function add",
+            "function_content": null
+          },
+          "handler_resolution": "decorated function add"
+        }
+      },
+      {
+        "tool_id": "215::subtract::servers/calculator/tools.py:14",
+        "sdk": "python-sdk FastMCP",
+        "metadata": {
+          "name": "subtract",
+          "title": null,
+          "description": null,
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "type": "object",
+              "properties": {
+                "a": {
+                  "type": "integer"
+                },
+                "b": {
+                  "type": "integer"
+                }
+              }
+            },
+            "schema_dialect": "pydantic-derived/raw",
+            "parameters": [
+              {
+                "name": "a",
+                "type": "integer",
+                "required": true,
+                "default": null,
+                "description": null,
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "b",
+                "type": "integer",
+                "required": true,
+                "default": null,
+                "description": null,
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              }
+            ]
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "servers/calculator/tools.py",
+            "line_start": 14,
+            "line_end": null,
+            "function_name": "decorated function subtract",
+            "function_content": null
+          },
+          "handler_resolution": "decorated function subtract"
+        }
+      },
+      {
+        "tool_id": "215::multiply::servers/calculator/tools.py:18",
+        "sdk": "python-sdk FastMCP",
+        "metadata": {
+          "name": "multiply",
+          "title": null,
+          "description": null,
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "type": "object",
+              "properties": {
+                "a": {
+                  "type": "integer"
+                },
+                "b": {
+                  "type": "integer"
+                }
+              }
+            },
+            "schema_dialect": "pydantic-derived/raw",
+            "parameters": [
+              {
+                "name": "a",
+                "type": "integer",
+                "required": true,
+                "default": null,
+                "description": null,
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "b",
+                "type": "integer",
+                "required": true,
+                "default": null,
+                "description": null,
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              }
+            ]
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "servers/calculator/tools.py",
+            "line_start": 18,
+            "line_end": null,
+            "function_name": "decorated function multiply",
+            "function_content": null
+          },
+          "handler_resolution": "decorated function multiply"
+        }
+      },
+      {
+        "tool_id": "215::divide::servers/calculator/tools.py:22",
+        "sdk": "python-sdk FastMCP",
+        "metadata": {
+          "name": "divide",
+          "title": null,
+          "description": null,
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "type": "object",
+              "properties": {
+                "a": {
+                  "type": "integer"
+                },
+                "b": {
+                  "type": "integer"
+                }
+              }
+            },
+            "schema_dialect": "pydantic-derived/raw",
+            "parameters": [
+              {
+                "name": "a",
+                "type": "integer",
+                "required": true,
+                "default": null,
+                "description": null,
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "b",
+                "type": "integer",
+                "required": true,
+                "default": null,
+                "description": null,
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              }
+            ]
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "servers/calculator/tools.py",
+            "line_start": 22,
+            "line_end": null,
+            "function_name": "decorated function divide",
+            "function_content": null
+          },
+          "handler_resolution": "decorated function divide"
+        }
+      },
+      {
+        "tool_id": "215::get_current_dir::servers/local/tools.py:11",
+        "sdk": "python-sdk FastMCP",
+        "metadata": {
+          "name": "get_current_dir",
+          "title": null,
+          "description": null,
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "type": "object",
+              "properties": {}
+            },
+            "schema_dialect": "pydantic-derived/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "servers/local/tools.py",
+            "line_start": 11,
+            "line_end": null,
+            "function_name": "decorated function get_current_dir",
+            "function_content": null
+          },
+          "handler_resolution": "decorated function get_current_dir"
+        }
+      },
+      {
+        "tool_id": "215::read_file::servers/local/tools.py:19",
+        "sdk": "python-sdk FastMCP",
+        "metadata": {
+          "name": "read_file",
+          "title": null,
+          "description": null,
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "type": "object",
+              "properties": {
+                "file_path": {
+                  "type": "string"
+                }
+              }
+            },
+            "schema_dialect": "pydantic-derived/raw",
+            "parameters": [
+              {
+                "name": "file_path",
+                "type": "string",
+                "required": true,
+                "default": null,
+                "description": null,
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              }
+            ]
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "servers/local/tools.py",
+            "line_start": 19,
+            "line_end": null,
+            "function_name": "decorated function read_file",
+            "function_content": null
+          },
+          "handler_resolution": "decorated function read_file"
+        }
+      },
+      {
+        "tool_id": "215::write_file::servers/local/tools.py:30",
+        "sdk": "python-sdk FastMCP",
+        "metadata": {
+          "name": "write_file",
+          "title": null,
+          "description": null,
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "type": "object",
+              "properties": {
+                "file_path": {
+                  "type": "string"
+                },
+                "content": {
+                  "type": "string"
+                }
+              }
+            },
+            "schema_dialect": "pydantic-derived/raw",
+            "parameters": [
+              {
+                "name": "file_path",
+                "type": "string",
+                "required": true,
+                "default": null,
+                "description": null,
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "content",
+                "type": "string",
+                "required": true,
+                "default": null,
+                "description": null,
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              }
+            ]
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "servers/local/tools.py",
+            "line_start": 30,
+            "line_end": null,
+            "function_name": "decorated function write_file",
+            "function_content": null
+          },
+          "handler_resolution": "decorated function write_file"
+        }
+      },
+      {
+        "tool_id": "215::list_dir::servers/local/tools.py:40",
+        "sdk": "python-sdk FastMCP",
+        "metadata": {
+          "name": "list_dir",
+          "title": null,
+          "description": null,
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string"
+                }
+              }
+            },
+            "schema_dialect": "pydantic-derived/raw",
+            "parameters": [
+              {
+                "name": "path",
+                "type": "string",
+                "required": false,
+                "default": "'.'",
+                "description": null,
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              }
+            ]
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "servers/local/tools.py",
+            "line_start": 40,
+            "line_end": null,
+            "function_name": "decorated function list_dir",
+            "function_content": null
+          },
+          "handler_resolution": "decorated function list_dir"
+        }
+      },
+      {
+        "tool_id": "215::append_to_file::servers/local/tools.py:50",
+        "sdk": "python-sdk FastMCP",
+        "metadata": {
+          "name": "append_to_file",
+          "title": null,
+          "description": null,
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "type": "object",
+              "properties": {
+                "file_path": {
+                  "type": "string"
+                },
+                "content": {
+                  "type": "string"
+                }
+              }
+            },
+            "schema_dialect": "pydantic-derived/raw",
+            "parameters": [
+              {
+                "name": "file_path",
+                "type": "string",
+                "required": true,
+                "default": null,
+                "description": null,
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "content",
+                "type": "string",
+                "required": true,
+                "default": null,
+                "description": null,
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              }
+            ]
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "servers/local/tools.py",
+            "line_start": 50,
+            "line_end": null,
+            "function_name": "decorated function append_to_file",
+            "function_content": null
+          },
+          "handler_resolution": "decorated function append_to_file"
+        }
+      }
+    ]
+  },
+  {
+    "repo_id": "216",
+    "repo_name": "portone-io__mcp-server",
+    "source": "github_full_clone",
+    "status": "TOOL_SERVER_SOURCE_CONFIRMED",
+    "notes": "TypeScript McpServer in src/index.ts registers 13 tools exported from src/tools/*.ts with mcp.registerTool(name, config, init(...)). Zod schemas recorded as refs/raw, not expanded beyond located source refs.",
+    "tool": [
+      {
+        "tool_id": "216::listPortoneDocs::src/tools/listDocs.ts:6",
+        "sdk": "typescript-sdk McpServer.registerTool",
+        "metadata": {
+          "name": "listPortoneDocs",
+          "title": "포트원 문서 목록 조회",
+          "description": null,
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "config_export": "src/tools/listDocs.ts:config",
+              "inputSchema_ref": "src/tools/listDocs.ts:config.inputSchema",
+              "registration": "src/index.ts:50",
+              "handler_init": "src/tools/listDocs.ts:init(...)"
+            },
+            "schema_dialect": "zod-ref/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": {
+              "outputSchema_ref": "src/tools/listDocs.ts:config.outputSchema or absent"
+            },
+            "schema_dialect": "zod-ref/raw"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/tools/listDocs.ts",
+            "line_start": 6,
+            "line_end": null,
+            "function_name": "export const name/config/init in src/tools/listDocs.ts",
+            "function_content": null
+          },
+          "handler_resolution": "src/tools/listDocs.ts:init(...) callback registered at src/index.ts:50"
+        }
+      },
+      {
+        "tool_id": "216::readPortoneDoc::src/tools/readDoc.ts:8",
+        "sdk": "typescript-sdk McpServer.registerTool",
+        "metadata": {
+          "name": "readPortoneDoc",
+          "title": "포트원 문서 읽기",
+          "description": null,
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "config_export": "src/tools/readDoc.ts:config",
+              "inputSchema_ref": "src/tools/readDoc.ts:config.inputSchema",
+              "registration": "src/index.ts:51",
+              "handler_init": "src/tools/readDoc.ts:init(...)"
+            },
+            "schema_dialect": "zod-ref/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": {
+              "outputSchema_ref": "src/tools/readDoc.ts:config.outputSchema or absent"
+            },
+            "schema_dialect": "zod-ref/raw"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/tools/readDoc.ts",
+            "line_start": 8,
+            "line_end": null,
+            "function_name": "export const name/config/init in src/tools/readDoc.ts",
+            "function_content": null
+          },
+          "handler_resolution": "src/tools/readDoc.ts:init(...) callback registered at src/index.ts:51"
+        }
+      },
+      {
+        "tool_id": "216::regexSearchPortoneDocs::src/tools/regexSearch.ts:13",
+        "sdk": "typescript-sdk McpServer.registerTool",
+        "metadata": {
+          "name": "regexSearchPortoneDocs",
+          "title": "포트원 문서 정규표현식 검색",
+          "description": null,
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "config_export": "src/tools/regexSearch.ts:config",
+              "inputSchema_ref": "src/tools/regexSearch.ts:config.inputSchema",
+              "registration": "src/index.ts:53",
+              "handler_init": "src/tools/regexSearch.ts:init(...)"
+            },
+            "schema_dialect": "zod-ref/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": {
+              "outputSchema_ref": "src/tools/regexSearch.ts:config.outputSchema or absent"
+            },
+            "schema_dialect": "zod-ref/raw"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/tools/regexSearch.ts",
+            "line_start": 13,
+            "line_end": null,
+            "function_name": "export const name/config/init in src/tools/regexSearch.ts",
+            "function_content": null
+          },
+          "handler_resolution": "src/tools/regexSearch.ts:init(...) callback registered at src/index.ts:53"
+        }
+      },
+      {
+        "tool_id": "216::getPortoneDocsUrl::src/tools/getDocsUrl.ts:6",
+        "sdk": "typescript-sdk McpServer.registerTool",
+        "metadata": {
+          "name": "getPortoneDocsUrl",
+          "title": "포트원 문서 웹 링크 조회",
+          "description": null,
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "config_export": "src/tools/getDocsUrl.ts:config",
+              "inputSchema_ref": "src/tools/getDocsUrl.ts:config.inputSchema",
+              "registration": "src/index.ts:58",
+              "handler_init": "src/tools/getDocsUrl.ts:init(...)"
+            },
+            "schema_dialect": "zod-ref/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": {
+              "outputSchema_ref": "src/tools/getDocsUrl.ts:config.outputSchema or absent"
+            },
+            "schema_dialect": "zod-ref/raw"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/tools/getDocsUrl.ts",
+            "line_start": 6,
+            "line_end": null,
+            "function_name": "export const name/config/init in src/tools/getDocsUrl.ts",
+            "function_content": null
+          },
+          "handler_resolution": "src/tools/getDocsUrl.ts:init(...) callback registered at src/index.ts:58"
+        }
+      },
+      {
+        "tool_id": "216::readPortoneOpenapiSchema::src/tools/readOpenapiSchema.ts:6",
+        "sdk": "typescript-sdk McpServer.registerTool",
+        "metadata": {
+          "name": "readPortoneOpenapiSchema",
+          "title": "포트원 OpenAPI 스키마 읽기",
+          "description": null,
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "config_export": "src/tools/readOpenapiSchema.ts:config",
+              "inputSchema_ref": "src/tools/readOpenapiSchema.ts:config.inputSchema",
+              "registration": "src/index.ts:63",
+              "handler_init": "src/tools/readOpenapiSchema.ts:init(...)"
+            },
+            "schema_dialect": "zod-ref/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": {
+              "outputSchema_ref": "src/tools/readOpenapiSchema.ts:config.outputSchema or absent"
+            },
+            "schema_dialect": "zod-ref/raw"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/tools/readOpenapiSchema.ts",
+            "line_start": 6,
+            "line_end": null,
+            "function_name": "export const name/config/init in src/tools/readOpenapiSchema.ts",
+            "function_content": null
+          },
+          "handler_resolution": "src/tools/readOpenapiSchema.ts:init(...) callback registered at src/index.ts:63"
+        }
+      },
+      {
+        "tool_id": "216::readPortoneOpenapiSchemaSummary::src/tools/readOpenapiSchemaSummary.ts:6",
+        "sdk": "typescript-sdk McpServer.registerTool",
+        "metadata": {
+          "name": "readPortoneOpenapiSchemaSummary",
+          "title": "포트원 OpenAPI 스키마 요약",
+          "description": null,
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "config_export": "src/tools/readOpenapiSchemaSummary.ts:config",
+              "inputSchema_ref": "src/tools/readOpenapiSchemaSummary.ts:config.inputSchema",
+              "registration": "src/index.ts:68",
+              "handler_init": "src/tools/readOpenapiSchemaSummary.ts:init(...)"
+            },
+            "schema_dialect": "zod-ref/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": {
+              "outputSchema_ref": "src/tools/readOpenapiSchemaSummary.ts:config.outputSchema or absent"
+            },
+            "schema_dialect": "zod-ref/raw"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/tools/readOpenapiSchemaSummary.ts",
+            "line_start": 6,
+            "line_end": null,
+            "function_name": "export const name/config/init in src/tools/readOpenapiSchemaSummary.ts",
+            "function_content": null
+          },
+          "handler_resolution": "src/tools/readOpenapiSchemaSummary.ts:init(...) callback registered at src/index.ts:68"
+        }
+      },
+      {
+        "tool_id": "216::readPortoneV2BackendCode::src/tools/readV2BackendCode.ts:4",
+        "sdk": "typescript-sdk McpServer.registerTool",
+        "metadata": {
+          "name": "readPortoneV2BackendCode",
+          "title": "포트원 V2 백엔드 코드 예제 읽기",
+          "description": null,
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "config_export": "src/tools/readV2BackendCode.ts:config",
+              "inputSchema_ref": "src/tools/readV2BackendCode.ts:config.inputSchema",
+              "registration": "src/index.ts:74",
+              "handler_init": "src/tools/readV2BackendCode.ts:init(...)"
+            },
+            "schema_dialect": "zod-ref/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": {
+              "outputSchema_ref": "src/tools/readV2BackendCode.ts:config.outputSchema or absent"
+            },
+            "schema_dialect": "zod-ref/raw"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/tools/readV2BackendCode.ts",
+            "line_start": 4,
+            "line_end": null,
+            "function_name": "export const name/config/init in src/tools/readV2BackendCode.ts",
+            "function_content": null
+          },
+          "handler_resolution": "src/tools/readV2BackendCode.ts:init(...) callback registered at src/index.ts:74"
+        }
+      },
+      {
+        "tool_id": "216::readPortoneV2FrontendCode::src/tools/readV2FrontendCode.ts:4",
+        "sdk": "typescript-sdk McpServer.registerTool",
+        "metadata": {
+          "name": "readPortoneV2FrontendCode",
+          "title": "포트원 V2 프론트엔드 코드 예제 읽기",
+          "description": null,
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "config_export": "src/tools/readV2FrontendCode.ts:config",
+              "inputSchema_ref": "src/tools/readV2FrontendCode.ts:config.inputSchema",
+              "registration": "src/index.ts:79",
+              "handler_init": "src/tools/readV2FrontendCode.ts:init(...)"
+            },
+            "schema_dialect": "zod-ref/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": {
+              "outputSchema_ref": "src/tools/readV2FrontendCode.ts:config.outputSchema or absent"
+            },
+            "schema_dialect": "zod-ref/raw"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/tools/readV2FrontendCode.ts",
+            "line_start": 4,
+            "line_end": null,
+            "function_name": "export const name/config/init in src/tools/readV2FrontendCode.ts",
+            "function_content": null
+          },
+          "handler_resolution": "src/tools/readV2FrontendCode.ts:init(...) callback registered at src/index.ts:79"
+        }
+      },
+      {
+        "tool_id": "216::listStores::src/tools/listStores.ts:8",
+        "sdk": "typescript-sdk McpServer.registerTool",
+        "metadata": {
+          "name": "listStores",
+          "title": "상점 목록 조회",
+          "description": null,
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "config_export": "src/tools/listStores.ts:config",
+              "inputSchema_ref": "src/tools/listStores.ts:config.inputSchema",
+              "registration": "src/index.ts:90",
+              "handler_init": "src/tools/listStores.ts:init(...)"
+            },
+            "schema_dialect": "zod-ref/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": {
+              "outputSchema_ref": "src/tools/listStores.ts:config.outputSchema or absent"
+            },
+            "schema_dialect": "zod-ref/raw"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/tools/listStores.ts",
+            "line_start": 8,
+            "line_end": null,
+            "function_name": "export const name/config/init in src/tools/listStores.ts",
+            "function_content": null
+          },
+          "handler_resolution": "src/tools/listStores.ts:init(...) callback registered at src/index.ts:90"
+        }
+      },
+      {
+        "tool_id": "216::listSharedTestChannels::src/tools/listSharedTestChannels.ts:8",
+        "sdk": "typescript-sdk McpServer.registerTool",
+        "metadata": {
+          "name": "listSharedTestChannels",
+          "title": "포트원 공용 테스트 채널 목록 조회",
+          "description": null,
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "config_export": "src/tools/listSharedTestChannels.ts:config",
+              "inputSchema_ref": "src/tools/listSharedTestChannels.ts:config.inputSchema",
+              "registration": "src/index.ts:95",
+              "handler_init": "src/tools/listSharedTestChannels.ts:init(...)"
+            },
+            "schema_dialect": "zod-ref/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": {
+              "outputSchema_ref": "src/tools/listSharedTestChannels.ts:config.outputSchema or absent"
+            },
+            "schema_dialect": "zod-ref/raw"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/tools/listSharedTestChannels.ts",
+            "line_start": 8,
+            "line_end": null,
+            "function_name": "export const name/config/init in src/tools/listSharedTestChannels.ts",
+            "function_content": null
+          },
+          "handler_resolution": "src/tools/listSharedTestChannels.ts:init(...) callback registered at src/index.ts:95"
+        }
+      },
+      {
+        "tool_id": "216::getChannelsOfStore::src/tools/getChannelsOfStore.ts:8",
+        "sdk": "typescript-sdk McpServer.registerTool",
+        "metadata": {
+          "name": "getChannelsOfStore",
+          "title": "포트원 상점 내 채널 목록 조회",
+          "description": null,
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "config_export": "src/tools/getChannelsOfStore.ts:config",
+              "inputSchema_ref": "src/tools/getChannelsOfStore.ts:config.inputSchema",
+              "registration": "src/index.ts:100",
+              "handler_init": "src/tools/getChannelsOfStore.ts:init(...)"
+            },
+            "schema_dialect": "zod-ref/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": {
+              "outputSchema_ref": "src/tools/getChannelsOfStore.ts:config.outputSchema or absent"
+            },
+            "schema_dialect": "zod-ref/raw"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/tools/getChannelsOfStore.ts",
+            "line_start": 8,
+            "line_end": null,
+            "function_name": "export const name/config/init in src/tools/getChannelsOfStore.ts",
+            "function_content": null
+          },
+          "handler_resolution": "src/tools/getChannelsOfStore.ts:init(...) callback registered at src/index.ts:100"
+        }
+      },
+      {
+        "tool_id": "216::addTestChannel::src/tools/addTestChannel.ts:10",
+        "sdk": "typescript-sdk McpServer.registerTool",
+        "metadata": {
+          "name": "addTestChannel",
+          "title": "포트원 테스트 채널 추가",
+          "description": null,
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "config_export": "src/tools/addTestChannel.ts:config",
+              "inputSchema_ref": "src/tools/addTestChannel.ts:config.inputSchema",
+              "registration": "src/index.ts:105",
+              "handler_init": "src/tools/addTestChannel.ts:init(...)"
+            },
+            "schema_dialect": "zod-ref/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": {
+              "outputSchema_ref": "src/tools/addTestChannel.ts:config.outputSchema or absent"
+            },
+            "schema_dialect": "zod-ref/raw"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/tools/addTestChannel.ts",
+            "line_start": 10,
+            "line_end": null,
+            "function_name": "export const name/config/init in src/tools/addTestChannel.ts",
+            "function_content": null
+          },
+          "handler_resolution": "src/tools/addTestChannel.ts:init(...) callback registered at src/index.ts:105"
+        }
+      },
+      {
+        "tool_id": "216::getPaymentsByFilter::src/tools/getPaymentsByFilter.ts:18",
+        "sdk": "typescript-sdk McpServer.registerTool",
+        "metadata": {
+          "name": "getPaymentsByFilter",
+          "title": "포트원 결제 내역 검색",
+          "description": null,
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "config_export": "src/tools/getPaymentsByFilter.ts:config",
+              "inputSchema_ref": "src/tools/getPaymentsByFilter.ts:config.inputSchema",
+              "registration": "src/index.ts:110",
+              "handler_init": "src/tools/getPaymentsByFilter.ts:init(...)"
+            },
+            "schema_dialect": "zod-ref/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": {
+              "outputSchema_ref": "src/tools/getPaymentsByFilter.ts:config.outputSchema or absent"
+            },
+            "schema_dialect": "zod-ref/raw"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/tools/getPaymentsByFilter.ts",
+            "line_start": 18,
+            "line_end": null,
+            "function_name": "export const name/config/init in src/tools/getPaymentsByFilter.ts",
+            "function_content": null
+          },
+          "handler_resolution": "src/tools/getPaymentsByFilter.ts:init(...) callback registered at src/index.ts:110"
+        }
+      }
+    ]
+  },
+  {
+    "repo_id": "217",
+    "repo_name": "Prashanth684__skopeo-mcp-server",
+    "source": "github_full_clone",
+    "status": "TOOL_SERVER_SOURCE_CONFIRMED",
+    "notes": "Go mcp-go server adds Skopeo tools via AddTools(slices.Concat(...)) in pkg/mcp/mcp.go:28; tools defined with mcp.NewTool in pkg/mcp/skopeo.go.",
+    "tool": [
+      {
+        "tool_id": "217::valid_architectures::pkg/mcp/skopeo.go:12",
+        "sdk": "go mcp-go NewTool/AddTools",
+        "metadata": {
+          "name": "valid_architectures",
+          "title": null,
+          "description": "Displays the valid architecture values that the image information can contain",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "builder": "mcp.NewTool with WithString/WithArray options"
+            },
+            "schema_dialect": "mcp-go builder/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "pkg/mcp/skopeo.go",
+            "line_start": 12,
+            "line_end": null,
+            "function_name": "mcp.NewTool(\"valid_architectures\")",
+            "function_content": null
+          },
+          "handler_resolution": "s.validArchitectures"
+        }
+      },
+      {
+        "tool_id": "217::image_inspect::pkg/mcp/skopeo.go:15",
+        "sdk": "go mcp-go NewTool/AddTools",
+        "metadata": {
+          "name": "image_inspect",
+          "title": null,
+          "description": "Displays low level information about a container image, an oci image or an oci archive",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "builder": "mcp.NewTool with WithString/WithArray options"
+            },
+            "schema_dialect": "mcp-go builder/raw",
+            "parameters": [
+              {
+                "name": "imageURL",
+                "type": "string",
+                "required": true,
+                "default": null,
+                "description": "The pull spec of an image or a path to an oci layout or an oci archive",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              }
+            ]
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "pkg/mcp/skopeo.go",
+            "line_start": 15,
+            "line_end": null,
+            "function_name": "mcp.NewTool(\"image_inspect\")",
+            "function_content": null
+          },
+          "handler_resolution": "s.imageInspect"
+        }
+      },
+      {
+        "tool_id": "217::image_inspect_architecture::pkg/mcp/skopeo.go:19",
+        "sdk": "go mcp-go NewTool/AddTools",
+        "metadata": {
+          "name": "image_inspect_architecture",
+          "title": null,
+          "description": "Check if a particular architecture is supported by the given image.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "builder": "mcp.NewTool with WithString/WithArray options"
+            },
+            "schema_dialect": "mcp-go builder/raw",
+            "parameters": [
+              {
+                "name": "imageURL",
+                "type": "string",
+                "required": true,
+                "default": null,
+                "description": "The pull spec of an image or a path to an oci layout or an oci archive",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "arch",
+                "type": "string",
+                "required": true,
+                "default": null,
+                "description": "The architecture to check for to see if an image manifest matching the architecture is present",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              }
+            ]
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "pkg/mcp/skopeo.go",
+            "line_start": 19,
+            "line_end": null,
+            "function_name": "mcp.NewTool(\"image_inspect_architecture\")",
+            "function_content": null
+          },
+          "handler_resolution": "s.imageInspectWithOSOverride"
+        }
+      },
+      {
+        "tool_id": "217::image_inspect_architectures::pkg/mcp/skopeo.go:24",
+        "sdk": "go mcp-go NewTool/AddTools",
+        "metadata": {
+          "name": "image_inspect_architectures",
+          "title": null,
+          "description": "Check if multiple architectures are supported by the given image. Check for most common architectures - amd64, arm64, ppc64le and s390x if not specified.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "builder": "mcp.NewTool with WithString/WithArray options"
+            },
+            "schema_dialect": "mcp-go builder/raw",
+            "parameters": [
+              {
+                "name": "imageURL",
+                "type": "string",
+                "required": true,
+                "default": null,
+                "description": "The pull spec of an image or a path to an oci layout or an oci archive",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "architectures",
+                "type": "array",
+                "required": true,
+                "default": null,
+                "description": "The architectures to check for to see if an image manifest matching the architecture is present. Example: [\"amd64\", \"arm64\", \"ppc64le\", \"s390x\"]",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              }
+            ]
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "pkg/mcp/skopeo.go",
+            "line_start": 24,
+            "line_end": null,
+            "function_name": "mcp.NewTool(\"image_inspect_architectures\")",
+            "function_content": null
+          },
+          "handler_resolution": "s.imageInspectForArches"
+        }
+      }
+    ]
+  },
+  {
+    "repo_id": "218",
+    "repo_name": "Pratyay__mac-monitor-mcp",
+    "source": "github_full_clone",
+    "status": "TOOL_SERVER_SOURCE_CONFIRMED",
+    "notes": "Python FastMCP server in src/mac_monitor/monitor.py registers three @mcp.tool process/system monitoring handlers.",
+    "tool": [
+      {
+        "tool_id": "218::get_resource_intensive_processes::src/mac_monitor/monitor.py:23",
+        "sdk": "python-sdk FastMCP",
+        "metadata": {
+          "name": "get_resource_intensive_processes",
+          "title": null,
+          "description": "Identify resource-intensive processes on macOS across CPU, memory, and network.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "type": "object",
+              "properties": {}
+            },
+            "schema_dialect": "pydantic-derived/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/mac_monitor/monitor.py",
+            "line_start": 23,
+            "line_end": null,
+            "function_name": "decorated function get_resource_intensive_processes",
+            "function_content": null
+          },
+          "handler_resolution": "decorated function get_resource_intensive_processes"
+        }
+      },
+      {
+        "tool_id": "218::get_processes_by_category::src/mac_monitor/monitor.py:43",
+        "sdk": "python-sdk FastMCP",
+        "metadata": {
+          "name": "get_processes_by_category",
+          "title": null,
+          "description": "Get all processes filtered by category (cpu, memory, network) with pagination and sorting support.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "type": "object",
+              "properties": {
+                "process_type": {
+                  "type": "string",
+                  "description": "Type of processes to retrieve ('cpu', 'memory', or 'network')"
+                },
+                "page": {
+                  "type": "integer",
+                  "description": "Page number (starting from 1, default: 1)"
+                },
+                "page_size": {
+                  "type": "integer",
+                  "description": "Number of processes per page (default: 10, max: 100)"
+                },
+                "sort_by": {
+                  "type": "string",
+                  "description": "Sort field - 'auto' (default metric), 'pid', 'command', or metric-specific fields"
+                },
+                "sort_order": {
+                  "type": "string",
+                  "description": "Sort direction - 'desc' (default) or 'asc'"
+                }
+              }
+            },
+            "schema_dialect": "pydantic-derived/raw",
+            "parameters": [
+              {
+                "name": "process_type",
+                "type": "string",
+                "required": true,
+                "default": null,
+                "description": "Type of processes to retrieve ('cpu', 'memory', or 'network')",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "page",
+                "type": "integer",
+                "required": false,
+                "default": "1",
+                "description": "Page number (starting from 1, default: 1)",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "page_size",
+                "type": "integer",
+                "required": false,
+                "default": "10",
+                "description": "Number of processes per page (default: 10, max: 100)",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "sort_by",
+                "type": "string",
+                "required": false,
+                "default": "auto",
+                "description": "Sort field - 'auto' (default metric), 'pid', 'command', or metric-specific fields",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "sort_order",
+                "type": "string",
+                "required": false,
+                "default": "desc",
+                "description": "Sort direction - 'desc' (default) or 'asc'",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              }
+            ]
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/mac_monitor/monitor.py",
+            "line_start": 43,
+            "line_end": null,
+            "function_name": "decorated function get_processes_by_category",
+            "function_content": null
+          },
+          "handler_resolution": "decorated function get_processes_by_category"
+        }
+      },
+      {
+        "tool_id": "218::get_system_overview::src/mac_monitor/monitor.py:156",
+        "sdk": "python-sdk FastMCP",
+        "metadata": {
+          "name": "get_system_overview",
+          "title": null,
+          "description": "Get comprehensive system overview with aggregate statistics similar to Activity Monitor.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "type": "object",
+              "properties": {}
+            },
+            "schema_dialect": "pydantic-derived/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/mac_monitor/monitor.py",
+            "line_start": 156,
+            "line_end": null,
+            "function_name": "decorated function get_system_overview",
+            "function_content": null
+          },
+          "handler_resolution": "decorated function get_system_overview"
+        }
+      }
+    ]
+  },
+  {
+    "repo_id": "219",
+    "repo_name": "prithvidbox__darwinbox-mcp",
+    "source": "github_full_clone",
+    "status": "TOOL_SERVER_SOURCE_CONFIRMED",
+    "notes": "TypeScript SDK Server in src/index.ts returns eight tools in ListToolsRequestSchema and dispatches them in CallToolRequestSchema to CoreTools/TimeTools. Additional call branches not present in tools/list were not extracted.",
+    "tool": [
+      {
+        "tool_id": "219::get_employee_details::src/index.ts:90",
+        "sdk": "typescript-sdk Server.setRequestHandler(ListToolsRequestSchema/CallToolRequestSchema)",
+        "metadata": {
+          "name": "get_employee_details",
+          "title": null,
+          "description": "Retrieve comprehensive employee information with flexible filtering options. Can fetch all employees, specific employees by IDs, or employees modified after a certain date.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "type": "object",
+              "properties": {
+                "employee_ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Array of employee IDs to fetch details for specific employees"
+                },
+                "last_modified": {
+                  "type": "string",
+                  "description": "ISO date string (DD-MM-YYYY HH:mm:ss) to fetch employees modified after this timestamp"
+                },
+                "employee_no": {
+                  "type": "string",
+                  "description": "Single employee number to fetch detailed information for one employee"
+                }
+              },
+              "oneOf": [
+                {
+                  "required": []
+                },
+                {
+                  "required": [
+                    "employee_ids"
+                  ]
+                },
+                {
+                  "required": [
+                    "last_modified"
+                  ]
+                },
+                {
+                  "required": [
+                    "employee_no"
+                  ]
+                }
+              ]
+            },
+            "schema_dialect": "json-schema/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/index.ts",
+            "line_start": 90,
+            "line_end": null,
+            "function_name": "tools/list literal object get_employee_details",
+            "function_content": null
+          },
+          "handler_resolution": "CallToolRequestSchema branch at src/index.ts:291"
+        }
+      },
+      {
+        "tool_id": "219::update_employee::src/index.ts:118",
+        "sdk": "typescript-sdk Server.setRequestHandler(ListToolsRequestSchema/CallToolRequestSchema)",
+        "metadata": {
+          "name": "update_employee",
+          "title": null,
+          "description": "Update employee information including personal details, work information, and other employee-related data.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "type": "object",
+              "properties": {
+                "employee_data": {
+                  "type": "object",
+                  "description": "Employee data object containing fields to update",
+                  "required": true
+                }
+              },
+              "required": [
+                "employee_data"
+              ]
+            },
+            "schema_dialect": "json-schema/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/index.ts",
+            "line_start": 118,
+            "line_end": null,
+            "function_name": "tools/list literal object update_employee",
+            "function_content": null
+          },
+          "handler_resolution": "CallToolRequestSchema branch at src/index.ts:293"
+        }
+      },
+      {
+        "tool_id": "219::get_employee_history::src/index.ts:133",
+        "sdk": "typescript-sdk Server.setRequestHandler(ListToolsRequestSchema/CallToolRequestSchema)",
+        "metadata": {
+          "name": "get_employee_history",
+          "title": null,
+          "description": "Retrieve historical changes and updates made to employee records within a specified date range.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "type": "object",
+              "properties": {
+                "from": {
+                  "type": "string",
+                  "description": "Start date in DD-MM-YYYY format"
+                },
+                "to": {
+                  "type": "string",
+                  "description": "End date in DD-MM-YYYY format"
+                },
+                "filter_on_effective_date": {
+                  "type": "number",
+                  "description": "Filter flag for effective date (0 or 1)"
+                }
+              },
+              "required": [
+                "from",
+                "to",
+                "filter_on_effective_date"
+              ]
+            },
+            "schema_dialect": "json-schema/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/index.ts",
+            "line_start": 133,
+            "line_end": null,
+            "function_name": "tools/list literal object get_employee_history",
+            "function_content": null
+          },
+          "handler_resolution": "CallToolRequestSchema branch at src/index.ts:295"
+        }
+      },
+      {
+        "tool_id": "219::download_personal_docs::src/index.ts:155",
+        "sdk": "typescript-sdk Server.setRequestHandler(ListToolsRequestSchema/CallToolRequestSchema)",
+        "metadata": {
+          "name": "download_personal_docs",
+          "title": null,
+          "description": "Download employee personal documents such as profile pictures, ID proofs, or other uploaded documents.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "type": "object",
+              "properties": {
+                "employee_no": {
+                  "type": "string",
+                  "description": "Employee number whose documents to download"
+                },
+                "for": {
+                  "type": "string",
+                  "description": "Document type to download (e.g., profile_pic, id_proof)"
+                }
+              },
+              "required": [
+                "employee_no",
+                "for"
+              ]
+            },
+            "schema_dialect": "json-schema/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/index.ts",
+            "line_start": 155,
+            "line_end": null,
+            "function_name": "tools/list literal object download_personal_docs",
+            "function_content": null
+          },
+          "handler_resolution": "CallToolRequestSchema branch at src/index.ts:297"
+        }
+      },
+      {
+        "tool_id": "219::get_position_master::src/index.ts:173",
+        "sdk": "typescript-sdk Server.setRequestHandler(ListToolsRequestSchema/CallToolRequestSchema)",
+        "metadata": {
+          "name": "get_position_master",
+          "title": null,
+          "description": "Retrieve organizational position data including current positions, vacancies, and hiring needs.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "number",
+                  "description": "Position status code"
+                },
+                "need_to_hire": {
+                  "type": "number",
+                  "description": "Flag for positions that need hiring (0 or 1)"
+                },
+                "employee_nos": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "List of employee numbers to filter positions"
+                }
+              },
+              "required": [
+                "status",
+                "need_to_hire",
+                "employee_nos"
+              ]
+            },
+            "schema_dialect": "json-schema/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/index.ts",
+            "line_start": 173,
+            "line_end": null,
+            "function_name": "tools/list literal object get_position_master",
+            "function_content": null
+          },
+          "handler_resolution": "CallToolRequestSchema branch at src/index.ts:299"
+        }
+      },
+      {
+        "tool_id": "219::get_monthly_attendance::src/index.ts:197",
+        "sdk": "typescript-sdk Server.setRequestHandler(ListToolsRequestSchema/CallToolRequestSchema)",
+        "metadata": {
+          "name": "get_monthly_attendance",
+          "title": null,
+          "description": "Retrieve detailed monthly attendance records for specified employees, including check-in/out times and attendance status.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "type": "object",
+              "properties": {
+                "emp_number_list": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "List of employee numbers to fetch attendance for"
+                },
+                "from_date": {
+                  "type": "string",
+                  "description": "Start date in YYYY-MM-DD format"
+                },
+                "to_date": {
+                  "type": "string",
+                  "description": "End date in YYYY-MM-DD format"
+                },
+                "month": {
+                  "type": "string",
+                  "description": "Month in YYYY-MM format"
+                }
+              },
+              "required": [
+                "emp_number_list",
+                "from_date",
+                "to_date",
+                "month"
+              ]
+            },
+            "schema_dialect": "json-schema/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/index.ts",
+            "line_start": 197,
+            "line_end": null,
+            "function_name": "tools/list literal object get_monthly_attendance",
+            "function_content": null
+          },
+          "handler_resolution": "CallToolRequestSchema branch at src/index.ts:313"
+        }
+      },
+      {
+        "tool_id": "219::record_attendance_punches::src/index.ts:224",
+        "sdk": "typescript-sdk Server.setRequestHandler(ListToolsRequestSchema/CallToolRequestSchema)",
+        "metadata": {
+          "name": "record_attendance_punches",
+          "title": null,
+          "description": "Record employee attendance punches with timestamp and location details. Supports both check-in and check-out records.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "type": "object",
+              "properties": {
+                "attendance": {
+                  "type": "object",
+                  "description": "Map of employee IDs to their attendance punch records",
+                  "additionalProperties": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "timestamp": {
+                          "type": "string",
+                          "description": "YYYY-MM-DD HH:mm:ss format"
+                        },
+                        "machineid": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "required": [
+                "attendance"
+              ]
+            },
+            "schema_dialect": "json-schema/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/index.ts",
+            "line_start": 224,
+            "line_end": null,
+            "function_name": "tools/list literal object record_attendance_punches",
+            "function_content": null
+          },
+          "handler_resolution": "CallToolRequestSchema branch at src/index.ts:319"
+        }
+      },
+      {
+        "tool_id": "219::get_leave_balance::src/index.ts:250",
+        "sdk": "typescript-sdk Server.setRequestHandler(ListToolsRequestSchema/CallToolRequestSchema)",
+        "metadata": {
+          "name": "get_leave_balance",
+          "title": null,
+          "description": "Retrieve current leave balances for specified employees across different leave types.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "type": "object",
+              "properties": {
+                "ignore_rounding": {
+                  "type": "string",
+                  "description": "Whether to ignore rounding in balance calculation (0 or 1)"
+                },
+                "employee_nos": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "List of employee numbers to fetch leave balances for"
+                },
+                "leave_names": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "List of leave types to check balances for"
+                }
+              },
+              "required": [
+                "ignore_rounding",
+                "employee_nos",
+                "leave_names"
+              ]
+            },
+            "schema_dialect": "json-schema/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/index.ts",
+            "line_start": 250,
+            "line_end": null,
+            "function_name": "tools/list literal object get_leave_balance",
+            "function_content": null
+          },
+          "handler_resolution": "CallToolRequestSchema branch at src/index.ts:329"
+        }
+      }
+    ]
+  },
+  {
+    "repo_id": "220",
+    "repo_name": "projectsaturnstudios__laravel-vibes",
+    "source": "github_full_clone",
+    "status": "TOOL_SERVER_SOURCE_CONFIRMED",
+    "notes": "Laravel/Superconductor MCP server registers tools in routes/tools.php via MCP::tool and exposes the same names in VibesServer::$tools. Tool handler classes use #[ToolCall(...)] attributes and handle() methods.",
+    "tool": [
+      {
+        "tool_id": "220::tinker::src/Mcp/Capabilities/Tools/TinkerTool.php:10",
+        "sdk": "php Superconductor MCP::tool + #[ToolCall]",
+        "metadata": {
+          "name": "tinker",
+          "title": null,
+          "description": "Execute PHP code in the Laravel application context, like artisan tinker.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "toolCall_attribute": "src/Mcp/Capabilities/Tools/TinkerTool.php:10",
+              "route_registration": "routes/tools.php:5-19",
+              "server_tools_list": "src/Servers/VibesServer.php:28-35"
+            },
+            "schema_dialect": "php-attribute/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/Mcp/Capabilities/Tools/TinkerTool.php",
+            "line_start": 10,
+            "line_end": null,
+            "function_name": "#[ToolCall(tool: 'tinker')]",
+            "function_content": null
+          },
+          "handler_resolution": "src/Mcp/Capabilities/Tools/TinkerTool.php handle(...) method"
+        }
+      },
+      {
+        "tool_id": "220::get-absolute-url::src/Mcp/Capabilities/Tools/AbsoluteUrlTool.php:10",
+        "sdk": "php Superconductor MCP::tool + #[ToolCall]",
+        "metadata": {
+          "name": "get-absolute-url",
+          "title": null,
+          "description": "Get the absolute URL for a given relative path or named route. If no arguments are provided, you will get the absolute URL for \"/\"",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "toolCall_attribute": "src/Mcp/Capabilities/Tools/AbsoluteUrlTool.php:10",
+              "route_registration": "routes/tools.php:5-19",
+              "server_tools_list": "src/Servers/VibesServer.php:28-35"
+            },
+            "schema_dialect": "php-attribute/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/Mcp/Capabilities/Tools/AbsoluteUrlTool.php",
+            "line_start": 10,
+            "line_end": null,
+            "function_name": "#[ToolCall(tool: 'get-absolute-url')]",
+            "function_content": null
+          },
+          "handler_resolution": "src/Mcp/Capabilities/Tools/AbsoluteUrlTool.php handle(...) method"
+        }
+      },
+      {
+        "tool_id": "220::application-info::src/Mcp/Capabilities/Tools/AppInfoTool.php:12",
+        "sdk": "php Superconductor MCP::tool + #[ToolCall]",
+        "metadata": {
+          "name": "application-info",
+          "title": null,
+          "description": "Get comprehensive application information including PHP version, Laravel version, database engine, all installed packages with their versions, and all Eloquent models in the application.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "toolCall_attribute": "src/Mcp/Capabilities/Tools/AppInfoTool.php:12",
+              "route_registration": "routes/tools.php:5-19",
+              "server_tools_list": "src/Servers/VibesServer.php:28-35"
+            },
+            "schema_dialect": "php-attribute/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/Mcp/Capabilities/Tools/AppInfoTool.php",
+            "line_start": 12,
+            "line_end": null,
+            "function_name": "#[ToolCall(tool: 'application-info')]",
+            "function_content": null
+          },
+          "handler_resolution": "src/Mcp/Capabilities/Tools/AppInfoTool.php handle(...) method"
+        }
+      },
+      {
+        "tool_id": "220::read-log-entries::src/Mcp/Capabilities/Tools/AppLogsTool.php:10",
+        "sdk": "php Superconductor MCP::tool + #[ToolCall]",
+        "metadata": {
+          "name": "read-log-entries",
+          "title": null,
+          "description": "Read the last N log entries from the APPLICATION log, correctly handling multi-line PSR-3 formatted logs. Only works for log files",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "toolCall_attribute": "src/Mcp/Capabilities/Tools/AppLogsTool.php:10",
+              "route_registration": "routes/tools.php:5-19",
+              "server_tools_list": "src/Servers/VibesServer.php:28-35"
+            },
+            "schema_dialect": "php-attribute/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/Mcp/Capabilities/Tools/AppLogsTool.php",
+            "line_start": 10,
+            "line_end": null,
+            "function_name": "#[ToolCall(tool: 'read-log-entries')]",
+            "function_content": null
+          },
+          "handler_resolution": "src/Mcp/Capabilities/Tools/AppLogsTool.php handle(...) method"
+        }
+      },
+      {
+        "tool_id": "220::list-artisan-commands::src/Mcp/Capabilities/Tools/ArtisanCommandsTool.php:12",
+        "sdk": "php Superconductor MCP::tool + #[ToolCall]",
+        "metadata": {
+          "name": "list-artisan-commands",
+          "title": null,
+          "description": "List all available Artisan commands registered in this application.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "toolCall_attribute": "src/Mcp/Capabilities/Tools/ArtisanCommandsTool.php:12",
+              "route_registration": "routes/tools.php:5-19",
+              "server_tools_list": "src/Servers/VibesServer.php:28-35"
+            },
+            "schema_dialect": "php-attribute/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/Mcp/Capabilities/Tools/ArtisanCommandsTool.php",
+            "line_start": 12,
+            "line_end": null,
+            "function_name": "#[ToolCall(tool: 'list-artisan-commands')]",
+            "function_content": null
+          },
+          "handler_resolution": "src/Mcp/Capabilities/Tools/ArtisanCommandsTool.php handle(...) method"
+        }
+      },
+      {
+        "tool_id": "220::browser-logs::src/Mcp/Capabilities/Tools/BrowserLogsTool.php:9",
+        "sdk": "php Superconductor MCP::tool + #[ToolCall]",
+        "metadata": {
+          "name": "browser-logs",
+          "title": null,
+          "description": "Read the last N log entries from the BROWSER log. Very helpful for debugging the frontend and JS/Javascript",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "toolCall_attribute": "src/Mcp/Capabilities/Tools/BrowserLogsTool.php:9",
+              "route_registration": "routes/tools.php:5-19",
+              "server_tools_list": "src/Servers/VibesServer.php:28-35"
+            },
+            "schema_dialect": "php-attribute/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/Mcp/Capabilities/Tools/BrowserLogsTool.php",
+            "line_start": 9,
+            "line_end": null,
+            "function_name": "#[ToolCall(tool: 'browser-logs')]",
+            "function_content": null
+          },
+          "handler_resolution": "src/Mcp/Capabilities/Tools/BrowserLogsTool.php handle(...) method"
+        }
+      },
+      {
+        "tool_id": "220::list-available-config-keys::src/Mcp/Capabilities/Tools/ConfigKeysTool.php:10",
+        "sdk": "php Superconductor MCP::tool + #[ToolCall]",
+        "metadata": {
+          "name": "list-available-config-keys",
+          "title": null,
+          "description": "List all available Laravel configuration keys (from config/*.php) in dot notation.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "toolCall_attribute": "src/Mcp/Capabilities/Tools/ConfigKeysTool.php:10",
+              "route_registration": "routes/tools.php:5-19",
+              "server_tools_list": "src/Servers/VibesServer.php:28-35"
+            },
+            "schema_dialect": "php-attribute/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/Mcp/Capabilities/Tools/ConfigKeysTool.php",
+            "line_start": 10,
+            "line_end": null,
+            "function_name": "#[ToolCall(tool: 'list-available-config-keys')]",
+            "function_content": null
+          },
+          "handler_resolution": "src/Mcp/Capabilities/Tools/ConfigKeysTool.php handle(...) method"
+        }
+      },
+      {
+        "tool_id": "220::get-config::src/Mcp/Capabilities/Tools/ConfigTool.php:9",
+        "sdk": "php Superconductor MCP::tool + #[ToolCall]",
+        "metadata": {
+          "name": "get-config",
+          "title": null,
+          "description": "Get the value of a specific config variable using dot notation (e.g., \"app.name\", \"database.default\")",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "toolCall_attribute": "src/Mcp/Capabilities/Tools/ConfigTool.php:9",
+              "route_registration": "routes/tools.php:5-19",
+              "server_tools_list": "src/Servers/VibesServer.php:28-35"
+            },
+            "schema_dialect": "php-attribute/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/Mcp/Capabilities/Tools/ConfigTool.php",
+            "line_start": 9,
+            "line_end": null,
+            "function_name": "#[ToolCall(tool: 'get-config')]",
+            "function_content": null
+          },
+          "handler_resolution": "src/Mcp/Capabilities/Tools/ConfigTool.php handle(...) method"
+        }
+      },
+      {
+        "tool_id": "220::database-connections::src/Mcp/Capabilities/Tools/DatabaseConnectionsTool.php:9",
+        "sdk": "php Superconductor MCP::tool + #[ToolCall]",
+        "metadata": {
+          "name": "database-connections",
+          "title": null,
+          "description": "List the configured database connection names for this application.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "toolCall_attribute": "src/Mcp/Capabilities/Tools/DatabaseConnectionsTool.php:9",
+              "route_registration": "routes/tools.php:5-19",
+              "server_tools_list": "src/Servers/VibesServer.php:28-35"
+            },
+            "schema_dialect": "php-attribute/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/Mcp/Capabilities/Tools/DatabaseConnectionsTool.php",
+            "line_start": 9,
+            "line_end": null,
+            "function_name": "#[ToolCall(tool: 'database-connections')]",
+            "function_content": null
+          },
+          "handler_resolution": "src/Mcp/Capabilities/Tools/DatabaseConnectionsTool.php handle(...) method"
+        }
+      },
+      {
+        "tool_id": "220::database-query::src/Mcp/Capabilities/Tools/DatabaseQueryTool.php:10",
+        "sdk": "php Superconductor MCP::tool + #[ToolCall]",
+        "metadata": {
+          "name": "database-query",
+          "title": null,
+          "description": "Execute a read-only SQL query against the configured database.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "toolCall_attribute": "src/Mcp/Capabilities/Tools/DatabaseQueryTool.php:10",
+              "route_registration": "routes/tools.php:5-19",
+              "server_tools_list": "src/Servers/VibesServer.php:28-35"
+            },
+            "schema_dialect": "php-attribute/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/Mcp/Capabilities/Tools/DatabaseQueryTool.php",
+            "line_start": 10,
+            "line_end": null,
+            "function_name": "#[ToolCall(tool: 'database-query')]",
+            "function_content": null
+          },
+          "handler_resolution": "src/Mcp/Capabilities/Tools/DatabaseQueryTool.php handle(...) method"
+        }
+      },
+      {
+        "tool_id": "220::database-schema::src/Mcp/Capabilities/Tools/DatabaseSchemaTool.php:14",
+        "sdk": "php Superconductor MCP::tool + #[ToolCall]",
+        "metadata": {
+          "name": "database-schema",
+          "title": null,
+          "description": "Read the database schema for this application, including table names, columns, data types, indexes, foreign keys, and more.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "toolCall_attribute": "src/Mcp/Capabilities/Tools/DatabaseSchemaTool.php:14",
+              "route_registration": "routes/tools.php:5-19",
+              "server_tools_list": "src/Servers/VibesServer.php:28-35"
+            },
+            "schema_dialect": "php-attribute/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/Mcp/Capabilities/Tools/DatabaseSchemaTool.php",
+            "line_start": 14,
+            "line_end": null,
+            "function_name": "#[ToolCall(tool: 'database-schema')]",
+            "function_content": null
+          },
+          "handler_resolution": "src/Mcp/Capabilities/Tools/DatabaseSchemaTool.php handle(...) method"
+        }
+      },
+      {
+        "tool_id": "220::list-available-env-vars::src/Mcp/Capabilities/Tools/EnvVarsTool.php:10",
+        "sdk": "php Superconductor MCP::tool + #[ToolCall]",
+        "metadata": {
+          "name": "list-available-env-vars",
+          "title": null,
+          "description": "List all available environment variable names from a given .env file (default .env).",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "toolCall_attribute": "src/Mcp/Capabilities/Tools/EnvVarsTool.php:10",
+              "route_registration": "routes/tools.php:5-19",
+              "server_tools_list": "src/Servers/VibesServer.php:28-35"
+            },
+            "schema_dialect": "php-attribute/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/Mcp/Capabilities/Tools/EnvVarsTool.php",
+            "line_start": 10,
+            "line_end": null,
+            "function_name": "#[ToolCall(tool: 'list-available-env-vars')]",
+            "function_content": null
+          },
+          "handler_resolution": "src/Mcp/Capabilities/Tools/EnvVarsTool.php handle(...) method"
+        }
+      },
+      {
+        "tool_id": "220::last-error::src/Mcp/Capabilities/Tools/LastErrorTool.php:14",
+        "sdk": "php Superconductor MCP::tool + #[ToolCall]",
+        "metadata": {
+          "name": "last-error",
+          "title": null,
+          "description": "Get details of the last error/exception created in this application on the backend. Use browser-log tool for browser errors.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "toolCall_attribute": "src/Mcp/Capabilities/Tools/LastErrorTool.php:14",
+              "route_registration": "routes/tools.php:5-19",
+              "server_tools_list": "src/Servers/VibesServer.php:28-35"
+            },
+            "schema_dialect": "php-attribute/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/Mcp/Capabilities/Tools/LastErrorTool.php",
+            "line_start": 14,
+            "line_end": null,
+            "function_name": "#[ToolCall(tool: 'last-error')]",
+            "function_content": null
+          },
+          "handler_resolution": "src/Mcp/Capabilities/Tools/LastErrorTool.php handle(...) method"
+        }
+      },
+      {
+        "tool_id": "220::list-routes::src/Mcp/Capabilities/Tools/ListRoutesTool.php:11",
+        "sdk": "php Superconductor MCP::tool + #[ToolCall]",
+        "metadata": {
+          "name": "list-routes",
+          "title": null,
+          "description": "List all available routes defined in the application, including Folio routes if used",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "toolCall_attribute": "src/Mcp/Capabilities/Tools/ListRoutesTool.php:11",
+              "route_registration": "routes/tools.php:5-19",
+              "server_tools_list": "src/Servers/VibesServer.php:28-35"
+            },
+            "schema_dialect": "php-attribute/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/Mcp/Capabilities/Tools/ListRoutesTool.php",
+            "line_start": 11,
+            "line_end": null,
+            "function_name": "#[ToolCall(tool: 'list-routes')]",
+            "function_content": null
+          },
+          "handler_resolution": "src/Mcp/Capabilities/Tools/ListRoutesTool.php handle(...) method"
+        }
+      },
+      {
+        "tool_id": "220::search-docs::src/Mcp/Capabilities/Tools/SearchDocsTool.php:12",
+        "sdk": "php Superconductor MCP::tool + #[ToolCall]",
+        "metadata": {
+          "name": "search-docs",
+          "title": null,
+          "description": "Search for up-to-date version-specific documentation related to this project and its packages.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "toolCall_attribute": "src/Mcp/Capabilities/Tools/SearchDocsTool.php:12",
+              "route_registration": "routes/tools.php:5-19",
+              "server_tools_list": "src/Servers/VibesServer.php:28-35"
+            },
+            "schema_dialect": "php-attribute/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/Mcp/Capabilities/Tools/SearchDocsTool.php",
+            "line_start": 12,
+            "line_end": null,
+            "function_name": "#[ToolCall(tool: 'search-docs')]",
+            "function_content": null
+          },
+          "handler_resolution": "src/Mcp/Capabilities/Tools/SearchDocsTool.php handle(...) method"
+        }
+      }
+    ]
+  }
+]

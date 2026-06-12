@@ -1,0 +1,94 @@
+---
+title: "Workflows"
+description: "Step-by-step playbooks for the most common ad management tasks."
+---
+
+These workflows show you exactly which tools to call and in what order to get real results. Each one is a complete sequence from start to finish.
+
+---
+
+## Launch a campaign from scratch
+
+This is the full end-to-end flow for getting a new Meta campaign live. Follow these steps in order.
+
+**Step 1 — Confirm everything is connected**
+
+Call `check_setup` with no inputs. It will tell you your license tier and whether Meta is connected. If anything is missing, fix it before continuing.
+
+**Step 2 — Check your balance**
+
+Call `get_ad_account_info`. Look at the `balance` field. Make sure you have enough to cover at least a few days of your planned daily budget. If the balance is zero, the campaign will not spend.
+
+**Step 3 — Create the campaign**
+
+Call `create_meta_campaign` with your campaign details — name, objective, budget, ad copy, and targeting. The campaign is created in a PAUSED state. You'll get back a `campaign_id` — save it.
+
+**Step 4 — Go live**
+
+Call `enable_meta_campaign` with the `campaign_id` from step 3. The campaign starts spending immediately.
+
+**Step 5 — Check performance after 24 hours**
+
+Call `get_meta_campaign_stats` with `date_preset: "yesterday"`. Look at CTR (above 1% is decent, above 2% is strong) and CPM (lower is better).
+
+**Step 6 — Scale or adjust**
+
+If performance is strong, call `update_meta_campaign_budget` to increase the daily budget. If it's weak, call `pause_meta_campaign` and revise your ad copy or targeting.
+
+---
+
+## Daily performance review
+
+Run this every morning to manage all active campaigns efficiently.
+
+**Step 1** — Call `list_meta_campaigns` with `status: "ACTIVE"` to get all currently running campaigns.
+
+**Step 2** — For each campaign ID, call `get_meta_campaign_stats` with `date_preset: "yesterday"` to see how it performed.
+
+**Step 3** — Any campaign with CTR below 0.5% or unusually high CPM — call `pause_meta_campaign` to stop the spend.
+
+**Step 4** — Any campaign with CTR above 2% — call `update_meta_campaign_budget` to increase the budget and capture more volume while it's performing.
+
+---
+
+## Launch the same campaign on both platforms
+
+Use this when you want to run a campaign on Meta and TikTok at the same time. Requires an Operator plan or higher.
+
+**Step 1** — Call `create_meta_campaign` with your campaign details. Save the `campaign_id`.
+
+**Step 2** — Call `enable_meta_campaign` with the Meta campaign ID.
+
+**Step 3** — Call `create_tiktok_campaign` with similar details. Note: TikTok has a $20/day minimum and uses different objective names (`TRAFFIC` instead of `OUTCOME_TRAFFIC`).
+
+**Step 4** — Call `enable_tiktok_campaign` with the TikTok campaign ID.
+
+Both campaigns are now live. After 24–48 hours, compare stats from `get_meta_campaign_stats` and `get_tiktok_campaign_stats` to see which platform is performing better.
+
+---
+
+## Stop all spending immediately
+
+Use this to pause everything at once — for example, if you've hit your monthly budget or need to halt all activity.
+
+**Step 1** — Call `list_meta_campaigns` with `status: "ACTIVE"` to get all live Meta campaign IDs.
+
+**Step 2** — Call `pause_meta_campaign` for each one.
+
+**Step 3** — Call `list_tiktok_campaigns` to get TikTok campaign IDs.
+
+**Step 4** — Call `pause_tiktok_campaign` for each active one.
+
+All spending stops immediately. No campaigns are deleted — you can re-enable them anytime.
+
+---
+
+## Scale a winning campaign
+
+When a campaign is performing well and you want to push more budget into it:
+
+**Step 1** — Call `get_meta_campaign_stats` with `date_preset: "last_7d"` to confirm the performance trend is consistent, not just a one-day spike.
+
+**Step 2** — If CTR is strong and CPM is acceptable across the full 7 days, call `update_meta_campaign_budget` to increase the daily budget. A common approach is to increase by 20–30% at a time rather than doubling overnight — large budget jumps can reset Meta's delivery algorithm.
+
+**Step 3** — Monitor again after 48 hours with another stats call to confirm performance held after the budget increase.

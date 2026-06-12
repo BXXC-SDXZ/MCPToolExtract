@@ -1,0 +1,131 @@
+---
+title: "Quickstart"
+description: "Set up agent1st-ads-mcp in under 5 minutes."
+---
+
+## Step 1 — Get a License Key
+
+Before anything else, you need a license key. Without it, the MCP server will not run.
+
+Go to [agent1st.io/ads](https://agent1st.io/ads/) and choose a plan. After purchase, you'll receive a license key by email. It looks like this: `a1o_xxxxxxxxxxxxxxxxxxxx`
+
+| Plan | Price | Platforms |
+|------|-------|-----------|
+| Scout | $29/mo | Meta OR TikTok |
+| Operator | $69/mo | Meta + TikTok |
+| Commander | $149/mo | Meta + TikTok + Advanced |
+| Agency | $399/mo | Unlimited |
+
+---
+
+## Step 2 — Get Your Ad Platform Credentials
+
+You'll need credentials from the ad platforms you want to use. Here's where to find them:
+
+**For Meta (Facebook/Instagram):**
+- Go to [business.facebook.com](https://business.facebook.com) and open Ads Manager
+- Your **Ad Account ID** is under Account Settings — it looks like `act_123456789`
+- Your **Page ID** is on your Facebook Page under About → Page ID
+- Get an **Access Token** from [developers.facebook.com/tools/explorer](https://developers.facebook.com/tools/explorer) — select your app and add the `ads_management` permission
+
+**For TikTok:**
+- Go to [ads.tiktok.com](https://ads.tiktok.com) and open your account
+- Your **Advertiser ID** is under Account → Basic Information
+- Get an **Access Token** from [business-api.tiktok.com](https://business-api.tiktok.com) under My Apps
+
+You only need credentials for the platforms you plan to use. Meta only, TikTok only, or both — your choice.
+
+---
+
+## Step 3 — Add to Your Agent
+
+Add the following to your MCP configuration file. The location depends on which client you use.
+
+<Tabs>
+  <Tab title="Claude Desktop">
+    Open your Claude Desktop config file:
+    - **Mac:** `~/Library/Application Support/Claude/claude_desktop_config.json`
+    - **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
+
+    Paste this in, replacing the placeholder values with your real credentials:
+
+    ```json
+    {
+      "mcpServers": {
+        "agent1st-ads": {
+          "command": "npx",
+          "args": ["meta-tiktok-ads-from-agent1st"],
+          "env": {
+            "AGENT1ST_LICENSE_KEY": "your_license_key",
+            "META_ADS_ACCESS_TOKEN": "your_meta_token",
+            "META_ADS_ACCOUNT_ID": "act_XXXXXXXXXX",
+            "META_PAGE_ID": "XXXXXXXXXX",
+            "TIKTOK_ADS_ACCESS_TOKEN": "your_tiktok_token",
+            "TIKTOK_ADVERTISER_ID": "XXXXXXXXXX"
+          }
+        }
+      }
+    }
+    ```
+
+    Save the file and restart Claude Desktop.
+  </Tab>
+  <Tab title="Cursor">
+    Open **Settings → MCP** and add a new server with the same config:
+
+    ```json
+    {
+      "mcpServers": {
+        "agent1st-ads": {
+          "command": "npx",
+          "args": ["meta-tiktok-ads-from-agent1st"],
+          "env": {
+            "AGENT1ST_LICENSE_KEY": "your_license_key",
+            "META_ADS_ACCESS_TOKEN": "your_meta_token",
+            "META_ADS_ACCOUNT_ID": "act_XXXXXXXXXX",
+            "META_PAGE_ID": "XXXXXXXXXX",
+            "TIKTOK_ADS_ACCESS_TOKEN": "your_tiktok_token",
+            "TIKTOK_ADVERTISER_ID": "XXXXXXXXXX"
+          }
+        }
+      }
+    }
+    ```
+  </Tab>
+  <Tab title="Windsurf">
+    Open **Settings → MCP Servers** and add the same config block shown in the Cursor tab above.
+  </Tab>
+</Tabs>
+
+If you only use Meta, you can leave out the TikTok variables. If you only use TikTok, leave out the Meta variables.
+
+---
+
+## Step 4 — Verify It Works
+
+Once your agent is running, ask it:
+
+> "Run check_setup"
+
+You'll see a response confirming your license tier and which platforms are connected. If something is missing or misconfigured, the response will tell you exactly what to fix.
+
+A successful response looks like this:
+
+```json
+{
+  "meta": { "connected": true, "account_id": "act_123456" },
+  "tiktok": { "connected": true, "advertiser_id": "789012" },
+  "license": "operator",
+  "ready": true
+}
+```
+
+Once `ready` is `true`, you're set. Your agent can now create and manage ad campaigns.
+
+---
+
+## Next Steps
+
+- [See all Meta tools →](/tools/meta)
+- [See all TikTok tools →](/tools/tiktok)
+- [Common workflows →](/workflows)

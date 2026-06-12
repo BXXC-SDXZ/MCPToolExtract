@@ -1,0 +1,198 @@
+name: Performance Tests
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+# Prevent concurrent performance tests on the same PR/branch
+concurrency:
+  group: performance-tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  performance-regression:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [20.x, 22.x]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build project
+        run: bun run build
+
+      - name: Run performance tests
+        env:
+          # Run with mocks for consistent performance measurements
+          # Real API tests would be too variable for regression detection
+          NODE_ENV: test
+          PERFORMANCE_TRACKING: true
+          SKIP_PERFORMANCE_TESTS: false
+          # Performance budgets (milliseconds) - adjusted for mock responses
+          PERF_BUDGET_NOT_FOUND: 100
+          PERF_BUDGET_SEARCH: 200
+          PERF_BUDGET_CREATE: 200
+          PERF_BUDGET_UPDATE: 200
+          PERF_BUDGET_DELETE: 100
+          PERF_BUDGET_BATCH_SMALL: 500
+          PERF_BUDGET_BATCH_LARGE: 1000
+          PERF_BUDGET_DEFAULT: 200
+        run: bun run test test/performance/regression.test.ts
+        continue-on-error: true
+        id: perf-test
+
+      - name: Parse performance results
+        if: always()
+        id: parse-results
+        run: |
+          # Extract performance metrics from test output
+          echo "Parsing performance test results..."
+
+          # Set outputs for job summary
+          echo "test_status=${{ steps.perf-test.outcome }}" >> $GITHUB_OUTPUT
+
+      - name: Generate performance report
+        if: always()
+        run: |
+          cat << EOF > performance-report.md
+          # Performance Test Report
+
+          **Date:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          **Branch:** ${{ github.ref_name }}
+          **Commit:** ${{ github.sha }}
+          **Node Version:** ${{ matrix.node-version }}
+          **Status:** ${{ steps.perf-test.outcome }}
+
+          ## Performance Budgets
+          - 404 Responses: < 2000ms
+          - Search Operations: < 3000ms
+          - Create/Update: < 3000ms
+          - Delete: < 2000ms
+          - Batch (small): < 5000ms
+          - Batch (large): < 10000ms
+
+          ## Test Results
+          See test output above for detailed timing information.
+
+          EOF
+
+      - name: Upload performance report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-report-${{ matrix.node-version }}
+          path: performance-report.md
+
+      # Performance test commenting removed - now handled by consolidated test-summary job in ci.yml
+      # All test results (CI/CD + Performance) are posted in a single consolidated comment
+      # This prevents multiple bot comments cluttering the PR conversation
+
+      - name: Check for performance regression
+        if: steps.perf-test.outcome == 'failure'
+        run: |
+          echo "⚠️ Performance regression detected!"
+          echo "One or more operations exceeded their performance budgets."
+          echo "Please review the test output for details."
+          exit 1
+
+  performance-comparison:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    needs: performance-regression
+
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build project
+        run: bun run build
+
+      - name: Run performance tests on PR branch
+        env:
+          NODE_ENV: test
+        run: |
+          bun run test test/performance/regression.test.ts > pr-performance.txt 2>&1 || true
+
+      - name: Checkout base branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.base_ref }}
+
+      - name: Install dependencies (base)
+        run: bun install --frozen-lockfile
+
+      - name: Build project (base)
+        run: bun run build
+
+      - name: Run performance tests on base branch
+        env:
+          NODE_ENV: test
+        run: |
+          bun run test test/performance/regression.test.ts > base-performance.txt 2>&1 || true
+
+      - name: Compare performance
+        run: |
+          echo "## Performance Comparison" > comparison.md
+          echo "" >> comparison.md
+          echo "### PR Branch Performance" >> comparison.md
+          echo '```' >> comparison.md
+          grep -E "(response time:|operation time:|cache performance:)" pr-performance.txt || echo "No timing data found" >> comparison.md
+          echo '```' >> comparison.md
+          echo "" >> comparison.md
+          echo "### Base Branch Performance" >> comparison.md
+          echo '```' >> comparison.md
+          grep -E "(response time:|operation time:|cache performance:)" base-performance.txt || echo "No timing data found" >> comparison.md
+          echo '```' >> comparison.md
+
+      - name: Upload comparison report
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-comparison
+          path: comparison.md
+
+  alert-on-degradation:
+    if: failure() && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    needs: performance-regression
+
+    steps:
+      - name: Send alert
+        run: |
+          echo "🚨 Performance degradation detected on main branch!"
+          echo "Immediate action required to investigate and fix performance issues."
+          # Add additional alerting mechanisms here (Slack, email, etc.)

@@ -1,0 +1,151 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig.json'
+      - 'jest.config.js'
+      - '.github/workflows/ci.yml'
+      - 'scripts/!(check-root-clutter.js)**'
+      - 'manifest.json'
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node-version: [22.x]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build
+
+      - name: Run critical tests
+        run: npm run test:critical
+        timeout-minutes: 10
+        env:
+          NODE_OPTIONS: --experimental-vm-modules
+
+      - name: Run integration tests
+        run: npm run test:integration
+        timeout-minutes: 10
+        env:
+          NODE_OPTIONS: --experimental-vm-modules
+
+      - name: Run DXT entry point tests
+        run: npm run test:integration:dxt
+        timeout-minutes: 10
+        env:
+          NODE_OPTIONS: --experimental-vm-modules
+
+  lint:
+    name: Lint and Type Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npx tsc --noEmit
+        timeout-minutes: 10
+
+  coverage:
+    name: Code Coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build
+
+      - name: Run tests with coverage
+        run: npm run test:coverage
+        timeout-minutes: 15
+        env:
+          NODE_OPTIONS: --experimental-vm-modules
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage/lcov.info
+          fail_ci_if_error: false
+
+  build-dxt:
+    name: Build and Test DXT Package
+    runs-on: macos-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build DXT package
+        run: npm run build:dxt:patched
+        timeout-minutes: 15
+
+      - name: Test DXT package
+        run: npm run test:dxt
+        timeout-minutes: 10
+        env:
+          NODE_OPTIONS: --experimental-vm-modules
+
+      - name: Upload DXT artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ncp-dxt-${{ github.sha }}
+          path: ncp.dxt
+          retention-days: 7

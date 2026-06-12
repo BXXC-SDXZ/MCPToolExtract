@@ -1,0 +1,137 @@
+# {{ server_name }} (MCP Server)
+
+Version: {{ server_version }}
+
+{% if server_description -%}
+{{ server_description }}
+{% else -%}
+This MCP server was automatically generated from an OpenAPI specification by the `openapi-to-mcp` tool. It exposes the API endpoints defined in the specification as MCP tools.
+{% endif %}
+
+## Setup
+
+1.  **Navigate to this directory:**
+    ```bash
+    cd path/to/this/directory
+    ```
+
+2.  **Configure Environment:**
+    Create a `.env` file in this directory by copying `.env.example`. Edit the `.env` file and provide the required values:
+
+    *   **`TARGET_API_BASE_URL` (Required & Critical):**
+        *   This **must** be the **complete base URL** for your target API, including any necessary base paths (e.g., `/api/v3`, `/v1`).
+        *   The generator attempts to pre-fill this value from the OpenAPI spec's `servers` field (if available), but **you must verify and correct it** in your `.env` file.
+        *   The MCP server combines this base URL with the specific endpoint paths (like `/pet/{petId}`) to make API calls. If the base URL is incomplete, API calls will fail (often with 404 errors).
+        *   *Example 1 (Spec had full path):* `TARGET_API_BASE_URL=https://api.example.com/v1`
+        *   *Example 2 (Spec only had domain, user adds path):* `TARGET_API_BASE_URL=https://petstore3.swagger.io/api/v3`
+
+    *   **`TARGET_API_AUTH_HEADER` (Optional):**
+        *   Provide the full authorization header string if required by the target API (e.g., `Authorization: Bearer your_token` or `X-API-Key: your_key`). Leave it commented out or blank if no auth header is needed.
+    *   **MCP Runtime Controls (Optional but Recommended):**
+        *   `MCP_PERFORMANCE_PRESET=off|conservative|balanced|aggressive`
+        *   `MCP_MAX_CONCURRENCY`, `MCP_PER_TOOL_MAX_CONCURRENCY`, `MCP_MAX_QUEUE_SIZE`, `MCP_QUEUE_TIMEOUT_MS`, `MCP_TOOL_TIMEOUT_MS`
+        *   `MCP_CACHE_TTL_MS`, `MCP_CACHE_MAX_ENTRIES`, `MCP_RATE_LIMIT_PER_MINUTE`
+        *   `MCP_RETRY_MAX_RETRIES`, `MCP_RETRY_BUDGET_PER_MINUTE`, `MCP_CIRCUIT_BREAKER_FAILURE_THRESHOLD`, `MCP_CIRCUIT_BREAKER_COOLDOWN_MS`
+        *   `MCP_PERFORMANCE_PRESET` expands into reviewable runtime defaults for the controls below.
+        *   Explicit env vars still override any preset-expanded values.
+        *   The generated `.env.example` leaves preset-backed override vars blank so a preset can take effect without manual cleanup.
+        *   These control parallel tool execution, queueing behavior, timeouts, and optional performance controls for safe tools.
+        *   Set `MCP_CACHE_TTL_MS=0` or `MCP_RATE_LIMIT_PER_MINUTE=0` to disable that control globally.
+        *   `MCP_CACHE_MAX_ENTRIES` bounds the in-memory cache size when caching is enabled.
+        *   Set `MCP_RETRY_MAX_RETRIES=0` or `MCP_RETRY_BUDGET_PER_MINUTE=0` to disable retries.
+        *   Set `MCP_CIRCUIT_BREAKER_FAILURE_THRESHOLD=0` to disable the circuit breaker.
+        *   Retries and circuit-breaker controls only apply to safe HTTP methods (`GET`, `HEAD`, `OPTIONS`).
+        *   Retries are immediate in this first implementation and require both a positive retry count and a positive retry budget.
+        *   Set `MCP_CIRCUIT_BREAKER_FAILURE_THRESHOLD=0` to disable the breaker entirely; `MCP_CIRCUIT_BREAKER_COOLDOWN_MS` only applies when the threshold is positive.
+        *   Circuit-breaker thresholds count consecutive retryable failures and allow one half-open probe after each cooldown window.
+        *   Circuit-breaker state is process-local and resets on process restart.
+        *   Rate limiting uses a fixed one-minute window, so quota resets at window boundaries.
+        *   Invalid values fail fast at startup instead of silently falling back.
+
+### Performance preset expansions
+
+| Preset | Max concurrency | Per-tool | Queue size | Queue timeout ms | Tool timeout ms | Cache TTL ms | Cache max entries | Rate limit/min | Retry max | Retry budget/min | Breaker threshold | Breaker cooldown ms |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+{% for preset in performance_presets -%}
+| `{{ preset.name }}` | {{ preset.max_concurrency }} | {{ preset.per_tool_max_concurrency }} | {{ preset.max_queue_size }} | {{ preset.queue_timeout_ms }} | {{ preset.tool_timeout_ms }} | {{ preset.cache_ttl_ms }} | {{ preset.cache_max_entries }} | {{ preset.rate_limit_per_minute }} | {{ preset.retry_max_retries }} | {{ preset.retry_budget_per_minute }} | {{ preset.circuit_breaker_failure_threshold }} | {{ preset.circuit_breaker_cooldown_ms }} |
+{% endfor %}
+
+Explicit env vars and per-tool execution overrides still win over these preset values.
+The `conservative` preset leaves caching off by default, but if you later enable caching explicitly it still uses the preset's `500` entry cap unless you also override `MCP_CACHE_MAX_ENTRIES`.
+
+    *   **Tool Access Controls (Optional):**
+        *   `MCP_TOOL_ACCESS_MODE`, `MCP_TOOL_ACCESS_DEFAULT`, `MCP_TOOL_IDENTITY_HEADER`, `MCP_TOOL_ALLOWLISTS`
+        *   These enable request-scoped tool allowlists for generated runtimes.
+        *   `MCP_TOOL_ALLOWLISTS` must be a JSON object mapping caller identities to arrays of allowed tool names.
+        *   `MCP_TOOL_IDENTITY_HEADER` defines which request header supplies the caller identity.
+        *   The reserved caller identities are `anonymous` (missing header) and `stdio`.
+        *   Identity values are exact, case-sensitive matches.
+        *   Invalid `MCP_TOOL_ALLOWLISTS` JSON fails fast at startup.
+        *   For `streamable-http`, identity is resolved from each incoming request. Sessions are not bound to the identity observed during initialization.
+    *   **Audit and Redaction Controls (Optional):**
+        *   `MCP_AUDIT_MODE`, `MCP_AUDIT_REDACT_HEADERS`, `MCP_AUDIT_REDACT_QUERY_PARAMS`, `MCP_AUDIT_REDACT_COOKIE_NAMES`
+        *   `MCP_AUDIT_REDACT_REQUEST_BODY_PATHS`, `MCP_AUDIT_REDACT_RESPONSE_BODY_PATHS`
+        *   `MCP_AUDIT_MODE=logs` emits `tool_audit_request` and `tool_audit_response` events on stderr.
+        *   Header, query, and cookie names are matched case-insensitively.
+        *   Auth-derived cookie values are redacted by default.
+        *   Body-path redaction only applies to JSON object or array payloads.
+        *   Cached successes still emit paired audit events with `cacheHit: true`.
+        *   Network and runtime failures emit `tool_audit_response` with `status: null` when no upstream HTTP response exists.
+        *   Body-path redaction uses dot notation and supports `*` array wildcards.
+    *   **Runtime Validation:**
+        *   Generated tool input validation is set to `{{ runtime_validation }}`.
+        *   When set to `input`, tool arguments are validated against the generated `inputSchema` before the upstream API call.
+    *   **Structured Tool Errors:**
+        *   Tool failures return machine-readable metadata under `meta.error`.
+        *   `meta.error.retryable` is advisory only and does not define any retry interval or backoff policy.
+    *   **Request IDs and Logs:**
+        *   Tool results include `meta.requestId`.
+        *   The generated runtime forwards that value upstream as `X-Request-Id`.
+        *   Tool start, success, and failure events are emitted as JSON logs on stderr.
+        *   Audit logs stay local to stderr and do not depend on any external sink.
+    *   **Streamable HTTP Settings (if transport is `streamable-http`):**
+        *   `MCP_HTTP_HOST`, `MCP_HTTP_PORT`, `MCP_HTTP_ENDPOINT`, `MCP_ALLOWED_ORIGINS`, `MCP_ALLOWED_HOSTS`
+        *   Invalid `TARGET_API_BASE_URL` values also fail fast at startup. Use an absolute `http` or `https` URL.
+
+3.  **Install Dependencies:**
+    ```bash
+    npm install
+    ```
+
+## Running the Server
+
+1.  **Build the TypeScript code:**
+    ```bash
+    npm run build
+    ```
+
+2.  **Start the server:**
+    ```bash
+    npm start
+    ```
+    The server will connect using the configured transport ({{ transport }}{% if transport == 'streamable-http' %} via HTTP on {{ host }}:{{ port }} at endpoint {{ mcp_endpoint }}{% endif %}).
+
+## Development
+
+To run the server in development mode with automatic rebuilding and restarting on file changes:
+
+```bash
+npm run dev
+```
+
+## Safe customization
+
+- `src/custom/tools.ts` is the preserved entry point for user-owned MCP tools.
+- Files under `src/custom/` are not overwritten on regeneration.
+- Generated files like `src/server.ts`, `src/runtime/*.ts`, and `src/transport.ts`
+  should be treated as replaceable output.
+
+## MCP Tools
+
+This server exposes the following tools based on the OpenAPI specification:
+
+{% for tool in tools %}
+*   **`{{ tool.name }}`**: {{ tool.description }}
+{% endfor %}
+
+**Input Schema:** See `inputSchema` definition within the server's `ListTools` response.

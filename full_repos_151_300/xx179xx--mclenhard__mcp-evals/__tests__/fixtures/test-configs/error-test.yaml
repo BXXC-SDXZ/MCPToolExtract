@@ -1,0 +1,16 @@
+# Error scenario test configuration
+model:
+  provider: openai
+  name: gpt-4o
+  api_key: test-key
+
+evals:
+  - name: error_scenario_eval
+    description: Test error handling
+    prompt: "Use the test_tool with query 'error test' and scenario 'error'"
+    expected_result: "Should handle errors gracefully"
+
+  - name: partial_scenario_eval
+    description: Test partial response handling
+    prompt: "Use the test_tool with query 'partial test' and scenario 'partial'"
+    expected_result: "Should handle partial responses"

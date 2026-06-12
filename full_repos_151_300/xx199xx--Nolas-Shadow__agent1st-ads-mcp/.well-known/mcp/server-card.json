@@ -1,0 +1,360 @@
+{
+  "serverInfo": {
+    "name": "meta-tiktok-ads-from-agent1st",
+    "version": "1.0.1"
+  },
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "licenseKey": {
+        "type": "string",
+        "description": "Agent 1st license key — get yours at https://agent1st.io/ads/ (plans from $29/mo)"
+      },
+      "metaToken": {
+        "type": "string",
+        "description": "Meta Ads access token"
+      },
+      "metaAccountId": {
+        "type": "string",
+        "description": "Meta Ad Account ID (act_XXXXXXXXXX)"
+      },
+      "metaPageId": {
+        "type": "string",
+        "description": "Facebook Page ID"
+      },
+      "tikTokToken": {
+        "type": "string",
+        "description": "TikTok Ads access token"
+      },
+      "tikTokAdvertiserId": {
+        "type": "string",
+        "description": "TikTok Advertiser ID"
+      }
+    },
+    "required": [
+      "licenseKey"
+    ]
+  },
+  "tools": [
+    {
+      "name": "check_setup",
+      "description": "ALWAYS call this first. Verifies license tier and which ad platforms are connected. Shows what is available based on your plan (Starter/Pro/Premium/Elite). Use this before any other tool.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "get_ad_account_info",
+      "description": "Get current balance, total spend, currency, and account status for all connected ad accounts (Meta and/or TikTok). Call before creating campaigns to confirm account is active and has sufficient funds. Requires valid license.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "list_meta_campaigns",
+      "description": "List all campaigns in the Meta (Facebook/Instagram) ad account with campaign ID, name, status (ACTIVE/PAUSED/ARCHIVED), objective, and daily budget. Use campaign IDs to get stats, adjust budgets, or pause/enable. Requires Starter plan or higher.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "number",
+            "description": "Max campaigns to return. Default: 20."
+          },
+          "status": {
+            "type": "string",
+            "description": "Filter by status: ACTIVE, PAUSED, or ARCHIVED. Omit to return all."
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "create_meta_campaign",
+      "description": "Create a complete Meta (Facebook/Instagram) ad campaign in one call — campaign + ad set with targeting + creative + ad. Created in PAUSED state. Call enable_meta_campaign to activate. Minimum budget $1/day. Requires Starter plan or higher.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Campaign name. Example: \"Spring Sale — Traffic — US\""
+          },
+          "objective": {
+            "type": "string",
+            "description": "Objective: OUTCOME_TRAFFIC, OUTCOME_LEADS, OUTCOME_SALES, OUTCOME_ENGAGEMENT, OUTCOME_AWARENESS. Default: OUTCOME_TRAFFIC"
+          },
+          "daily_budget_usd": {
+            "type": "number",
+            "description": "Daily spend limit in USD. Minimum: 1."
+          },
+          "destination_url": {
+            "type": "string",
+            "description": "Full URL (including https://) users land on after clicking."
+          },
+          "ad_headline": {
+            "type": "string",
+            "description": "Bold ad headline. Max 40 characters."
+          },
+          "ad_body": {
+            "type": "string",
+            "description": "Main ad copy. Max 125 characters."
+          },
+          "targeting_countries": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Country codes. Example: [\"US\",\"CA\",\"GB\"]. Default: [\"US\"]."
+          },
+          "age_min": {
+            "type": "number",
+            "description": "Minimum target age. Default: 18."
+          },
+          "age_max": {
+            "type": "number",
+            "description": "Maximum target age. Default: 65."
+          }
+        },
+        "required": [
+          "name",
+          "daily_budget_usd",
+          "destination_url",
+          "ad_headline",
+          "ad_body"
+        ]
+      }
+    },
+    {
+      "name": "enable_meta_campaign",
+      "description": "Activate a paused Meta campaign so it starts running. Use campaign_id from create_meta_campaign or list_meta_campaigns. Requires Starter plan or higher.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "campaign_id": {
+            "type": "string",
+            "description": "Meta campaign ID to activate."
+          }
+        },
+        "required": [
+          "campaign_id"
+        ]
+      }
+    },
+    {
+      "name": "pause_meta_campaign",
+      "description": "Pause a live Meta campaign to stop all spending immediately. Campaign and settings are preserved — use enable_meta_campaign to resume. Requires Starter plan or higher.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "campaign_id": {
+            "type": "string",
+            "description": "Meta campaign ID to pause."
+          }
+        },
+        "required": [
+          "campaign_id"
+        ]
+      }
+    },
+    {
+      "name": "get_meta_campaign_stats",
+      "description": "Get performance metrics for a Meta campaign: impressions, clicks, spend (USD), CTR, CPM, and conversions. Use to evaluate performance before budget decisions. Requires Starter plan or higher.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "campaign_id": {
+            "type": "string",
+            "description": "Meta campaign ID."
+          },
+          "date_preset": {
+            "type": "string",
+            "description": "Time range: today, yesterday, last_7d, last_14d, last_30d, this_month. Default: last_7d."
+          }
+        },
+        "required": [
+          "campaign_id"
+        ]
+      }
+    },
+    {
+      "name": "update_meta_campaign_budget",
+      "description": "Change the daily budget of a Meta campaign. Takes effect immediately. Increase to scale a winning campaign, decrease to throttle spend. Minimum $1/day. Requires Starter plan or higher.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "campaign_id": {
+            "type": "string",
+            "description": "Meta campaign ID."
+          },
+          "daily_budget_usd": {
+            "type": "number",
+            "description": "New daily budget in USD. Minimum: 1."
+          }
+        },
+        "required": [
+          "campaign_id",
+          "daily_budget_usd"
+        ]
+      }
+    },
+    {
+      "name": "delete_meta_campaign",
+      "description": "Permanently delete a Meta campaign and all its ad sets and ads. Cannot be undone. Use pause_meta_campaign to stop spending temporarily. Requires Starter plan or higher.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "campaign_id": {
+            "type": "string",
+            "description": "Meta campaign ID to permanently delete."
+          }
+        },
+        "required": [
+          "campaign_id"
+        ]
+      }
+    },
+    {
+      "name": "list_tiktok_campaigns",
+      "description": "List all campaigns in the TikTok ad account with campaign ID, name, status, objective, and budget. Requires Pro plan or higher ($69/mo).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "number",
+            "description": "Max campaigns to return. Default: 20."
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "create_tiktok_campaign",
+      "description": "Create a complete TikTok ad campaign in one call — campaign + ad group with targeting + ad. Created in DISABLE state. Call enable_tiktok_campaign to activate. TikTok minimum budget is $20/day. Requires Pro plan or higher ($69/mo).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Campaign name."
+          },
+          "objective": {
+            "type": "string",
+            "description": "Objective: TRAFFIC, LEAD_GENERATION, WEBSITE_CONVERSIONS, ENGAGEMENT, APP_PROMOTION. Default: TRAFFIC."
+          },
+          "budget_usd": {
+            "type": "number",
+            "description": "Daily budget in USD. TikTok minimum: 20."
+          },
+          "destination_url": {
+            "type": "string",
+            "description": "Landing page URL (must include https://)."
+          },
+          "ad_text": {
+            "type": "string",
+            "description": "Ad copy text. Keep it punchy — TikTok is a fast-scroll platform."
+          },
+          "targeting_countries": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Country codes. Example: [\"US\"]. Default: [\"US\"]."
+          },
+          "age_groups": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Age brackets: AGE_13_17, AGE_18_24, AGE_25_34, AGE_35_44, AGE_45_54, AGE_55_100. Default: [AGE_18_24, AGE_25_34]."
+          }
+        },
+        "required": [
+          "name",
+          "budget_usd",
+          "destination_url",
+          "ad_text"
+        ]
+      }
+    },
+    {
+      "name": "enable_tiktok_campaign",
+      "description": "Activate a disabled TikTok campaign so it starts running. Requires Pro plan or higher ($69/mo).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "campaign_id": {
+            "type": "string",
+            "description": "TikTok campaign ID to enable."
+          }
+        },
+        "required": [
+          "campaign_id"
+        ]
+      }
+    },
+    {
+      "name": "pause_tiktok_campaign",
+      "description": "Pause a running TikTok campaign to stop all spending. Settings preserved — use enable_tiktok_campaign to resume. Requires Pro plan or higher ($69/mo).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "campaign_id": {
+            "type": "string",
+            "description": "TikTok campaign ID to pause."
+          }
+        },
+        "required": [
+          "campaign_id"
+        ]
+      }
+    },
+    {
+      "name": "get_tiktok_campaign_stats",
+      "description": "Get performance metrics for a TikTok campaign: impressions, clicks, spend, CTR, CPC, conversions. Requires Pro plan or higher ($69/mo).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "campaign_id": {
+            "type": "string",
+            "description": "TikTok campaign ID."
+          },
+          "start_date": {
+            "type": "string",
+            "description": "Start date YYYY-MM-DD. Default: 7 days ago."
+          },
+          "end_date": {
+            "type": "string",
+            "description": "End date YYYY-MM-DD. Default: today."
+          }
+        },
+        "required": [
+          "campaign_id"
+        ]
+      }
+    },
+    {
+      "name": "update_tiktok_campaign_budget",
+      "description": "Change the daily budget of a TikTok campaign. TikTok minimum is $20/day. Requires Pro plan or higher ($69/mo).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "campaign_id": {
+            "type": "string",
+            "description": "TikTok campaign ID."
+          },
+          "budget_usd": {
+            "type": "number",
+            "description": "New daily budget in USD. Minimum: 20."
+          }
+        },
+        "required": [
+          "campaign_id",
+          "budget_usd"
+        ]
+      }
+    }
+  ]
+}

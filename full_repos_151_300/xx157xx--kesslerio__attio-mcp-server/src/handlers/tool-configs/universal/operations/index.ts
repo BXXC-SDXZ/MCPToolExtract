@@ -1,0 +1,121 @@
+/**
+ * Advanced operations aggregator (barrel)
+ * Exposes tool configs and definitions for universal advanced operations
+ */
+
+import { advancedSearchConfig } from './advanced-search.js';
+import { searchByRelationshipConfig } from './relationship-search.js';
+import { searchByContentConfig } from './content-search.js';
+import { searchByTimeframeConfig } from './timeframe-search.js';
+import { batchOperationsConfig } from './batch-operations.js';
+import { formatToolDescription } from '@/handlers/tools/standards/index.js';
+
+import {
+  advancedSearchSchema,
+  searchByRelationshipSchema,
+  searchByContentSchema,
+  searchByTimeframeSchema,
+  batchOperationsSchema,
+} from '../schemas.js';
+
+export const advancedOperationsToolConfigs = {
+  search_records_advanced: advancedSearchConfig,
+  search_records_by_relationship: searchByRelationshipConfig,
+  search_records_by_content: searchByContentConfig,
+  search_records_by_timeframe: searchByTimeframeConfig,
+  batch_records: batchOperationsConfig,
+};
+
+export const advancedOperationsToolDefinitions = {
+  search_records_advanced: {
+    name: 'search_records_advanced',
+    description: formatToolDescription({
+      capability:
+        'Search companies, people, deals, or tasks with complex nested filters (e.g., find deals by owner+stage, companies by industry+location).',
+      boundaries: 'mutate records; use update_record or delete_record.',
+      constraints:
+        'Supports filter groups, scoring, pagination, and up to 100 items. Requires resource_type parameter.',
+      recoveryHint:
+        'If filters fail, fetch valid attributes via discover_record_attributes.',
+    }),
+    inputSchema: advancedSearchSchema,
+    annotations: {
+      readOnlyHint: true,
+      idempotentHint: true,
+    },
+  },
+  search_records_by_relationship: {
+    name: 'search_records_by_relationship',
+    description: formatToolDescription({
+      capability:
+        'Search records using relationship anchors (list, company, people).',
+      boundaries: 'modify memberships; use list tools for writes.',
+      constraints: 'Requires resource_type and related resource identifier.',
+      recoveryHint: 'Use search_records to resolve IDs before calling.',
+    }),
+    inputSchema: searchByRelationshipSchema,
+    annotations: {
+      readOnlyHint: true,
+      idempotentHint: true,
+    },
+  },
+  search_records_by_content: {
+    name: 'search_records_by_content',
+    description: formatToolDescription({
+      capability: 'Search record content (notes, activity, communications).',
+      boundaries: 'modify note content or attachments.',
+      constraints:
+        'Requires resource_type and content_query; optional fields array.',
+      recoveryHint:
+        'Narrow scope with fields or switch to search_records_advanced.',
+    }),
+    inputSchema: searchByContentSchema,
+    annotations: {
+      readOnlyHint: true,
+      idempotentHint: true,
+    },
+  },
+  search_records_by_timeframe: {
+    name: 'search_records_by_timeframe',
+    description: formatToolDescription({
+      capability:
+        'Filter records by creation, update, or interaction timeframes.',
+      boundaries: 'modify lifecycle state or scheduling follow-ups.',
+      constraints:
+        'Requires resource_type; provide timeframe or explicit date boundaries.',
+      recoveryHint:
+        'Call search_records if timeframe filters are too restrictive.',
+    }),
+    inputSchema: searchByTimeframeSchema,
+    annotations: {
+      readOnlyHint: true,
+      idempotentHint: true,
+    },
+  },
+  batch_records: {
+    name: 'batch_records',
+    description: formatToolDescription({
+      capability:
+        'Execute batched record operations (create/update/delete/get/search).',
+      boundaries: 'ignore approval guardrails; hosts may require confirmation.',
+      requiresApproval: true,
+      constraints:
+        'Use scoped single-record tools for one company or deal write. operation_type must be specified for legacy payloads; operations arrays must use explicit create/update/delete entries.',
+      recoveryHint:
+        'Run search_records first to stage IDs or payloads for batching.',
+    }),
+    inputSchema: batchOperationsSchema,
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+    },
+  },
+};
+
+export {
+  advancedSearchConfig,
+  searchByRelationshipConfig,
+  searchByContentConfig,
+  searchByTimeframeConfig,
+  batchOperationsConfig,
+};

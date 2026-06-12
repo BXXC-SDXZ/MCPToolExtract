@@ -1,0 +1,19 @@
+[Unit]
+Description=Argus MCP Server (streamable-http)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=argus
+WorkingDirectory=/opt/argus
+ExecStart=/bin/bash /opt/argus/scripts/start-mcp.sh
+Restart=always
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+SyslogIdentifier=argus-mcp
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

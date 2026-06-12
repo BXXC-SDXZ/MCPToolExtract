@@ -1,0 +1,10 @@
+# Invalid configuration for testing error handling
+model:
+  provider: invalid_provider
+  name: invalid_model
+
+# Missing required fields
+evals:
+  - name: invalid_eval
+    # Missing description and other required fields
+    prompt: "This is an invalid config"

@@ -1,0 +1,175 @@
+name: Claude PR Analysis
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+    paths-ignore:
+      - '**.md'
+      - '**.txt'
+      - '.gitignore'
+      - 'LICENSE'
+      - 'docs/**'
+
+# Cancel previous runs on new commits
+concurrency:
+  group: claude-pr-analysis-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  # checks: write   # enable only if you intentionally create/update Checks
+
+# Environment variables for comment markers
+env:
+  SECURITY_COMMENT_MARKER: '🛡️ Automated Security Review Complete'
+
+jobs:
+  automated-security-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Skip if there are recent @claude comments to avoid conflicts
+    if: ${{ !contains(github.event.pull_request.body, '@claude') }}
+
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2
+        with:
+          disable-sudo: true
+          egress-policy: audit
+
+      - name: Get changed files
+        id: changed
+        uses: tj-actions/changed-files@v46
+        with:
+          files_ignore: |
+            **.md
+            **.txt
+            .gitignore
+            LICENSE
+            docs/**
+            package-lock.json
+            yarn.lock
+            pnpm-lock.yaml
+
+      - name: Size gate
+        id: gate
+        run: |
+          files_count=${{ steps.changed.outputs.all_changed_files_count }}
+          if [ "$files_count" -le 2 ]; then
+            echo "should_analyze=false" >> $GITHUB_OUTPUT
+            echo "::notice::Skipping analysis for small change ($files_count files)"
+            exit 0
+          fi
+          echo "should_analyze=true" >> $GITHUB_OUTPUT
+          echo "files_count=$files_count" >> $GITHUB_OUTPUT
+
+      - name: Claude Analysis
+        if: steps.gate.outputs.should_analyze == 'true'
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          claude_args: '--max-turns 6 --model claude-sonnet-4-20250514 --allowed-tools=github,repo'
+          prompt: |
+            Conduct a security-focused code review for this Attio MCP Server PR.
+
+            Focus on:
+            - Security vulnerabilities and credential exposure
+            - API endpoint security and input validation
+            - Authentication/authorization issues
+            - Breaking API changes
+            - Error handling and information disclosure
+
+            Files changed: ${{ steps.changed.outputs.all_changed_files_count }}
+
+            Output a concise markdown summary with:
+            - Security Risk Assessment (High/Medium/Low/None)
+            - Key Issues Found
+            - Recommendations
+
+            Keep under 2000 tokens.
+
+      - name: Check for existing security comment
+        if: steps.gate.outputs.should_analyze == 'true' && github.event.pull_request.head.repo.full_name == github.repository
+        id: comment-check
+        uses: actions/github-script@v7
+        with:
+          script: |
+            try {
+              // Inline pagination helper
+              async function fetchAllComments() {
+                let allComments = [];
+                let page = 1;
+
+                while (true) {
+                  const { data } = await github.rest.issues.listComments({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: context.issue.number,
+                    per_page: 100,
+                    page: page
+                  });
+
+                  allComments = allComments.concat(data);
+                  if (data.length < 100) break;
+                  page++;
+                }
+
+                return allComments;
+              }
+
+              const allComments = await fetchAllComments();
+              const existingComment = allComments.find(c =>
+                c.body && c.body.includes(process.env.SECURITY_COMMENT_MARKER)
+              );
+
+              if (existingComment) {
+                core.setOutput('exists', true);
+                core.setOutput('comment_id', existingComment.id);
+              } else {
+                core.setOutput('exists', false);
+              }
+            } catch (error) {
+              console.log('Error checking for existing comments:', error.message);
+              core.setOutput('exists', false);
+            }
+
+      - name: Comment with slash command info
+        if: steps.gate.outputs.should_analyze == 'true' && github.event.pull_request.head.repo.full_name == github.repository
+        uses: actions/github-script@v7
+        env:
+          COMMENT_EXISTS: ${{ steps.comment-check.outputs.exists }}
+          COMMENT_ID: ${{ steps.comment-check.outputs.comment_id }}
+          FILES_COUNT: ${{ steps.changed.outputs.all_changed_files_count }}
+        with:
+          script: |
+            const commentBody = `## ${{ env.SECURITY_COMMENT_MARKER }}
+
+            ✅ Security analysis updated for ${process.env.FILES_COUNT} files.
+
+            **Manual Claude Review**: Comment \`@claude review\` to get a full interactive review.
+
+            **Re-run Security Scan**: Comment \`/security review\` to re-run automated security analysis.
+
+            ---
+            *Last updated: ${new Date().toISOString()}*
+            *Automated Security Review by Claude Code Action*`;
+
+            if (process.env.COMMENT_EXISTS === 'true') {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: process.env.COMMENT_ID,
+                body: commentBody
+              });
+              console.log('Updated existing security comment with fresh data');
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: commentBody
+              });
+              console.log('Created new security comment');
+            }

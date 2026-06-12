@@ -1,0 +1,639 @@
+package main
+
+import (
+	"testing"
+)
+
+func TestParseRemainingArgs_TransportAfterURL(t *testing.T) {
+	// Simulates: mcp-remote-go https://example.com/mcp --transport streamable-http
+	remaining := []string{"https://example.com/mcp", "--transport", "streamable-http"}
+	cfg := parseRemainingArgs(remaining, cliConfig{
+		callbackPort:  3334,
+		transportMode: "auto",
+	})
+
+	if cfg.serverURL != "https://example.com/mcp" {
+		t.Errorf("Expected server URL 'https://example.com/mcp', got '%s'", cfg.serverURL)
+	}
+	if cfg.transportMode != "streamable-http" {
+		t.Errorf("Expected transport mode 'streamable-http', got '%s'", cfg.transportMode)
+	}
+}
+
+func TestParseRemainingArgs_TransportBeforeURL(t *testing.T) {
+	// When flag.Parse() handles --transport before URL, remaining only has the URL
+	remaining := []string{"https://example.com/mcp"}
+	cfg := parseRemainingArgs(remaining, cliConfig{
+		callbackPort:  3334,
+		transportMode: "streamable-http", // already parsed by flag.Parse()
+	})
+
+	if cfg.serverURL != "https://example.com/mcp" {
+		t.Errorf("Expected server URL 'https://example.com/mcp', got '%s'", cfg.serverURL)
+	}
+	if cfg.transportMode != "streamable-http" {
+		t.Errorf("Expected transport mode 'streamable-http', got '%s'", cfg.transportMode)
+	}
+}
+
+func TestParseRemainingArgs_TransportEqualsForm(t *testing.T) {
+	remaining := []string{"https://example.com/mcp", "--transport=sse"}
+	cfg := parseRemainingArgs(remaining, cliConfig{
+		callbackPort:  3334,
+		transportMode: "auto",
+	})
+
+	if cfg.transportMode != "sse" {
+		t.Errorf("Expected transport mode 'sse', got '%s'", cfg.transportMode)
+	}
+}
+
+func TestParseRemainingArgs_AllowHTTPAfterURL(t *testing.T) {
+	remaining := []string{"http://localhost:8080/mcp", "--allow-http"}
+	cfg := parseRemainingArgs(remaining, cliConfig{
+		callbackPort:  3334,
+		transportMode: "auto",
+	})
+
+	if cfg.serverURL != "http://localhost:8080/mcp" {
+		t.Errorf("Expected server URL 'http://localhost:8080/mcp', got '%s'", cfg.serverURL)
+	}
+	if !cfg.allowHTTP {
+		t.Error("Expected allowHTTP to be true")
+	}
+}
+
+func TestParseRemainingArgs_HeaderAfterURL(t *testing.T) {
+	remaining := []string{"https://example.com/mcp", "--header", "Authorization:Bearer token123"}
+	cfg := parseRemainingArgs(remaining, cliConfig{
+		callbackPort:  3334,
+		transportMode: "auto",
+	})
+
+	if len(cfg.headers) != 1 || cfg.headers[0] != "Authorization:Bearer token123" {
+		t.Errorf("Expected header 'Authorization:Bearer token123', got %v", cfg.headers)
+	}
+}
+
+func TestParseRemainingArgs_PortAfterURL(t *testing.T) {
+	remaining := []string{"https://example.com/mcp", "--port", "9090"}
+	cfg := parseRemainingArgs(remaining, cliConfig{
+		callbackPort:  3334,
+		transportMode: "auto",
+	})
+
+	if cfg.callbackPort != 9090 {
+		t.Errorf("Expected callback port 9090, got %d", cfg.callbackPort)
+	}
+}
+
+func TestParseRemainingArgs_PositionalPort(t *testing.T) {
+	// Simulates: mcp-remote-go https://example.com/mcp 9090
+	remaining := []string{"https://example.com/mcp", "9090"}
+	cfg := parseRemainingArgs(remaining, cliConfig{
+		callbackPort:  3334,
+		transportMode: "auto",
+	})
+
+	if cfg.serverURL != "https://example.com/mcp" {
+		t.Errorf("Expected server URL 'https://example.com/mcp', got '%s'", cfg.serverURL)
+	}
+	if cfg.callbackPort != 9090 {
+		t.Errorf("Expected callback port 9090, got %d", cfg.callbackPort)
+	}
+}
+
+func TestParseRemainingArgs_MultipleFlags(t *testing.T) {
+	// Simulates: mcp-remote-go https://example.com/mcp --transport streamable-http --header "X-Key:val" --allow-http
+	remaining := []string{
+		"https://example.com/mcp",
+		"--transport", "streamable-http",
+		"--header", "X-Key:val",
+		"--allow-http",
+	}
+	cfg := parseRemainingArgs(remaining, cliConfig{
+		callbackPort:  3334,
+		transportMode: "auto",
+	})
+
+	if cfg.serverURL != "https://example.com/mcp" {
+		t.Errorf("Expected server URL 'https://example.com/mcp', got '%s'", cfg.serverURL)
+	}
+	if cfg.transportMode != "streamable-http" {
+		t.Errorf("Expected transport mode 'streamable-http', got '%s'", cfg.transportMode)
+	}
+	if len(cfg.headers) != 1 || cfg.headers[0] != "X-Key:val" {
+		t.Errorf("Expected header 'X-Key:val', got %v", cfg.headers)
+	}
+	if !cfg.allowHTTP {
+		t.Error("Expected allowHTTP to be true")
+	}
+}
+
+func TestParseRemainingArgs_NoArgs(t *testing.T) {
+	cfg := parseRemainingArgs([]string{}, cliConfig{
+		callbackPort:  3334,
+		transportMode: "auto",
+	})
+
+	if cfg.serverURL != "" {
+		t.Errorf("Expected empty server URL, got '%s'", cfg.serverURL)
+	}
+	if cfg.transportMode != "auto" {
+		t.Errorf("Expected transport mode 'auto', got '%s'", cfg.transportMode)
+	}
+}
+
+func TestParseRemainingArgs_ServerURLFromFlag(t *testing.T) {
+	// Server URL already set by flag.Parse(), remaining has transport only
+	remaining := []string{"--transport", "sse"}
+	cfg := parseRemainingArgs(remaining, cliConfig{
+		serverURL:     "https://already-set.com/mcp",
+		callbackPort:  3334,
+		transportMode: "auto",
+	})
+
+	if cfg.serverURL != "https://already-set.com/mcp" {
+		t.Errorf("Expected server URL 'https://already-set.com/mcp', got '%s'", cfg.serverURL)
+	}
+	if cfg.transportMode != "sse" {
+		t.Errorf("Expected transport mode 'sse', got '%s'", cfg.transportMode)
+	}
+}
+
+func TestParseRemainingArgs_SingleDashFlags(t *testing.T) {
+	remaining := []string{"https://example.com/mcp", "-transport", "streamable-http"}
+	cfg := parseRemainingArgs(remaining, cliConfig{
+		callbackPort:  3334,
+		transportMode: "auto",
+	})
+
+	if cfg.transportMode != "streamable-http" {
+		t.Errorf("Expected transport mode 'streamable-http', got '%s'", cfg.transportMode)
+	}
+}
+
+func TestApplyEnvOverrides_ServerURL(t *testing.T) {
+	t.Setenv("MCP_SERVER_URL", "https://env.example.com/mcp")
+
+	serverURL := ""
+	port := 3334
+	allowHTTP := false
+	transport := "auto"
+	headers := flagList{}
+
+	httpProxy := ""
+	applyEnvOverrides(&serverURL, &port, &allowHTTP, &transport, &httpProxy, &headers)
+
+	if serverURL != "https://env.example.com/mcp" {
+		t.Errorf("Expected server URL from env, got '%s'", serverURL)
+	}
+}
+
+func TestApplyEnvOverrides_CLITakesPrecedence(t *testing.T) {
+	t.Setenv("MCP_SERVER_URL", "https://env.example.com/mcp")
+	t.Setenv("MCP_TRANSPORT", "sse")
+
+	serverURL := "https://cli.example.com/mcp"
+	port := 3334
+	allowHTTP := false
+	transport := "streamable-http"
+	headers := flagList{}
+
+	httpProxy := ""
+	applyEnvOverrides(&serverURL, &port, &allowHTTP, &transport, &httpProxy, &headers)
+
+	if serverURL != "https://cli.example.com/mcp" {
+		t.Errorf("CLI server URL should take precedence, got '%s'", serverURL)
+	}
+	if transport != "streamable-http" {
+		t.Errorf("CLI transport should take precedence, got '%s'", transport)
+	}
+}
+
+func TestApplyEnvOverrides_AllowHTTP(t *testing.T) {
+	t.Setenv("MCP_ALLOW_HTTP", "true")
+
+	serverURL := ""
+	port := 3334
+	allowHTTP := false
+	transport := "auto"
+	headers := flagList{}
+
+	httpProxy := ""
+	applyEnvOverrides(&serverURL, &port, &allowHTTP, &transport, &httpProxy, &headers)
+
+	if !allowHTTP {
+		t.Error("Expected allowHTTP to be true from env")
+	}
+}
+
+func TestApplyEnvOverrides_AuthHeader(t *testing.T) {
+	t.Setenv("MCP_AUTH_HEADER", "Bearer secret-token")
+
+	serverURL := ""
+	port := 3334
+	allowHTTP := false
+	transport := "auto"
+	headers := flagList{}
+
+	httpProxy := ""
+	applyEnvOverrides(&serverURL, &port, &allowHTTP, &transport, &httpProxy, &headers)
+
+	if len(headers) != 1 || headers[0] != "Authorization:Bearer secret-token" {
+		t.Errorf("Expected Authorization header, got %v", headers)
+	}
+}
+
+func TestApplyEnvOverrides_Port(t *testing.T) {
+	t.Setenv("MCP_PORT", "9090")
+
+	serverURL := ""
+	port := 3334
+	allowHTTP := false
+	transport := "auto"
+	headers := flagList{}
+
+	httpProxy := ""
+	applyEnvOverrides(&serverURL, &port, &allowHTTP, &transport, &httpProxy, &headers)
+
+	if port != 9090 {
+		t.Errorf("Expected port 9090 from env, got %d", port)
+	}
+}
+
+func TestApplyEnvOverrides_NoEnvVars(t *testing.T) {
+	t.Setenv("MCP_SERVER_URL", "")
+	t.Setenv("MCP_TRANSPORT", "")
+	t.Setenv("MCP_PORT", "")
+	t.Setenv("MCP_HTTPS_PROXY", "")
+	t.Setenv("MCP_ALLOW_HTTP", "")
+	t.Setenv("MCP_AUTH_HEADER", "")
+
+	serverURL := "https://original.com/mcp"
+	port := 3334
+	allowHTTP := false
+	transport := "auto"
+	headers := flagList{}
+
+	httpProxy := ""
+	applyEnvOverrides(&serverURL, &port, &allowHTTP, &transport, &httpProxy, &headers)
+
+	if serverURL != "https://original.com/mcp" {
+		t.Errorf("Server URL should be unchanged, got '%s'", serverURL)
+	}
+	if port != 3334 {
+		t.Errorf("Port should be unchanged, got %d", port)
+	}
+	if allowHTTP {
+		t.Error("allowHTTP should be false")
+	}
+	if transport != "auto" {
+		t.Errorf("Transport should be unchanged, got '%s'", transport)
+	}
+	if len(headers) != 0 {
+		t.Errorf("Headers should be empty, got %v", headers)
+	}
+}
+
+func TestParseRemainingArgs_HttpsProxyAfterURL(t *testing.T) {
+	remaining := []string{"https://example.com/mcp", "--https-proxy", "http://proxy:8080"}
+	cfg := parseRemainingArgs(remaining, cliConfig{
+		callbackPort:  3334,
+		transportMode: "auto",
+	})
+
+	if cfg.httpProxy != "http://proxy:8080" {
+		t.Errorf("Expected proxy 'http://proxy:8080', got '%s'", cfg.httpProxy)
+	}
+}
+
+func TestParseRemainingArgs_HttpsProxyEqualsForm(t *testing.T) {
+	remaining := []string{"https://example.com/mcp", "--https-proxy=http://proxy:3128"}
+	cfg := parseRemainingArgs(remaining, cliConfig{
+		callbackPort:  3334,
+		transportMode: "auto",
+	})
+
+	if cfg.httpProxy != "http://proxy:3128" {
+		t.Errorf("Expected proxy 'http://proxy:3128', got '%s'", cfg.httpProxy)
+	}
+}
+
+func TestApplyEnvOverrides_Proxy(t *testing.T) {
+	t.Setenv("MCP_HTTPS_PROXY", "http://env-proxy:8080")
+
+	serverURL := ""
+	port := 3334
+	allowHTTP := false
+	transport := "auto"
+	httpProxy := ""
+	headers := flagList{}
+
+	applyEnvOverrides(&serverURL, &port, &allowHTTP, &transport, &httpProxy, &headers)
+
+	if httpProxy != "http://env-proxy:8080" {
+		t.Errorf("Expected proxy from env, got '%s'", httpProxy)
+	}
+}
+
+func TestApplyEnvOverrides_ProxyCLITakesPrecedence(t *testing.T) {
+	t.Setenv("MCP_HTTPS_PROXY", "http://env-proxy:8080")
+
+	serverURL := ""
+	port := 3334
+	allowHTTP := false
+	transport := "auto"
+	httpProxy := "http://cli-proxy:3128"
+	headers := flagList{}
+
+	applyEnvOverrides(&serverURL, &port, &allowHTTP, &transport, &httpProxy, &headers)
+
+	if httpProxy != "http://cli-proxy:3128" {
+		t.Errorf("CLI proxy should take precedence, got '%s'", httpProxy)
+	}
+}
+
+func TestApplyEnvOverrides_AllowHTTPCLITakesPrecedence(t *testing.T) {
+	t.Setenv("MCP_ALLOW_HTTP", "true")
+
+	serverURL := ""
+	port := 3334
+	allowHTTP := true // already set by CLI
+	transport := "auto"
+	httpProxy := ""
+	headers := flagList{}
+
+	applyEnvOverrides(&serverURL, &port, &allowHTTP, &transport, &httpProxy, &headers)
+
+	// Should remain true (CLI already set it)
+	if !allowHTTP {
+		t.Error("allowHTTP should remain true")
+	}
+}
+
+func TestApplyEnvOverrides_AuthHeaderCLITakesPrecedence(t *testing.T) {
+	t.Setenv("MCP_AUTH_HEADER", "Bearer env-token")
+
+	serverURL := ""
+	port := 3334
+	allowHTTP := false
+	transport := "auto"
+	httpProxy := ""
+	headers := flagList{"Authorization:Bearer cli-token"}
+
+	applyEnvOverrides(&serverURL, &port, &allowHTTP, &transport, &httpProxy, &headers)
+
+	// Should not add duplicate Authorization header
+	if len(headers) != 1 {
+		t.Errorf("Expected 1 header (CLI takes precedence), got %d: %v", len(headers), headers)
+	}
+	if headers[0] != "Authorization:Bearer cli-token" {
+		t.Errorf("Expected CLI auth header, got '%s'", headers[0])
+	}
+}
+
+func TestApplyEnvOverrides_HeadersAppendsMultiple(t *testing.T) {
+	t.Setenv("MCP_HEADERS", "X-API-Key: key1\nX-Tenant: acme")
+
+	serverURL := ""
+	port := 3334
+	allowHTTP := false
+	transport := "auto"
+	httpProxy := ""
+	headers := flagList{}
+
+	applyEnvOverrides(&serverURL, &port, &allowHTTP, &transport, &httpProxy, &headers)
+
+	want := []string{"X-API-Key: key1", "X-Tenant: acme"}
+	if len(headers) != len(want) {
+		t.Fatalf("got %d headers, want %d: %v", len(headers), len(want), headers)
+	}
+	for i, h := range want {
+		if headers[i] != h {
+			t.Errorf("headers[%d] = %q, want %q", i, headers[i], h)
+		}
+	}
+}
+
+func TestApplyEnvOverrides_HeadersIgnoresBlanksAndInvalidLines(t *testing.T) {
+	// CRLF, blank lines, and a line without ':' should be skipped.
+	t.Setenv("MCP_HEADERS", "\r\nX-A: 1\r\n\r\nnocolon\r\nX-B: 2\r\n")
+
+	headers := flagList{}
+	serverURL, port, allowHTTP, transport, httpProxy := "", 3334, false, "auto", ""
+	applyEnvOverrides(&serverURL, &port, &allowHTTP, &transport, &httpProxy, &headers)
+
+	want := []string{"X-A: 1", "X-B: 2"}
+	if len(headers) != 2 {
+		t.Fatalf("got %d headers, want %d: %v", len(headers), len(want), headers)
+	}
+	for i, h := range want {
+		if headers[i] != h {
+			t.Errorf("headers[%d] = %q, want %q", i, headers[i], h)
+		}
+	}
+}
+
+func TestApplyEnvOverrides_HeadersPlusAuthHeaderCombine(t *testing.T) {
+	t.Setenv("MCP_HEADERS", "X-API-Key: secret")
+	t.Setenv("MCP_AUTH_HEADER", "Bearer token")
+
+	headers := flagList{}
+	serverURL, port, allowHTTP, transport, httpProxy := "", 3334, false, "auto", ""
+	applyEnvOverrides(&serverURL, &port, &allowHTTP, &transport, &httpProxy, &headers)
+
+	want := []string{"X-API-Key: secret", "Authorization:Bearer token"}
+	if len(headers) != len(want) {
+		t.Fatalf("got %d headers, want %d: %v", len(headers), len(want), headers)
+	}
+	for i, h := range want {
+		if headers[i] != h {
+			t.Errorf("headers[%d] = %q, want %q", i, headers[i], h)
+		}
+	}
+}
+
+// TestApplyEnvOverrides_HeadersEscapedNewlineFallback covers the case where
+// the platform cannot embed real newlines in an env var (MCPB single-line
+// text field, Windows CMD double quotes, regular bash double quotes) so the
+// caller resorts to the literal "\n" two-character escape sequence.
+func TestApplyEnvOverrides_HeadersEscapedNewlineFallback(t *testing.T) {
+	t.Setenv("MCP_HEADERS", `X-A: 1\nX-B: 2\nX-C: 3`)
+
+	headers := flagList{}
+	serverURL, port, allowHTTP, transport, httpProxy := "", 3334, false, "auto", ""
+	applyEnvOverrides(&serverURL, &port, &allowHTTP, &transport, &httpProxy, &headers)
+
+	want := []string{"X-A: 1", "X-B: 2", "X-C: 3"}
+	if len(headers) != len(want) {
+		t.Fatalf("got %d headers, want %d: %v", len(headers), len(want), headers)
+	}
+	for i, h := range want {
+		if headers[i] != h {
+			t.Errorf("headers[%d] = %q, want %q", i, headers[i], h)
+		}
+	}
+}
+
+// TestApplyEnvOverrides_HeadersRealNewlinePreservesLiteralBackslashN ensures
+// that when real newlines are present the literal "\n" sequence is NOT
+// reinterpreted, so a header value legitimately containing those two
+// characters survives unchanged.
+func TestApplyEnvOverrides_HeadersRealNewlinePreservesLiteralBackslashN(t *testing.T) {
+	t.Setenv("MCP_HEADERS", "X-Weird: foo\\nbar\nX-Plain: ok")
+
+	headers := flagList{}
+	serverURL, port, allowHTTP, transport, httpProxy := "", 3334, false, "auto", ""
+	applyEnvOverrides(&serverURL, &port, &allowHTTP, &transport, &httpProxy, &headers)
+
+	want := []string{`X-Weird: foo\nbar`, "X-Plain: ok"}
+	if len(headers) != len(want) {
+		t.Fatalf("got %d headers, want %d: %v", len(headers), len(want), headers)
+	}
+	for i, h := range want {
+		if headers[i] != h {
+			t.Errorf("headers[%d] = %q, want %q", i, headers[i], h)
+		}
+	}
+}
+
+// TestApplyEnvOverrides_HeadersAuthorizationSuppressesAuthHeader verifies that
+// when MCP_HEADERS already carries an Authorization line, the legacy
+// MCP_AUTH_HEADER does not also append a duplicate.
+func TestApplyEnvOverrides_HeadersAuthorizationSuppressesAuthHeader(t *testing.T) {
+	t.Setenv("MCP_HEADERS", "Authorization: Bearer from-headers")
+	t.Setenv("MCP_AUTH_HEADER", "Bearer from-auth-header")
+
+	headers := flagList{}
+	serverURL, port, allowHTTP, transport, httpProxy := "", 3334, false, "auto", ""
+	applyEnvOverrides(&serverURL, &port, &allowHTTP, &transport, &httpProxy, &headers)
+
+	if len(headers) != 1 {
+		t.Fatalf("expected 1 header, got %d: %v", len(headers), headers)
+	}
+	if headers[0] != "Authorization: Bearer from-headers" {
+		t.Errorf("headers[0] = %q, want %q", headers[0], "Authorization: Bearer from-headers")
+	}
+}
+
+func TestApplyEnvOverrides_NumberedHeadersAppend(t *testing.T) {
+	// MCPB per-row Custom Header fields arrive as MCP_HEADER_1..5.
+	t.Setenv("MCP_HEADER_1", "X-API-Key: key1")
+	t.Setenv("MCP_HEADER_3", "X-Tenant: acme")
+
+	headers := flagList{}
+	serverURL, port, allowHTTP, transport, httpProxy := "", 3334, false, "auto", ""
+	applyEnvOverrides(&serverURL, &port, &allowHTTP, &transport, &httpProxy, &headers)
+
+	want := []string{"X-API-Key: key1", "X-Tenant: acme"}
+	if len(headers) != len(want) {
+		t.Fatalf("got %d headers, want %d: %v", len(headers), len(want), headers)
+	}
+	for i, h := range want {
+		if headers[i] != h {
+			t.Errorf("headers[%d] = %q, want %q", i, headers[i], h)
+		}
+	}
+}
+
+func TestApplyEnvOverrides_NumberedHeaderEmptyNameSkipped(t *testing.T) {
+	// An unused MCPB row where only the sensitive value field was filled
+	// arrives as a bare ":value" and must not produce an empty-name header.
+	t.Setenv("MCP_HEADER_1", ": orphan-value")
+	t.Setenv("MCP_HEADER_2", "X-Real: ok")
+
+	headers := flagList{}
+	serverURL, port, allowHTTP, transport, httpProxy := "", 3334, false, "auto", ""
+	applyEnvOverrides(&serverURL, &port, &allowHTTP, &transport, &httpProxy, &headers)
+
+	if len(headers) != 1 || headers[0] != "X-Real: ok" {
+		t.Fatalf("expected only the named header, got %v", headers)
+	}
+}
+
+func TestApplyEnvOverrides_NumberedHeaderUnsubstitutedPlaceholderSkipped(t *testing.T) {
+	// Claude Desktop leaves "${user_config.NAME}" literally in place when an
+	// optional field is blank. Such rows must be ignored, not sent as headers.
+	t.Setenv("MCP_HEADER_1", "${user_config.header_1_name}: ${user_config.header_1_value}")
+	t.Setenv("MCP_HEADER_2", "X-Real: ok")
+
+	headers := flagList{}
+	serverURL, port, allowHTTP, transport, httpProxy := "", 3334, false, "auto", ""
+	applyEnvOverrides(&serverURL, &port, &allowHTTP, &transport, &httpProxy, &headers)
+
+	if len(headers) != 1 || headers[0] != "X-Real: ok" {
+		t.Fatalf("expected only the resolved header, got %v", headers)
+	}
+}
+
+func TestApplyEnvOverrides_HeadersAuthorizationWithSpaceSuppressesAuthHeader(t *testing.T) {
+	// Whitespace around the colon must not defeat duplicate detection:
+	// headerMap construction trims both sides to the same "Authorization" key.
+	t.Setenv("MCP_HEADERS", "Authorization : Bearer from-headers")
+	t.Setenv("MCP_AUTH_HEADER", "Bearer from-auth-header")
+
+	headers := flagList{}
+	serverURL, port, allowHTTP, transport, httpProxy := "", 3334, false, "auto", ""
+	applyEnvOverrides(&serverURL, &port, &allowHTTP, &transport, &httpProxy, &headers)
+
+	if len(headers) != 1 {
+		t.Fatalf("expected 1 header, got %d: %v", len(headers), headers)
+	}
+	if headers[0] != "Authorization : Bearer from-headers" {
+		t.Errorf("headers[0] = %q, want the MCP_HEADERS entry", headers[0])
+	}
+}
+
+func TestApplyEnvOverrides_ProxyWithNonMCPBPlaceholderKept(t *testing.T) {
+	// Only unsubstituted "${user_config.*}" templates are treated as unset;
+	// other "${...}" content is a legitimate value and must pass through.
+	t.Setenv("MCP_HTTPS_PROXY", "http://${HOST}:8080")
+
+	headers := flagList{}
+	serverURL, port, allowHTTP, transport, httpProxy := "", 3334, false, "auto", ""
+	applyEnvOverrides(&serverURL, &port, &allowHTTP, &transport, &httpProxy, &headers)
+
+	if httpProxy != "http://${HOST}:8080" {
+		t.Fatalf("expected proxy to pass through, got %q", httpProxy)
+	}
+}
+
+func TestApplyEnvOverrides_NumberedHeaderInvalidNameSkipped(t *testing.T) {
+	// A human-readable label typed into the header-name field (spaces are not
+	// valid in an HTTP header name) must be skipped, not crash the connection.
+	t.Setenv("MCP_HEADER_1", "Redash API Key: secret-token")
+	t.Setenv("MCP_HEADER_2", "X-Redash-API-Key: secret-token")
+
+	headers := flagList{}
+	serverURL, port, allowHTTP, transport, httpProxy := "", 3334, false, "auto", ""
+	applyEnvOverrides(&serverURL, &port, &allowHTTP, &transport, &httpProxy, &headers)
+
+	if len(headers) != 1 || headers[0] != "X-Redash-API-Key: secret-token" {
+		t.Fatalf("expected only the valid header, got %v", headers)
+	}
+}
+
+func TestApplyEnvOverrides_ProxyUnsubstitutedPlaceholderSkipped(t *testing.T) {
+	t.Setenv("MCP_HTTPS_PROXY", "${user_config.http_proxy}")
+
+	headers := flagList{}
+	serverURL, port, allowHTTP, transport, httpProxy := "", 3334, false, "auto", ""
+	applyEnvOverrides(&serverURL, &port, &allowHTTP, &transport, &httpProxy, &headers)
+
+	if httpProxy != "" {
+		t.Fatalf("expected proxy to stay unset, got %q", httpProxy)
+	}
+}
+
+func TestApplyEnvOverrides_AuthHeaderUnsubstitutedPlaceholderSkipped(t *testing.T) {
+	t.Setenv("MCP_AUTH_HEADER", "${user_config.auth_header}")
+
+	headers := flagList{}
+	serverURL, port, allowHTTP, transport, httpProxy := "", 3334, false, "auto", ""
+	applyEnvOverrides(&serverURL, &port, &allowHTTP, &transport, &httpProxy, &headers)
+
+	if len(headers) != 0 {
+		t.Fatalf("expected no headers, got %v", headers)
+	}
+}

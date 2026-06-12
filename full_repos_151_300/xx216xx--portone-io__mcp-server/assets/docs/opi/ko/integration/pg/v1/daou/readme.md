@@ -1,0 +1,489 @@
+---
+title: 키움페이 (다우데이타/페이조아)
+description: 키움페이 연동 방법을 안내합니다.
+targetVersions:
+  - v1
+---
+
+## 1. 키움페이 채널 설정하기
+
+[결제대행사 채널 설정하기](https://developers.portone.io/opi/ko/integration/ready/readme#3-결제대행사-채널-설정하기) 페이지의 내용을 참고하여 채널 설정을 진행합니다.
+
+(관련 이미지 첨부)
+
+## 2.결제 요청하기
+
+[JavaScript SDK](https://developers.portone.io/sdk/ko/v1-sdk/javascript-sdk-old/readme) `IMP.request_pay(param, callback)`을 호출하여 키움페이 결제창을 호출할 수 있습니다. **결제 결과**는 PC의 경우 `IMP.request_pay(param, callback)` 호출 후 **callback**으로 수신되고 모바일의 경우 **m\_redirect\_url**로 리디렉션됩니다.
+
+<div class="tabs-container">
+
+<div class="tabs-content" data-title="인증결제창 요청">
+
+```ts title="Javascript SDK"
+IMP.request_pay(
+  {
+    channelKey: "{콘솔 내 연동 정보의 채널키}",
+    pay_method: "card",
+    merchant_uid: "mid_1234567890",
+    escrow: false,
+    amount: 1004,
+    name: "노스페이스 롱패딩 M",
+    buyer_name: "홍길동",
+    buyer_email: "hello@world.com",
+    buyer_tel: "01012345678",
+    digital: false, // 디지털로 계약되었다면 true로 설정
+    m_redirect_url: "https://allerts.com/payments/complete",
+    bypass: {
+      // 키움페이 전용 파라미터
+      daou: {
+        PRODUCTCODE: "portone",
+        CASHRECEIPTFLAG: 0,
+      },
+    },
+    app_scheme: "portoneappscheme",
+  },
+  function (rsp) {
+    // callback 로직
+    // * ...중략... *
+  },
+);
+```
+
+**주요 파라미터 설명**
+
+- channelKey: string
+
+  **채널키**
+
+  결제를 진행할 채널을 지정합니다.
+
+  포트원 콘솔 내 \[결제 연동] - \[연동 정보] - \[채널 관리] 에서 확인 가능합니다.
+
+  (최신 JavaScript SDK 버전부터 사용 가능합니다.)
+
+- pg(deprecated)?: string
+
+  **PG사 구분코드**
+
+  `daou` 로 지정하면 됩니다.
+
+  <div class="hint" data-style="warning">
+
+  `pg` 파라미터는 지원 중단 예정입니다.
+
+  JS SDK를 가장 최신 버전으로 업그레이드 후 `channelKey` 파라미터로 채널 설정(PG사 구분)을 대체해주세요.
+
+  </div>
+
+- pay\_method: string
+
+  **결제수단 구분코드**
+
+  - card (신용카드)
+  - trans (실시간 계좌이체)
+  - vbank (가상계좌)
+  - kakaopay (카카오페이)
+  - naverpay (네이버페이)
+  - payco (페이코)
+  - samsung (삼성페이)
+  - applepay (애플페이)
+  - cultureland (컬쳐랜드 문화상품권)
+  - smartculture (스마트문화상품권)
+  - booknlife (도서문화상품권)
+  - phone (휴대폰결제)
+
+- merchant\_uid: string
+
+  **주문번호**
+
+  매번 고유하게 채번되어야 합니다.
+
+- name: string
+
+  **주문명**
+
+- amount: number
+
+  **결제금액**
+
+  **string** 이 아닌 점에 유의하세요.
+
+- buyer\_name?: string
+
+  **구매자 이름**
+
+- buyer\_email?: string
+
+  **구매자 이메일**
+
+- buyer\_tel?: string
+
+  **구매자 연락처**
+
+- buyer\_addr?: string
+
+  **구매자 주소**
+
+- buyer\_postcode?: string
+
+  **구매자 우편번호**
+
+- digital: boolean
+
+  **디지털 컨텐츠 여부**
+
+  고객사 <-> 키움페이간 계약 상태에 따라 정해진 올바른 값을 넣어야 함. 그렇지 않은 경우 결제 진행 불가
+
+- tax\_free?: number
+
+  **면세금액**
+
+- vbank\_due?: string
+
+  **가상계좌 입금마감일시**
+
+- m\_redirect\_url?: string
+
+  **모바일 결제 후 리디렉션 될 URL**
+
+- notice\_url?: string | string\[]
+
+  **웹훅 수신 URL**
+
+- custom\_data?: object
+
+  **가맹점 커스텀 데이터**
+
+- bypass?: object
+
+  **키움페이 전용 파라미터**
+
+  - daou?: object
+
+    - PRODUCTCODE?: string
+
+      **결제 상품 고유 번호**
+
+      값에 대해 정해진 규격이 없고 보내지 않을 경우 포트원에서 기본값(iamport)을 설정해 키움페이 측으로 전달
+
+    - CASHRECEIPTFLAG?: number | string
+
+      **현금영수증 발급 구분코드**
+
+      실시간 계좌이체, 가상계좌, 카카오페이 거래 시 키움페이에서 현금영수증 자동발급 여부 구분코드
+
+      - 실시간 계좌이체, 가상계좌인 경우
+        - `1`: 허용
+        - `0`: 차단
+
+      - 카카오페이인 경우
+        - `Y`: 허용
+        - `N`: 차단
+
+    - DIRECT\_YN?: string
+
+      **간편결제 다이렉트 호출 시 키움페이 페이지 노출여부**
+
+      `Y`로 입력하는 경우 키움페이 화면이 노출되지 않고 바로 간편결제 결제창이 호출됩니다.
+
+    - CARDQUOTA?: string
+
+      **카드사별 할부개월 수 설정**
+
+      `^` 로 구분된 다수의 카드 할부 설정 그룹으로 구성되며, 각 그룹은 `{키움페이_카드사_코드}-{할부_개월수_옵션1}:{할부_개월수_옵션2}:...` 형식으로 구성하여 카드사별 할부 개월 수를 지정합니다.
+
+      예시로 `CCBC-0:2:3:4:5:6^CCNH-0:2:3^CCKM-0:2:3:4` 를 입력하는 경우 BC카드는 일시불, 2, 3, 4, 5, 6개월, 농협카드는 일시불, 2, 3개월, 국민카드는 일시불, 2, 3, 4개월 할부가 선택 가능하도록 표시됩니다.
+
+      카드사 코드
+
+      |카드사 명   |코드|
+      |------------|----|
+      |비씨카드    |CCBC|
+      |국민카드    |CCKM|
+      |제주은행    |CCCJ|
+      |신한카드    |CCLG|
+      |씨티은행    |CCCT|
+      |롯데카드    |CCLO|
+      |신협카드    |CCCU|
+      |새마을금고  |CCMG|
+      |현대카드    |CCDI|
+      |NH카드      |CCNH|
+      |현대증권    |CCHD|
+      |우리카드    |CCPH|
+      |하나SK카드  |CCHN|
+      |우체국카드  |CCPO|
+      |전북은행    |CCJB|
+      |저축은행카드|CCSB|
+      |카카오뱅크  |CCKA|
+      |삼성카드    |CCSS|
+      |산은카드    |CCKD|
+      |수협        |CCSU|
+      |하나은행    |CCKE|
+      |토스뱅크    |CCTS|
+      |광주은행    |CCKJ|
+      |K뱅크       |CKBK|
+
+- escrow?: boolean
+
+  **에스크로 설정여부**
+
+  계좌이체,가상계좌만 지원됩니다.
+
+- app\_scheme?: string
+
+  **모바일 앱 URL Scheme**
+
+  모바일 앱 환경에서 결제시 필수 파라미터
+
+</div>
+
+<div class="tabs-content" data-title="비 인증 API 요청">
+
+**API 방식으로 빌링키 발급,결제요청,예약결제를 구현할수 있습니다.**
+
+**일회성 결제 요청하기**
+
+REST API [**POST /subscribe/payments/onetime**](https://developers.portone.io/api/rest-v1/nonAuthPayment?v=v1#post%20%2Fsubscribe%2Fpayments%2Fonetime)을 호출하여 일회성 결제를 요청합니다. 요청 시 전달된 카드는 포트원에 등록되지 않습니다.
+
+```sh
+curl -H "Content-Type: application/json" \
+     -X POST -d '{"merchant_uid":"order_id_8237352", "card_number":"1234-1234-1234-1234", "expiry":"2019-01", "birth":"123456", "amount":3000}' \
+     https://api.iamport.kr/subscribe/payments/onetime
+```
+
+**빌링키 발급 요청하기**
+
+REST API [**POST /subscribe/customers/{customer\_uid}**](https://developers.portone.io/api/rest-v1/billingkey?v=v1#post%20%2Fsubscribe%2Fcustomers%2F%7Bcustomer_uid%7D)를 호출하여 빌링키 발급을 요청합니다.
+
+```sh
+curl -H "Content-Type: application/json" \
+     -X POST -d '{"card_number":"1234-1234-1234-1234", "expiry":"2025-12", "birth":"820213", "pwd_2digit":"00"}' \
+     https://api.iamport.kr/subscribe/customers/your-customer-unique-id
+```
+
+**빌링키 발급 및 최초 결제 요청하기**
+
+REST API [**POST /subscribe/payments/onetime**](https://developers.portone.io/api/rest-v1/nonAuthPayment?v=v1#post%20%2Fsubscribe%2Fpayments%2Fonetime)을 호출하여 빌링키 발급과 최초 결제를 요청합니다.
+
+- **`customer_uid`** : 빌링키 등록을 위해서 지정해야 합니다.
+
+```sh
+curl -H "Content-Type: application/json" \
+     -X POST -d '{"customer_uid":"your-customer-unique-id", "merchant_uid":"order_id_8237352", "card_number":"1234-1234-1234-1234", "expiry":"2019-01", "birth":"123456", "amount":3000}' \
+     https://api.iamport.kr/subscribe/payments/onetime
+```
+
+**빌링키로 결제 요청하기**
+
+빌링키 발급과 최초 결제가 성공하면 빌링키는 전달된 `customer_uid` 와 1:1 매칭되어 포트원에 저장됩니다. 보안상의 이유로 서버는 빌링키에 직접 접근할 수 없기 때문에 `customer_uid`를 이용해서 빌링키 결제([**POST /subscribe/payments/again**](https://developers.portone.io/api/rest-v1/nonAuthPayment?v=v1#post%20%2Fsubscribe%2Fpayments%2Fagain)) REST API를 다음과 같이 호출합니다.
+
+```sh
+curl -H "Content-Type: application/json" \
+     -X POST -d '{"customer_uid":"your-customer-unique-id", "merchant_uid":"order_id_8237352", "amount":3000}' \
+     https://api.iamport.kr/subscribe/payments/again
+```
+
+**자세한 가이드는 아래 링크를 참조하세요**
+
+[비인증결제 연동하기](https://developers.portone.io/opi/ko/integration/start/v1/non-auth)
+
+</div>
+
+</div>
+
+## 3. 부가기능
+
+<div class="tabs-container">
+
+<div class="tabs-content" data-title="할부개월수 설정">
+
+```json
+{
+  "display": {
+    "card_quota": [6] // 할부개월 6개월까지만 활성화
+  }
+}
+```
+
+**파라미터 설명**
+
+- display?: object
+
+  **결제창에 렌더링될 카드 할부 개월수 리스트 설정값**
+
+  - card\_quota: number\[]
+
+    **할부 개월수**
+
+    예시
+
+    - `[]`: 일시불만 결제 가능
+    - `2,3,4,5,6`: 일시불을 포함한 2, 3, 4, 5, 6개월까지 할부개월 선택 가능
+    - `3`: 일시불을 포함한 2,3개월까지 할부개월 선택 가능
+
+<div class="hint" data-style="info">
+
+할부결제는 **5만원 이상 결제 요청시**에만 이용 가능합니다.
+
+</div>
+
+</div>
+
+<div class="tabs-content" data-title="카드사 모듈 바로 호출">
+
+```json
+{
+  "card": {
+    "direct": {
+      "code": "367",
+      "quota": 3
+    }
+  }
+}
+```
+
+**파라미터 설명**
+
+- card?: object
+
+  - direct?: object
+
+    - code?: string
+
+      **카드사 금융결제원 표준 코드**
+
+      [카드사 코드](https://developers.portone.io/opi/ko/support/code-info/card-code) 참조
+
+    - quota?: number
+
+      **할부 개월 수**
+
+      일시불일 시 0 으로 설정됩니다.
+
+</div>
+
+<div class="tabs-content" data-title="에스크로 결제">
+
+에스크로 결제를 위해서는 **`escrow`** 파라미터를 추가하고 **true** 값으로 설정해야 합니다. 에스크로 결제가 완료되면 고객사는 배송정보 등록을 진행해야 하며 해당 작업이 누락되는 경우 **정산이 진행되지 않습니다**. [**배송정보 등록**](https://developers.portone.io/api/rest-v1/escrow?v=v1#post%20%2Fescrows%2Flogis%2F%7Bimp_uid%7D) 및 [**배송수정 API**](https://developers.portone.io/api/rest-v1/escrow?v=v1#put%20%2Fescrows%2Flogis%2F%7Bimp_uid%7D) 를 이용하여 배송정보를 관리할 수 있습니다.
+
+```json title="API Body 예시"
+{
+  "logis": {
+    "invoice": "1728384716123",
+    "company": "CJGLS",
+    "receiving_at": "20220215",
+    "address": "성수이로20길16"
+  },
+  "receiver": {
+    "name": "홍길동"
+  },
+  "sender": {
+    "relationship": "본인"
+  }
+}
+```
+
+<div class="hint" data-style="danger">
+
+**주의사항**
+
+- 에스크로 배송정보 등록/수정 시 고객사가 전달한 배송정보(운송장 번호, 택배사 이름 등)에 대해 키움페이 측에서 유효성 체크를 하지 않습니다.
+
+</div>
+
+</div>
+
+<div class="tabs-content" data-title="통신사 노출 제어">
+
+```json title="모든 통신사 노출"
+{
+  "phone": {
+    "detail": [
+      {
+        "carrier": "*", // 모두 활성화
+        "enabled": true
+      }
+    ]
+  }
+}
+```
+
+```json title="특정 통신사만 노출"
+{
+  "phone": {
+    "detail": [
+      {
+        "carrier": "SKT", // SKT만 활성화
+        "enabled": true
+      }
+    ]
+  }
+}
+```
+
+```json title="2개 이상 통신사 노출"
+{
+  "phone": {
+    "detail": [
+      {
+        "carrier": "SKT",
+        "enabled": true
+      },
+      {
+        "carrier": "KTF",
+        "enabled": true
+      },
+      {
+        "carrier": "LGT",
+        "enabled": false
+      },
+      {
+        "carrier": "CJH",
+        "enabled": false
+      }
+    ]
+  }
+}
+// SKT, KTF 을 제외한 나머지 통신사는 비활성화 됩니다.
+```
+
+```json title="특정 통신사만 비노출"
+{
+  "phone": {
+    "detail": [
+      {
+        "carrier": "SKT",
+        "enabled": false
+      }
+    ]
+  }
+}
+```
+
+<div class="hint" data-style="info">
+
+`phone 파라미터 미 설정시`(기본값) 모든 통신사 노출됨
+
+</div>
+
+</div>
+
+<div class="tabs-content" data-title="휴대폰 번호 고정">
+
+```json
+{
+  "prefill": {
+    "phoneNumber": "휴대폰번호" // 휴대폰번호 입력(하이픈 제거)
+  }
+}
+```
+
+<div class="hint" data-style="info">
+
+휴대폰 결제시 해당 파라미터를 설정하면 휴대폰번호를 고정시킬수 있습니다.
+
+</div>
+
+</div>
+
+</div>

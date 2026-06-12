@@ -47,7 +47,6 @@
         "schema_dialect": "json-schema-2020-12 | zod-derived | pydantic-derived | unknown | absent"
       },
       "annotations": {
-        "title": "annotation title if present",
         "readOnlyHint": true,
         "destructiveHint": false,
         "idempotentHint": true,
@@ -61,7 +60,7 @@
         "raw": null,
         "extra_fields": {}
       }
-      }
+      
     },
     "code": {
       "entry_point": {
@@ -69,8 +68,9 @@
         "line_start": 1,
         "line_end": 20,
         "function_name": "handler or decorated function name if recoverable",
-        "function_content": "actual entry-point function body/source; for decorator style this may be the tool body itself",
+        "function_content": "actual entry-point function body/source; for decorator style this may be the tool body itself"
       },
       "handler_resolution": "null"
     }
+  }
 }

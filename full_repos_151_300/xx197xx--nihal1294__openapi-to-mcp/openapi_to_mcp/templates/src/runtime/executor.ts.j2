@@ -1,0 +1,135 @@
+import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
+import axios from 'axios';
+import * as http from 'http';
+import * as https from 'https';
+import { emitRequestAudit } from './audit.js';
+import { buildCacheKey, resolveCacheTtlMs, ToolResponseCache } from './cache.js';
+import { resolveCircuitBreakerSettings, ToolCircuitBreaker } from './circuit_breaker.js';
+import {
+  MAX_CONCURRENCY,
+  MAX_QUEUE_SIZE,
+  PER_TOOL_MAX_CONCURRENCY,
+  QUEUE_TIMEOUT_MS,
+  TARGET_API_BASE_URL,
+} from './config.js';
+import type { ToolRuntimeMetadata } from './generated.js';
+import { ConcurrencyLimiter } from './limiter.js';
+import { createRequestId } from './observability.js';
+import { resolveRateLimitPerMinute, ToolRateLimiter } from './rate_limit.js';
+import { executeWithResilience } from './resilience.js';
+import {
+  resolveRetryBudgetPerMinute,
+  resolveRetryMaxRetries,
+  ToolRetryBudget,
+} from './retry.js';
+import {
+  handleExecutionError,
+  prepareRequestContext,
+  tryCachedResult,
+  type ExecutionContext,
+} from './executor_support.js';
+
+export class ToolExecutor {
+  private readonly axiosInstance = axios.create({
+    baseURL: TARGET_API_BASE_URL,
+    httpAgent: new http.Agent({ keepAlive: true }),
+    httpsAgent: new https.Agent({ keepAlive: true }),
+  });
+  private readonly globalLimiter = new ConcurrencyLimiter(
+    MAX_CONCURRENCY,
+    MAX_QUEUE_SIZE,
+    QUEUE_TIMEOUT_MS
+  );
+  private readonly perToolLimiters = new Map<string, ConcurrencyLimiter>();
+  private readonly responseCache = new ToolResponseCache();
+  private readonly rateLimiter = new ToolRateLimiter();
+  private readonly retryBudget = new ToolRetryBudget();
+  private readonly circuitBreaker = new ToolCircuitBreaker();
+
+  public async execute(
+    toolName: string,
+    tool: ToolRuntimeMetadata,
+    args: Record<string, unknown>
+  ): Promise<CallToolResult> {
+    const context: ExecutionContext = {
+      requestId: createRequestId(),
+      startedAt: Date.now(),
+      toolName,
+      tool,
+    };
+    const cacheTtlMs = resolveCacheTtlMs(tool);
+    const cacheKey = cacheTtlMs > 0 ? buildCacheKey(toolName, args) : null;
+    const retryMaxRetries = resolveRetryMaxRetries(tool);
+    const retryBudgetPerMinute = resolveRetryBudgetPerMinute(tool);
+    const circuitBreakerSettings = resolveCircuitBreakerSettings(tool);
+    let acquiredGlobal = false;
+    let acquiredPerTool = false;
+    let requestAudited = false;
+
+    try {
+      const requestContext = prepareRequestContext(context, args);
+      emitRequestAudit(toolName, tool, requestContext, context.requestId);
+      requestAudited = true;
+      this.rateLimiter.assertAllowed(toolName, resolveRateLimitPerMinute(tool));
+      const cachedResult = tryCachedResult(this.responseCache, context, cacheKey);
+      if (cachedResult) {
+        return cachedResult;
+      }
+      const perToolLimiter = this.getPerToolLimiter(toolName, tool);
+      await this.globalLimiter.acquire();
+      acquiredGlobal = true;
+      await perToolLimiter.acquire();
+      acquiredPerTool = true;
+      return await executeWithResilience(
+        this.axiosInstance,
+        this.responseCache,
+        this.retryBudget,
+        this.circuitBreaker,
+        context,
+        requestContext,
+        cacheKey,
+        cacheTtlMs,
+        retryMaxRetries,
+        retryBudgetPerMinute,
+        circuitBreakerSettings
+      );
+    } catch (error) {
+      return handleExecutionError(context, error, requestAudited);
+    } finally {
+      this.releaseLimiters(acquiredGlobal, acquiredPerTool, toolName, tool);
+    }
+  }
+
+  private getPerToolLimiter(
+    toolName: string,
+    tool: ToolRuntimeMetadata
+  ): ConcurrencyLimiter {
+    const existing = this.perToolLimiters.get(toolName);
+    if (existing) {
+      return existing;
+    }
+    const maxConcurrency =
+      tool.execution?.maxConcurrency ?? PER_TOOL_MAX_CONCURRENCY;
+    const created = new ConcurrencyLimiter(
+      maxConcurrency,
+      MAX_QUEUE_SIZE,
+      QUEUE_TIMEOUT_MS
+    );
+    this.perToolLimiters.set(toolName, created);
+    return created;
+  }
+
+  private releaseLimiters(
+    acquiredGlobal: boolean,
+    acquiredPerTool: boolean,
+    toolName: string,
+    tool: ToolRuntimeMetadata
+  ): void {
+    if (acquiredPerTool) {
+      this.getPerToolLimiter(toolName, tool).release();
+    }
+    if (acquiredGlobal) {
+      this.globalLimiter.release();
+    }
+  }
+}

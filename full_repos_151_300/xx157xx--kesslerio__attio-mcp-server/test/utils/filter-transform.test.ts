@@ -1,0 +1,210 @@
+/**
+ * Tests for filter transformation utilities
+ */
+import { describe, expect, test } from 'vitest';
+import { FilterConditionType } from '../../src/types/attio';
+import { transformFiltersToApiFormat } from '../../src/utils/record-utils';
+import { FilterValidationError } from '../../src/errors/api-errors';
+
+describe('transformFiltersToApiFormat', () => {
+  // Test basic filter transformation
+  test('transforms a single filter condition correctly', async () => {
+    const filter = {
+      filters: [
+        {
+          attribute: { slug: 'stage' },
+          condition: FilterConditionType.EQUALS,
+          value: 'discovery',
+        },
+      ],
+    };
+
+    const result = await transformFiltersToApiFormat(filter);
+
+    expect(result).toEqual({
+      filter: {
+        stage: {
+          $eq: 'discovery',
+        },
+      },
+    });
+  });
+
+  // Test empty filters
+  test('returns empty object for undefined filters', async () => {
+    const result = await transformFiltersToApiFormat(undefined);
+    expect(result).toEqual({});
+  });
+
+  test('returns empty object for empty filters array', async () => {
+    const result = await transformFiltersToApiFormat({ filters: [] });
+    expect(result).toEqual({});
+  });
+
+  // Test AND logic (default behavior)
+  test('creates AND logic for multiple filters by default', async () => {
+    const filter = {
+      filters: [
+        {
+          attribute: { slug: 'stage' },
+          condition: FilterConditionType.EQUALS,
+          value: 'discovery',
+        },
+        {
+          attribute: { slug: 'value' },
+          condition: FilterConditionType.GREATER_THAN,
+          value: 10000,
+        },
+      ],
+    };
+
+    const result = await transformFiltersToApiFormat(filter);
+
+    expect(result).toEqual({
+      filter: {
+        stage: {
+          $eq: 'discovery',
+        },
+        value: {
+          $gt: 10000,
+        },
+      },
+    });
+  });
+
+  // Test OR logic
+  test('creates OR logic when matchAny is true', async () => {
+    const filter = {
+      filters: [
+        {
+          attribute: { slug: 'stage' },
+          condition: FilterConditionType.EQUALS,
+          value: 'discovery',
+        },
+        {
+          attribute: { slug: 'stage' },
+          condition: FilterConditionType.EQUALS,
+          value: 'proposal',
+        },
+      ],
+      matchAny: true,
+    };
+
+    const result = await transformFiltersToApiFormat(filter);
+
+    expect(result).toEqual({
+      filter: {
+        $or: [{ stage: { $eq: 'discovery' } }, { stage: { $eq: 'proposal' } }],
+      },
+    });
+  });
+
+  // Test different filter condition types
+  test('supports various filter condition types', async () => {
+    const filter = {
+      filters: [
+        {
+          attribute: { slug: 'name' },
+          condition: FilterConditionType.CONTAINS,
+          value: 'Tech',
+        },
+        {
+          attribute: { slug: 'created_at' },
+          condition: FilterConditionType.GREATER_THAN,
+          value: '2023-01-01',
+        },
+        {
+          attribute: { slug: 'is_active' },
+          condition: FilterConditionType.IS_SET,
+          value: null,
+        },
+      ],
+    };
+
+    const result = await transformFiltersToApiFormat(filter);
+
+    expect(result).toEqual({
+      filter: {
+        name: {
+          $contains: 'Tech',
+        },
+        created_at: {
+          $gt: '2023-01-01',
+        },
+        is_active: {
+          $not_empty: null,
+        },
+      },
+    });
+  });
+
+  // Test error cases
+  test('throws FilterValidationError for invalid filter condition', async () => {
+    const filter = {
+      filters: [
+        {
+          attribute: { slug: 'stage' },
+          condition: 'invalid_condition', // Invalid condition
+          value: 'discovery',
+        },
+      ],
+    };
+
+    await expect(() => transformFiltersToApiFormat(filter)).rejects.toThrow(
+      FilterValidationError
+    );
+  });
+
+  test('skips filters with missing attribute slug', async () => {
+    const filter = {
+      filters: [
+        {
+          attribute: { slug: '' }, // Empty slug
+          condition: FilterConditionType.EQUALS,
+          value: 'discovery',
+        },
+      ],
+    };
+
+    const result = await transformFiltersToApiFormat(filter);
+    expect(result).toEqual({});
+  });
+
+  test('skips filters with missing condition', async () => {
+    const filter = {
+      filters: [
+        {
+          attribute: { slug: 'stage' },
+          condition: undefined as any, // Missing condition
+          value: 'discovery',
+        },
+      ],
+    };
+
+    const result = await transformFiltersToApiFormat(filter);
+    expect(result).toEqual({});
+  });
+
+  // Test validation bypassing
+  test('skips condition validation when validateConditions is false', async () => {
+    const filter = {
+      filters: [
+        {
+          attribute: { slug: 'stage' },
+          condition: 'custom_condition', // Would normally be invalid
+          value: 'discovery',
+        },
+      ],
+    };
+
+    const result = await transformFiltersToApiFormat(filter, false);
+
+    expect(result).toEqual({
+      filter: {
+        stage: {
+          $custom_condition: 'discovery',
+        },
+      },
+    });
+  });
+});

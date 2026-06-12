@@ -1,0 +1,169 @@
+import {
+  PERFORMANCE_PRESETS,
+  parsePerformancePreset,
+  type PerformancePresetKey,
+} from './performance_preset.js';
+
+export const PLACEHOLDER_BASE_URL = 'YOUR_API_BASE_URL_HERE';
+// Validate critical runtime config at import time so invalid deployments fail fast.
+export const TARGET_API_BASE_URL = parseBaseUrlEnv();
+export const TARGET_API_AUTH_HEADER = process.env.TARGET_API_AUTH_HEADER;
+
+export const PERFORMANCE_PRESET = parsePerformancePreset(
+  process.env.MCP_PERFORMANCE_PRESET
+);
+
+export const MAX_CONCURRENCY = parseIntegerEnv(
+  'MCP_MAX_CONCURRENCY',
+  presetFallback('maxConcurrency', 32),
+  1
+);
+export const PER_TOOL_MAX_CONCURRENCY = parseIntegerEnv(
+  'MCP_PER_TOOL_MAX_CONCURRENCY',
+  presetFallback('perToolMaxConcurrency', 8),
+  1
+);
+export const MAX_QUEUE_SIZE = parseIntegerEnv(
+  'MCP_MAX_QUEUE_SIZE',
+  presetFallback('maxQueueSize', 256),
+  0
+);
+export const QUEUE_TIMEOUT_MS = parseIntegerEnv(
+  'MCP_QUEUE_TIMEOUT_MS',
+  presetFallback('queueTimeoutMs', 5000),
+  0
+);
+export const TOOL_TIMEOUT_MS = parseIntegerEnv(
+  'MCP_TOOL_TIMEOUT_MS',
+  presetFallback('toolTimeoutMs', 30000),
+  1
+);
+export const CACHE_TTL_MS = parseIntegerEnv(
+  'MCP_CACHE_TTL_MS',
+  presetFallback('cacheTtlMs', 0),
+  0
+);
+export const CACHE_MAX_ENTRIES = parseIntegerEnv(
+  'MCP_CACHE_MAX_ENTRIES',
+  presetFallback('cacheMaxEntries', 1000),
+  1
+);
+export const RATE_LIMIT_PER_MINUTE = parseIntegerEnv(
+  'MCP_RATE_LIMIT_PER_MINUTE',
+  presetFallback('rateLimitPerMinute', 0),
+  0
+);
+export const RETRY_MAX_RETRIES = parseIntegerEnv(
+  'MCP_RETRY_MAX_RETRIES',
+  presetFallback('retryMaxRetries', 0),
+  0
+);
+export const RETRY_BUDGET_PER_MINUTE = parseIntegerEnv(
+  'MCP_RETRY_BUDGET_PER_MINUTE',
+  presetFallback('retryBudgetPerMinute', 0),
+  0
+);
+export const CIRCUIT_BREAKER_FAILURE_THRESHOLD = parseIntegerEnv(
+  'MCP_CIRCUIT_BREAKER_FAILURE_THRESHOLD',
+  presetFallback('circuitBreakerFailureThreshold', 0),
+  0
+);
+export const CIRCUIT_BREAKER_COOLDOWN_MS = parseIntegerEnv(
+  'MCP_CIRCUIT_BREAKER_COOLDOWN_MS',
+  presetFallback('circuitBreakerCooldownMs', 30000),
+  1
+);
+export const TOOL_ACCESS_MODE = parseChoiceEnv('MCP_TOOL_ACCESS_MODE', 'off', [
+  'off',
+  'allowlist',
+]);
+export const TOOL_ACCESS_DEFAULT = parseChoiceEnv(
+  'MCP_TOOL_ACCESS_DEFAULT',
+  'allow',
+  ['allow', 'deny']
+);
+export const TOOL_IDENTITY_HEADER = normalizeHeaderName(
+  process.env.MCP_TOOL_IDENTITY_HEADER
+);
+export const TOOL_ALLOWLISTS_JSON = process.env.MCP_TOOL_ALLOWLISTS?.trim() || '';
+export const AUDIT_MODE = parseChoiceEnv('MCP_AUDIT_MODE', 'off', ['off', 'logs']);
+export const AUDIT_REDACT_HEADERS = parseCsvEnv('MCP_AUDIT_REDACT_HEADERS');
+export const AUDIT_REDACT_QUERY_PARAMS = parseCsvEnv(
+  'MCP_AUDIT_REDACT_QUERY_PARAMS'
+);
+export const AUDIT_REDACT_COOKIE_NAMES = parseCsvEnv(
+  'MCP_AUDIT_REDACT_COOKIE_NAMES'
+);
+export const AUDIT_REDACT_REQUEST_BODY_PATHS = parseCsvEnv(
+  'MCP_AUDIT_REDACT_REQUEST_BODY_PATHS'
+);
+export const AUDIT_REDACT_RESPONSE_BODY_PATHS = parseCsvEnv(
+  'MCP_AUDIT_REDACT_RESPONSE_BODY_PATHS'
+);
+
+function parseBaseUrlEnv(): string {
+  const raw = process.env.TARGET_API_BASE_URL?.trim() || '';
+  if (!raw || raw === PLACEHOLDER_BASE_URL) {
+    throw new Error('TARGET_API_BASE_URL must be set to an absolute http(s) URL.');
+  }
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    throw new Error(`TARGET_API_BASE_URL must be an absolute http(s) URL. Received '${raw}'.`);
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new Error(`TARGET_API_BASE_URL must use http or https. Received '${raw}'.`);
+  }
+  return raw;
+}
+
+function parseIntegerEnv(envName: string, fallback: number, minimum: number): number {
+  const raw = process.env[envName]?.trim();
+  if (!raw) {
+    return fallback;
+  }
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isInteger(parsed) || parsed < minimum) {
+    throw new Error(`${envName} must be an integer >= ${minimum}. Received '${raw}'.`);
+  }
+  return parsed;
+}
+
+function presetFallback(key: PerformancePresetKey, fallback: number): number {
+  if (PERFORMANCE_PRESET === 'off') {
+    return fallback;
+  }
+  return PERFORMANCE_PRESETS[PERFORMANCE_PRESET][key];
+}
+
+function parseChoiceEnv<T extends string>(
+  envName: string,
+  fallback: T,
+  choices: T[]
+): T {
+  const raw = process.env[envName]?.trim() as T | undefined;
+  if (!raw) {
+    return fallback;
+  }
+  if (!choices.includes(raw)) {
+    throw new Error(`${envName} must be one of: ${choices.join(', ')}. Received '${raw}'.`);
+  }
+  return raw;
+}
+
+function normalizeHeaderName(value: string | undefined): string | null {
+  const normalized = value?.trim().toLowerCase();
+  return normalized || null;
+}
+
+function parseCsvEnv(envName: string): string[] {
+  const raw = process.env[envName]?.trim() || '';
+  if (!raw) {
+    return [];
+  }
+  return raw
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+}

@@ -1,0 +1,15 @@
+{
+    "mcpServers": {
+      "evm-mcp-server": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "@sinco-lab/evm-mcp-server"
+        ],
+        "env": {
+          "WALLET_PRIVATE_KEY": "0x...",
+          "RPC_PROVIDER_URL": "..."
+      }
+      }
+    }
+}

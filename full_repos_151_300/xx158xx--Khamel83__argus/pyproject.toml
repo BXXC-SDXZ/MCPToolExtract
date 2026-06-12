@@ -1,0 +1,72 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "argus-search"
+version = "1.6.2"
+description = "Retrieval platform for AI agents — 14 search providers, 12-step content extraction, dead URL recovery, site capture, and local corpus storage. One API."
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.11"
+keywords = ["mcp", "mcp-server", "search", "search-api", "search-broker", "content-extraction", "ai-agents", "llm-tools", "web-search", "fastapi", "brave-search", "serper", "tavily", "exa", "searxng", "trafilatura", "jina", "you-com", "linkup", "parallel-ai", "crawl4ai", "acquisition-layer", "topology-aware"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "pydantic>=2.5.0",
+    "sqlalchemy>=2.0.0",
+    "psycopg2-binary>=2.9.0",
+    "httpx>=0.27.0",
+    "click>=8.1.0",
+    "platformdirs>=4.3.0",
+    "pyyaml>=6.0",
+    "trafilatura>=1.6.0",
+    "ddgs>=9.0",
+    "playwright>=1.40.0",
+    "jinja2>=3.1.0",
+    "python-multipart>=0.0.9",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "httpx>=0.27.0",
+]
+mcp = [
+    "mcp>=1.0.0",
+]
+crawl4ai = [
+    "crawl4ai>=0.4",
+]
+
+[project.scripts]
+argus = "argus.cli.main:cli"
+
+[project.urls]
+Homepage = "https://github.com/Khamel83/argus"
+Repository = "https://github.com/Khamel83/argus"
+Documentation = "https://github.com/Khamel83/argus#readme"
+Changelog = "https://github.com/Khamel83/argus/blob/main/CHANGELOG.md"
+Issues = "https://github.com/Khamel83/argus/issues"
+
+[tool.setuptools.packages.find]
+include = ["argus*"]
+
+[tool.setuptools.package-data]
+"argus.api" = ["templates/*.html"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

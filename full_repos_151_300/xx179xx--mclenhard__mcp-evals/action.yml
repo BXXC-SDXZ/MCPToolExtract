@@ -1,0 +1,73 @@
+name: 'MCP Tool Evaluator'
+description: 'Run MCP tool evaluations'
+author: 'Matthew Lenhard'
+branding:
+  icon: 'check-circle'
+  color: 'green'
+
+inputs:
+  evals_path:
+    description: 'Path to the evals file'
+    required: true
+    default: 'evals.ts'
+  openai_api_key:
+    description: 'OpenAI API key'
+    required: true
+  model:
+    description: 'Model to use for evaluation'
+    required: false
+    default: 'gpt-4'
+  timeout:
+    description: 'Timeout in milliseconds for each tool call'
+    required: false
+    default: '5000'
+  server_path:
+    description: 'Path to the MCP server code (relative to repository root)'
+    required: false
+    default: '.'
+
+outputs:
+  accuracy:
+    description: 'Accuracy score from 0-100'
+  completeness:
+    description: 'Completeness score from 0-100'
+  relevance:
+    description: 'Relevance score from 0-100'
+  clarity:
+    description: 'Clarity score from 0-100'
+  reasoning:
+    description: 'Reasoning score from 0-100'
+  overall_comments:
+    description: 'Detailed comments about the evaluation'
+
+runs:
+  using: 'composite'
+  steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+    - run: npm install mcp-evals
+      shell: bash
+    - id: run-evals
+      run: |
+        results=$(npx mcp-evals ${{ inputs.evals_path }} ${{ inputs.server_path }})
+        echo "results<<EOF" >> $GITHUB_OUTPUT
+        echo "$results" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+      shell: bash
+      env:
+        OPENAI_API_KEY: ${{ inputs.openai_api_key }}
+        MODEL: ${{ inputs.model }}
+        TIMEOUT: ${{ inputs.timeout }}
+    - uses: actions/github-script@v7
+      with:
+        script: |
+          const results = `${{ steps.run-evals.outputs.results }}`;
+          const body = `## MCP Tool Evaluation Results\n\n${results}`;
+          await github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: body
+          }); 

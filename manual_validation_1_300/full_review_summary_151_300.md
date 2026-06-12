@@ -1,0 +1,148 @@
+# Full-source manual validation 151-300
+
+- Repo records: 150
+- Tool records: 1869
+- Repos with tools: 112
+- Tool IDs unique: True
+- Validation: repo IDs continuous 151-300; required template fields present; entry-point source files exist for cloned repos; function_content non-empty for all tool records.
+
+## Status Counts
+- TOOL_SERVER_SOURCE_CONFIRMED: 109
+- NO_MCP_TOOL_SOURCE_FOUND: 17
+- NO_SOURCE_AVAILABLE: 9
+- NOT_CONCRETE_MCP_TOOL_SERVER: 6
+- TOOL_SERVER_SOURCE_CONFIRMED_DYNAMIC: 3
+- NONSTANDARD_TOOL_SURFACE: 2
+- TOOL_SERVER_SOURCE_CONFIRMED_DYNAMIC_CONFIG: 1
+- DOCS_ONLY_NOT_EXTRACTED: 1
+- GENERATOR_TEMPLATE_NOT_EXTRACTED: 1
+- REMOTE_CATALOG_DOC_ONLY_NOT_EXTRACTED: 1
+
+## Clone Status Counts
+- ok: 142
+- failed:128: 5
+- timeout: 3
+
+## No Source Repos
+- 162 kun-g__VC-Buddy-MCP: clone_status=failed:128, status=NO_SOURCE_AVAILABLE
+- 198 nkapila6__mcp-meme-sticky: clone_status=timeout, status=NO_SOURCE_AVAILABLE
+- 238 rt96-hub__prompt-tester: clone_status=failed:128, status=NO_SOURCE_AVAILABLE
+- 240 rust-mcp-stack__rust-mcp-sdk: clone_status=timeout, status=NO_SOURCE_AVAILABLE
+- 281 vibheksoni__stealth-browser-mcp: clone_status=timeout, status=NO_SOURCE_AVAILABLE
+- 298 ZH1754629545__dida365-mcp-servers: clone_status=failed:128, status=NO_SOURCE_AVAILABLE
+- 299 zhangpanda__gomcp: clone_status=failed:128, status=NO_SOURCE_AVAILABLE
+- 300 zilliztech__mcp-server-milvus: clone_status=failed:128, status=NO_SOURCE_AVAILABLE
+
+## Tools By Repo
+- 151 JoshuaSiraj__mcp_auto_register: 2
+- 152 josx__mcp_demo: 3
+- 153 jsonresume__mcp: 3
+- 154 juergenkoller-software__nemeton-mcp: 49
+- 155 Karlheinzniebuhr__MCP-Server-Client-Demo-with-Gemini: 2
+- 156 kattatzu-resources__mcp-server: 2
+- 157 kesslerio__attio-mcp-server: 43
+- 158 Khamel83__argus: 13
+- 159 kiseki-technologies__kiseki-labs-readwise-mcp: 8
+- 161 kumartheashwani__vault-python-mcp-server: 1
+- 163 Kuon-dev__advanced-reason-mcp: 1
+- 164 kuzudb__kuzu-mcp-server: 2
+- 165 larryhudson__mcp-server-example-image-block: 1
+- 167 lithtrix__lithtrix-mcp: 18
+- 168 Loag__mcp-server-test: 4
+- 170 louiscklaw__hko-mcp: 20
+- 171 MABAAM__Maibaamcrawler: 8
+- 173 maoxiaoke__create-mcp-server: 1
+- 174 marekkucak__sqlite-anet-mcp: 6
+- 177 mattlemmone__expo-mcp: 5
+- 178 mbrummerstedt__powerbi-analyst-mcp: 12
+- 179 mclenhard__mcp-evals: 1
+- 180 MCPPhalanx__binaryninja-mcp: 16
+- 181 mercurialsolo__counsel-mcp: 18
+- 182 Mibayy__token-savior: 70
+- 183 molavec__mcp-api-client: 7
+- 184 MrHZ006__EmailService: 1
+- 185 msaelices__whatsapp-mcp-server: 5
+- 189 Nadeus__toolradar-mcp: 6
+- 190 nanahiryu__notion-mcp-server: 17
+- 192 nandishnagaraj__zephyr-mcp-server: 1
+- 194 neondatabase-labs__mcp-server-neon: 31
+- 196 Nightfallsh4__evm-mcp: 2
+- 199 Nolas-Shadow__agent1st-ads-mcp: 15
+- 200 nowucca__quack-mcp-server: 5
+- 201 OctagonAI__octagon-mcp-server: 4
+- 202 Ohanvi__spring-ai-mcp-server: 1
+- 204 oraichain__ragflow-mcp: 4
+- 205 oraios__serena: 51
+- 206 OTA-EITA__mysql_mcp_servers: 1
+- 207 pab1it0__polymarket-mcp: 8
+- 208 paschmaria__redshift-js-mcp-server: 3
+- 209 pedro2s__mcp-server-demo-py: 1
+- 210 peppemas__mcp_server: 4
+- 213 pierrebrunelle__mcp-server-openai: 1
+- 214 portel-dev__ncp: 3
+- 215 PortgasXDXMajd__mcp-servers: 9
+- 216 portone-io__mcp-server: 13
+- 217 Prashanth684__skopeo-mcp-server: 4
+- 218 Pratyay__mac-monitor-mcp: 3
+- 219 prithvidbox__darwinbox-mcp: 8
+- 220 projectsaturnstudios__laravel-vibes: 15
+- 221 PsychArch__minimax-mcp-tools: 3
+- 223 PV-Bhat__vibe-check-mcp-server: 5
+- 224 pvincentbrown-sys__espergrid-construction-monitor: 1
+- 226 quazaai__UnityMCPIntegration: 15
+- 227 QuincyMillerDev__ilograph-mcp-server: 11
+- 228 raw391__coin_daemon_mcp: 5
+- 229 relayshield__relayshield-mcp: 9
+- 231 reymerekar7__beehiiv-mcp-server: 5
+- 232 richardschrammcom__mcp-geocoder-rosetta: 4
+- 233 Rih0z__agentdesk-mcp: 4
+- 234 rioriost__homebrew-age-mcp-server: 6
+- 235 rocnubie__nanobanana-mcp: 3
+- 236 rohitg00__kubectl-mcp-server: 313
+- 237 RomThpt__mcp-xrpl: 71
+- 239 ruliana__mcp-pkm-logseq: 3
+- 242 Sachin-Bhat__stela-mcp: 14
+- 244 saidsef__mcp-github-pr-issue-analyser: 21
+- 245 sajithamma__prokerala-mcp-server: 15
+- 248 seanmillionaire__hypnotic-meditations-mcp: 2
+- 249 serkan-ozal__driflyte-mcp-server: 2
+- 250 sgroy10__speclock: 51
+- 251 shikano35__kuhi-api-mcp-server: 7
+- 252 shogo-ma__docbase-mcp-server: 5
+- 254 sinco-lab__evm-mcp-server: 14
+- 255 siva010928__multi-chat-mcp-server: 21
+- 256 smhnkmr__realtime-crypto-mcp-server: 2
+- 257 Sohaib-2__pdf-mcp-server: 22
+- 258 sosacrazy126__greptile-mcp: 5
+- 259 stefanoamorelli__codemagic-mcp: 16
+- 260 stilllovee__mssql-mcp-server: 8
+- 261 StuMason__coolify-mcp: 42
+- 263 stytchauth__mcp-stytch-consumer-todo-list: 3
+- 265 swaroopkasaraneni__math-mcp-server: 2
+- 266 takayamaekawa__mcp: 4
+- 267 tamago-labs__sui-mcp-client: 26
+- 268 tavily-ai__tavily-mcp: 5
+- 269 terciodejesus__products-info-mcp-server: 1
+- 271 Tetsuya-Minase__mcp-server-sample: 2
+- 272 TheDigitalNinja__mcp-fitbit: 13
+- 274 thinking-bzf__mongo-mcp-go: 10
+- 275 Tiberriver256__azure-devops-mcp: 44
+- 276 tiluckdave__hound-mcp: 12
+- 277 toolstem__toolstem-mcp-server: 3
+- 279 UniFuncs__ufn-mcp-server: 7
+- 280 UnitaryLabs__dryai-mcp-server: 1
+- 282 vinsidious__whodis-mcp-server: 1
+- 283 voronkovm__openai-mcp-server: 1
+- 284 webdevtodayjason__A2AMCP: 17
+- 285 weidafeng__StepFunMCP: 4
+- 286 WojciechMatuszewski__mcp-server-learning: 3
+- 288 xiaoshi7915__universal-db-mcp-server: 3
+- 289 xpfyg__12306-mcp-service: 1
+- 290 yash-a11y__mcp_Server: 2
+- 291 yeonupark__mcp-soccer-data: 1
+- 292 yoda-digital__mcp-gitlab-server: 88
+- 293 yoko19191__bocha-ai-mcp-server: 1
+- 294 YUZongmin__sqlite-literature-management-fastmcp-mcp-server: 15
+- 295 ZebraRoy__read-docs-mcp: 11
+- 296 zelentsov-dev__asc-mcp: 347
+- 297 zeplin__mcp-server: 4

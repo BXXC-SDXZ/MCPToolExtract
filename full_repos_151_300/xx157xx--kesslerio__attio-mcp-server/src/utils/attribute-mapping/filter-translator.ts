@@ -1,0 +1,164 @@
+/**
+ * Filter translation functionality for converting attribute names in filters
+ */
+import { getAttributeSlug } from './attribute-mappers.js';
+import type { FilterObject, UnknownObject } from '../types/common.js';
+
+/**
+ * Processes a filter structure to translate any human-readable attribute names to their slug equivalents
+ *
+ * @param filters - The filters object possibly containing human-readable attribute names
+ * @param objectType - Optional object type for more specific attribute mapping
+ * @returns A new filters object with attribute names translated to slugs where applicable
+ */
+export function translateAttributeNamesInFilters<T>(
+  filters: T,
+  objectType?: string
+): T {
+  // Handle null, undefined, or non-object filters
+  if (!filters || typeof filters !== 'object') {
+    return filters;
+  }
+
+  // Handle array of filters
+  if (Array.isArray(filters)) {
+    return filters.map((filter) =>
+      translateAttributeNamesInFilters(filter, objectType)
+    ) as T;
+  }
+
+  // Cast to object after array check
+  const filtersObj = filters as FilterObject;
+
+  // Deep clone the filters object to avoid modifying the original
+  const translatedFilters = { ...filtersObj };
+
+  // Handle direct filter objects with attribute.slug
+  if (isDirectFilterObject(translatedFilters)) {
+    return translateDirectFilter(translatedFilters, objectType) as unknown as T;
+  }
+
+  // Handle nested filter structures
+  if (hasNestedFilters(translatedFilters)) {
+    translatedFilters.filters = translateNestedFilters(
+      translatedFilters.filters,
+      objectType
+    );
+  }
+
+  // Process all other properties recursively
+  return translateRemainingProperties(
+    translatedFilters,
+    objectType
+  ) as unknown as T;
+}
+
+/**
+ * Checks if an object is a direct filter with attribute.slug
+ */
+function isDirectFilterObject(filter: UnknownObject): boolean {
+  return !!(
+    filter.attribute &&
+    typeof filter.attribute === 'object' &&
+    filter.attribute !== null &&
+    'slug' in filter.attribute
+  );
+}
+
+/**
+ * Translates a direct filter object
+ */
+function translateDirectFilter(
+  filter: UnknownObject,
+  objectType?: string
+): FilterObject {
+  // Determine the object type to use for translation
+  // Priority: filter's own objectType > parent objectType
+  const typeToUse =
+    (typeof filter.objectType === 'string' ? filter.objectType : undefined) ||
+    objectType;
+
+  // Create a new object with translated slug
+  const attribute = filter.attribute as UnknownObject;
+  return {
+    ...filter,
+    attribute: {
+      ...attribute,
+      slug: getAttributeSlug(attribute.slug as string, typeToUse as string),
+    },
+  };
+}
+
+/**
+ * Checks if an object has nested filters
+ */
+function hasNestedFilters(filter: UnknownObject): boolean {
+  return !!(filter.filters && Array.isArray(filter.filters));
+}
+
+/**
+ * Translates nested filters
+ */
+function translateNestedFilters(
+  filters: unknown,
+  objectType?: string
+): unknown {
+  if (!Array.isArray(filters)) return filters;
+
+  return filters.map((filter) => {
+    if (typeof filter === 'object' && filter !== null) {
+      const filterObj = filter as UnknownObject;
+      if (isDirectFilterObject(filterObj)) {
+        // Determine the object type to use for this specific filter
+        const typeToUse =
+          (typeof filterObj.objectType === 'string'
+            ? filterObj.objectType
+            : undefined) || objectType;
+        // Translate the attribute slug if it's a human-readable name
+        return translateDirectFilter(filterObj, typeToUse);
+      }
+    }
+    return translateAttributeNamesInFilters(filter, objectType);
+  });
+}
+
+/**
+ * Translates remaining properties in the filter object
+ */
+function translateRemainingProperties(
+  filter: UnknownObject,
+  objectType?: string
+): FilterObject {
+  for (const key of Object.keys(filter)) {
+    if (typeof filter[key] === 'object' && filter[key] !== null) {
+      // Special handling for object-specific sections
+      const typeToUse = determineObjectTypeContext(key, filter, objectType);
+
+      filter[key] = translateAttributeNamesInFilters(filter[key], typeToUse);
+    }
+  }
+
+  return filter;
+}
+
+/**
+ * Determines the object type context for a property
+ */
+function determineObjectTypeContext(
+  key: string,
+  filter: UnknownObject,
+  parentObjectType?: string
+): string | undefined {
+  // If this key is an object type (companies, people), use it as the type context
+  if (key === 'companies' || key === 'people') {
+    return key;
+  }
+
+  // If this is a resource-specific section with explicit object type, use that
+  if (filter.objectType && typeof filter.objectType === 'string') {
+    return filter.objectType;
+  }
+
+  // Otherwise use the parent context
+  return parentObjectType;
+}

@@ -1,0 +1,754 @@
+[
+  {
+    "repo_id": "171",
+    "repo_name": "MABAAM/Maibaamcrawler",
+    "source": "github_full_clone",
+    "status": "ok",
+    "notes": "FastMCP server in src/mcp_research/server.py registers 8 concrete research tools with @server.tool decorators.",
+    "tool": [
+      {
+        "tool_id": "171::web_search::src/mcp_research/server.py:37",
+        "name": "web_search",
+        "description": "Search the web using a 3-tier cascade (Brave -> DuckDuckGo -> scraper).",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "query": {"type": "string", "description": "Search query string."},
+            "max_results": {"type": "integer", "description": "Maximum number of results to return (1-20).", "default": 5},
+            "summarize": {"type": "boolean", "description": "If true and Ollama is available, summarize the results.", "default": false},
+            "auto_fetch_top": {"type": "boolean", "description": "If true, also fetch the full content of the top result.", "default": false}
+          },
+          "required": ["query"]
+        },
+        "metadata": {
+          "registration_style": "FastMCP @server.tool decorator",
+          "registration_file": "src/mcp_research/server.py",
+          "registration_line": 36,
+          "implementation_file": "src/mcp_research/server.py",
+          "implementation_line": 37,
+          "annotations": {"readOnlyHint": true, "destructiveHint": false, "idempotentHint": true, "openWorldHint": true},
+          "schema_source": "function signature and docstring"
+        },
+        "code": {
+          "registration": "@server.tool(annotations=_READ_ONLY)",
+          "handler": "async def web_search(query: str, max_results: int = 5, summarize: bool = False, auto_fetch_top: bool = False) -> str"
+        }
+      },
+      {
+        "tool_id": "171::fetch_url::src/mcp_research/server.py:92",
+        "name": "fetch_url",
+        "description": "Fetch a URL, convert to markdown. SSRF-protected and cached.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "url": {"type": "string", "description": "The URL to fetch."},
+            "summarize": {"type": "boolean", "description": "If true and Ollama is available, include a summary.", "default": false},
+            "max_chars": {"type": "integer", "description": "Maximum content chars; <=0 uses default.", "default": 0}
+          },
+          "required": ["url"]
+        },
+        "metadata": {
+          "registration_style": "FastMCP @server.tool decorator",
+          "registration_file": "src/mcp_research/server.py",
+          "registration_line": 91,
+          "implementation_file": "src/mcp_research/server.py",
+          "implementation_line": 92,
+          "annotations": {"readOnlyHint": true, "destructiveHint": false, "idempotentHint": true, "openWorldHint": true},
+          "schema_source": "function signature and docstring"
+        },
+        "code": {
+          "registration": "@server.tool(annotations=_READ_ONLY)",
+          "handler": "async def fetch_url(url: str, summarize: bool = False, max_chars: int = 0) -> str"
+        }
+      },
+      {
+        "tool_id": "171::research::src/mcp_research/server.py:128",
+        "name": "research",
+        "description": "Compound research: search -> fetch top pages -> summarize -> synthesize.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "query": {"type": "string", "description": "The research question."},
+            "depth": {"type": "string", "description": "Research depth: quick, standard, or deep.", "default": "standard"},
+            "context": {"type": "string", "description": "Optional context from prior research to inform synthesis.", "default": ""}
+          },
+          "required": ["query"]
+        },
+        "metadata": {
+          "registration_style": "FastMCP @server.tool decorator",
+          "registration_file": "src/mcp_research/server.py",
+          "registration_line": 127,
+          "implementation_file": "src/mcp_research/server.py",
+          "implementation_line": 128,
+          "annotations": {"readOnlyHint": true, "destructiveHint": false, "idempotentHint": true, "openWorldHint": true},
+          "schema_source": "function signature and docstring"
+        },
+        "code": {
+          "registration": "@server.tool(annotations=_READ_ONLY)",
+          "handler": "async def research(query: str, depth: str = \"standard\", context: str = \"\") -> str"
+        }
+      },
+      {
+        "tool_id": "171::youtube_essence::src/mcp_research/server.py:248",
+        "name": "youtube_essence",
+        "description": "Extract essence from a YouTube video: transcript, summary, key points, chapters, quotes.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "url": {"type": "string", "description": "YouTube URL."},
+            "mode": {"type": "string", "description": "Extraction depth: quick, standard, or deep.", "default": "standard"}
+          },
+          "required": ["url"]
+        },
+        "metadata": {
+          "registration_style": "FastMCP @server.tool decorator",
+          "registration_file": "src/mcp_research/server.py",
+          "registration_line": 247,
+          "implementation_file": "src/mcp_research/server.py",
+          "implementation_line": 248,
+          "annotations": {"readOnlyHint": true, "destructiveHint": false, "idempotentHint": true, "openWorldHint": true},
+          "schema_source": "function signature and docstring"
+        },
+        "code": {
+          "registration": "@server.tool(annotations=_READ_ONLY)",
+          "handler": "async def youtube_essence(url: str, mode: str = \"standard\") -> str"
+        }
+      },
+      {
+        "tool_id": "171::deep_ingest::src/mcp_research/server.py:308",
+        "name": "deep_ingest",
+        "description": "Extract text from files in a directory or single file. Supports text, PDF, DOCX, XLSX, PPTX, audio, video, images.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "path": {"type": "string", "description": "Directory or file path to process."},
+            "include_types": {"type": "string", "description": "Comma-separated type filter (text,pdf,audio,video,image,office). Empty = all.", "default": ""},
+            "max_files": {"type": "integer", "description": "Maximum files to process (1-5000).", "default": 200},
+            "summarize": {"type": "boolean", "description": "If true, generate an AI summary of the combined content.", "default": false}
+          },
+          "required": ["path"]
+        },
+        "metadata": {
+          "registration_style": "FastMCP @server.tool decorator",
+          "registration_file": "src/mcp_research/server.py",
+          "registration_line": 307,
+          "implementation_file": "src/mcp_research/server.py",
+          "implementation_line": 308,
+          "annotations": {"readOnlyHint": true, "destructiveHint": false, "idempotentHint": true, "openWorldHint": false},
+          "schema_source": "function signature and docstring"
+        },
+        "code": {
+          "registration": "@server.tool(annotations=_LOCAL_READ)",
+          "handler": "async def deep_ingest(path: str, include_types: str = \"\", max_files: int = 200, summarize: bool = False) -> str"
+        }
+      },
+      {
+        "tool_id": "171::academic_lookup::src/mcp_research/server.py:367",
+        "name": "academic_lookup",
+        "description": "Resolve a DOI, ArXiv ID, or PubMed ID. Fetch paper via institutional access if configured in vault.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "identifier": {"type": "string", "description": "DOI, ArXiv ID, PubMed ID, or publisher URL."},
+            "fetch_fulltext": {"type": "boolean", "description": "Attempt to fetch the full paper text via vault credentials / EZproxy.", "default": true}
+          },
+          "required": ["identifier"]
+        },
+        "metadata": {
+          "registration_style": "FastMCP @server.tool decorator",
+          "registration_file": "src/mcp_research/server.py",
+          "registration_line": 366,
+          "implementation_file": "src/mcp_research/server.py",
+          "implementation_line": 367,
+          "annotations": {"readOnlyHint": true, "destructiveHint": false, "idempotentHint": true, "openWorldHint": true},
+          "schema_source": "function signature and docstring"
+        },
+        "code": {
+          "registration": "@server.tool(annotations=_READ_ONLY)",
+          "handler": "async def academic_lookup(identifier: str, fetch_fulltext: bool = True) -> str"
+        }
+      },
+      {
+        "tool_id": "171::twitter_extract::src/mcp_research/server.py:430",
+        "name": "twitter_extract",
+        "description": "Extract tweet or thread from X.com/Twitter. Supports yt-dlp, API, and cookie-based access.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "url": {"type": "string", "description": "Tweet URL."},
+            "include_thread": {"type": "boolean", "description": "If true, fetch the full conversation thread.", "default": false}
+          },
+          "required": ["url"]
+        },
+        "metadata": {
+          "registration_style": "FastMCP @server.tool decorator",
+          "registration_file": "src/mcp_research/server.py",
+          "registration_line": 429,
+          "implementation_file": "src/mcp_research/server.py",
+          "implementation_line": 430,
+          "annotations": {"readOnlyHint": true, "destructiveHint": false, "idempotentHint": true, "openWorldHint": true},
+          "schema_source": "function signature and docstring"
+        },
+        "code": {
+          "registration": "@server.tool(annotations=_READ_ONLY)",
+          "handler": "async def twitter_extract(url: str, include_thread: bool = False) -> str"
+        }
+      },
+      {
+        "tool_id": "171::vault_status::src/mcp_research/server.py:497",
+        "name": "vault_status",
+        "description": "Show credential vault status, loaded profiles, and optional dependency availability. Never exposes secrets.",
+        "input_schema": {"type": "object", "properties": {}, "required": []},
+        "metadata": {
+          "registration_style": "FastMCP @server.tool decorator",
+          "registration_file": "src/mcp_research/server.py",
+          "registration_line": 496,
+          "implementation_file": "src/mcp_research/server.py",
+          "implementation_line": 497,
+          "annotations": {"readOnlyHint": true, "destructiveHint": false, "idempotentHint": true, "openWorldHint": false},
+          "schema_source": "function signature and docstring"
+        },
+        "code": {
+          "registration": "@server.tool(annotations=_LOCAL_READ)",
+          "handler": "async def vault_status() -> str"
+        }
+      }
+    ]
+  },
+  {
+    "repo_id": "172",
+    "repo_name": "Maf38/mcp-server",
+    "source": "github_full_clone",
+    "status": "ok",
+    "notes": "Reviewed src/index.ts and supporting routes. This is a custom HTTP/SSE JSON-RPC context service with /context routes and /capabilities, but no source-level MCP tools/list or concrete tool registration.",
+    "tool": []
+  },
+  {
+    "repo_id": "173",
+    "repo_name": "maoxiaoke/create-mcp-server",
+    "source": "github_full_clone",
+    "status": "ok",
+    "notes": "Outer MCP server registers one concrete tool, create_mcp_server. The embedded exampleProjectStructure string contains a template create_note tool, but that is template text, not a live tool registered by this repo.",
+    "tool": [
+      {
+        "tool_id": "173::create_mcp_server::src/index.ts:476",
+        "name": "create_mcp_server",
+        "description": "Create a new MCP server scaffold",
+        "input_schema": {"type": "object", "properties": {}, "required": []},
+        "metadata": {
+          "registration_style": "MCP SDK setRequestHandler(ListToolsRequestSchema/CallToolRequestSchema)",
+          "registration_file": "src/index.ts",
+          "registration_line": 472,
+          "implementation_file": "src/index.ts",
+          "implementation_line": 489,
+          "schema_source": "literal inputSchema in ListToolsRequestSchema handler"
+        },
+        "code": {
+          "registration": "server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: [{ name: \"create_mcp_server\", ... }] }))",
+          "handler": "case \"create_mcp_server\": return MCP_Server_Development_Protocol()"
+        }
+      }
+    ]
+  },
+  {
+    "repo_id": "174",
+    "repo_name": "marekkucak/sqlite-anet-mcp",
+    "source": "github_full_clone",
+    "status": "ok",
+    "notes": "Rust anet_mcp_server registers six concrete SQLite tools through ServerBuilder.add_tool in src/main.rs.",
+    "tool": [
+      {
+        "tool_id": "174::read_query::src/tools/read_query.rs:23",
+        "name": "read_query",
+        "description": "Execute a SELECT query on the SQLite database",
+        "input_schema": {"type": "object", "properties": {"query": {"type": "string", "description": "SELECT SQL query to execute"}}, "required": ["query"]},
+        "metadata": {
+          "registration_style": "ServerBuilder.add_tool",
+          "registration_file": "src/main.rs",
+          "registration_line": 99,
+          "implementation_file": "src/tools/read_query.rs",
+          "implementation_line": 21,
+          "schema_source": "input_schema method literal"
+        },
+        "code": {
+          "registration": ".add_tool(read_query_tool)",
+          "handler": "impl Tool for ReadQueryTool; name() returns \"read_query\"; call() only accepts SELECT queries"
+        }
+      },
+      {
+        "tool_id": "174::write_query::src/tools/write_query.rs:23",
+        "name": "write_query",
+        "description": "Execute an INSERT, UPDATE, or DELETE query on the SQLite database",
+        "input_schema": {"type": "object", "properties": {"query": {"type": "string", "description": "SQL query to execute"}}, "required": ["query"]},
+        "metadata": {
+          "registration_style": "ServerBuilder.add_tool",
+          "registration_file": "src/main.rs",
+          "registration_line": 100,
+          "implementation_file": "src/tools/write_query.rs",
+          "implementation_line": 21,
+          "schema_source": "input_schema method literal"
+        },
+        "code": {
+          "registration": ".add_tool(write_query_tool)",
+          "handler": "impl Tool for WriteQueryTool; name() returns \"write_query\"; call() accepts INSERT, UPDATE, or DELETE"
+        }
+      },
+      {
+        "tool_id": "174::create_table::src/tools/create_table.rs:23",
+        "name": "create_table",
+        "description": "Create a new table in the SQLite database",
+        "input_schema": {"type": "object", "properties": {"query": {"type": "string", "description": "CREATE TABLE SQL statement"}}, "required": ["query"]},
+        "metadata": {
+          "registration_style": "ServerBuilder.add_tool",
+          "registration_file": "src/main.rs",
+          "registration_line": 101,
+          "implementation_file": "src/tools/create_table.rs",
+          "implementation_line": 21,
+          "schema_source": "input_schema method literal"
+        },
+        "code": {
+          "registration": ".add_tool(create_table_tool)",
+          "handler": "impl Tool for CreateTableTool; name() returns \"create_table\"; call() only accepts CREATE TABLE statements"
+        }
+      },
+      {
+        "tool_id": "174::list_tables::src/tools/list_tables.rs:22",
+        "name": "list_tables",
+        "description": "List all tables in the SQLite database",
+        "input_schema": {"type": "object", "properties": {}, "required": []},
+        "metadata": {
+          "registration_style": "ServerBuilder.add_tool",
+          "registration_file": "src/main.rs",
+          "registration_line": 102,
+          "implementation_file": "src/tools/list_tables.rs",
+          "implementation_line": 20,
+          "schema_source": "input_schema method literal"
+        },
+        "code": {
+          "registration": ".add_tool(list_tables_tool)",
+          "handler": "impl Tool for ListTablesTool; name() returns \"list_tables\"; call() returns db.list_tables()"
+        }
+      },
+      {
+        "tool_id": "174::describe_table::src/tools/describe_table.rs:23",
+        "name": "describe_table",
+        "description": "Get the schema information for a specific table",
+        "input_schema": {"type": "object", "properties": {"table_name": {"type": "string", "description": "Name of the table to describe"}}, "required": ["table_name"]},
+        "metadata": {
+          "registration_style": "ServerBuilder.add_tool",
+          "registration_file": "src/main.rs",
+          "registration_line": 103,
+          "implementation_file": "src/tools/describe_table.rs",
+          "implementation_line": 21,
+          "schema_source": "input_schema method literal"
+        },
+        "code": {
+          "registration": ".add_tool(describe_table_tool)",
+          "handler": "impl Tool for DescribeTableTool; name() returns \"describe_table\"; call() returns db.describe_table(table_name)"
+        }
+      },
+      {
+        "tool_id": "174::append_insight::src/tools/append_insight.rs:23",
+        "name": "append_insight",
+        "description": "Add a business insight to the memo",
+        "input_schema": {"type": "object", "properties": {"insight": {"type": "string", "description": "Business insight discovered from data analysis"}}, "required": ["insight"]},
+        "metadata": {
+          "registration_style": "ServerBuilder.add_tool",
+          "registration_file": "src/main.rs",
+          "registration_line": 104,
+          "implementation_file": "src/tools/append_insight.rs",
+          "implementation_line": 21,
+          "schema_source": "input_schema method literal"
+        },
+        "code": {
+          "registration": ".add_tool(append_insight_tool)",
+          "handler": "impl Tool for AppendInsightTool; name() returns \"append_insight\"; call() writes insight to memo"
+        }
+      }
+    ]
+  },
+  {
+    "repo_id": "175",
+    "repo_name": "markvp/mcp-lambda-layer",
+    "source": "github_full_clone",
+    "status": "ok",
+    "notes": "Reviewed src/lambdas/mcp/sse.ts and registration types. The MCP server dynamically registers tools from DynamoDB registration records (registration.name/parameters/lambdaArn). No concrete source-level tool names are present in the repo, so no tools are recorded.",
+    "tool": []
+  },
+  {
+    "repo_id": "176",
+    "repo_name": "markvp/mcp-lambda-sam",
+    "source": "github_full_clone",
+    "status": "ok",
+    "notes": "Same Lambda MCP dynamic-registration implementation as repo 175. Source registers whatever tool records exist in DynamoDB, but no concrete tool definitions are present in repo source.",
+    "tool": []
+  },
+  {
+    "repo_id": "177",
+    "repo_name": "mattlemmone/expo-mcp",
+    "source": "github_full_clone",
+    "status": "ok",
+    "notes": "FastMCP server in src/index.ts registers five concrete tools, four filesystem tools and one debug listTools tool.",
+    "tool": [
+      {
+        "tool_id": "177::readFile::src/index.ts:19",
+        "name": "readFile",
+        "description": "Read the contents of a file",
+        "input_schema": {"type": "object", "properties": {"filePath": {"type": "string", "description": "The path to the file to read"}}, "required": ["filePath"]},
+        "metadata": {
+          "registration_style": "FastMCP server.addTool",
+          "registration_file": "src/index.ts",
+          "registration_line": 18,
+          "implementation_file": "src/file.ts",
+          "implementation_line": 10,
+          "schema_source": "zod parameters object"
+        },
+        "code": {
+          "registration": "addTool({ name: \"readFile\", parameters: z.object({ filePath: z.string() }), execute: readFile })",
+          "handler": "export async function readFile(args: { filePath: string }, ...)"
+        }
+      },
+      {
+        "tool_id": "177::writeFile::src/index.ts:28",
+        "name": "writeFile",
+        "description": "Write content to a file",
+        "input_schema": {"type": "object", "properties": {"filePath": {"type": "string", "description": "The path to the file to write"}, "content": {"type": "string", "description": "The content to write to the file"}}, "required": ["filePath", "content"]},
+        "metadata": {
+          "registration_style": "FastMCP server.addTool",
+          "registration_file": "src/index.ts",
+          "registration_line": 27,
+          "implementation_file": "src/file.ts",
+          "implementation_line": 36,
+          "schema_source": "zod parameters object"
+        },
+        "code": {
+          "registration": "addTool({ name: \"writeFile\", parameters: z.object({ filePath: z.string(), content: z.string() }), execute: writeFile })",
+          "handler": "export async function writeFile(args: { filePath: string; content: string }, ...)"
+        }
+      },
+      {
+        "tool_id": "177::listFiles::src/index.ts:38",
+        "name": "listFiles",
+        "description": "List files in a directory",
+        "input_schema": {"type": "object", "properties": {"directoryPath": {"type": "string", "description": "The path to the directory to list files from"}}, "required": ["directoryPath"]},
+        "metadata": {
+          "registration_style": "FastMCP server.addTool",
+          "registration_file": "src/index.ts",
+          "registration_line": 37,
+          "implementation_file": "src/file.ts",
+          "implementation_line": 64,
+          "schema_source": "zod parameters object"
+        },
+        "code": {
+          "registration": "addTool({ name: \"listFiles\", parameters: z.object({ directoryPath: z.string() }), execute: listFiles })",
+          "handler": "export async function listFiles(args: { directoryPath: string }, ...)"
+        }
+      },
+      {
+        "tool_id": "177::tailFile::src/index.ts:49",
+        "name": "tailFile",
+        "description": "Read the last N lines from a file",
+        "input_schema": {"type": "object", "properties": {"filePath": {"type": "string", "description": "The path to the file to tail"}, "lines": {"type": "integer", "description": "Number of lines to read from the end of the file"}}, "required": ["filePath", "lines"]},
+        "metadata": {
+          "registration_style": "FastMCP server.addTool",
+          "registration_file": "src/index.ts",
+          "registration_line": 48,
+          "implementation_file": "src/file.ts",
+          "implementation_line": 98,
+          "schema_source": "zod parameters object"
+        },
+        "code": {
+          "registration": "addTool({ name: \"tailFile\", parameters: z.object({ filePath: z.string(), lines: z.number().int().positive() }), execute: tailFile })",
+          "handler": "export async function tailFile(args: { filePath: string; lines: number }, ...)"
+        }
+      },
+      {
+        "tool_id": "177::listTools::src/index.ts:60",
+        "name": "listTools",
+        "description": "List all available tools in this MCP server",
+        "input_schema": {"type": "object", "properties": {}, "required": []},
+        "metadata": {
+          "registration_style": "FastMCP server.addTool",
+          "registration_file": "src/index.ts",
+          "registration_line": 59,
+          "implementation_file": "src/index.ts",
+          "implementation_line": 63,
+          "schema_source": "zod parameters object"
+        },
+        "code": {
+          "registration": "server.addTool({ name: \"listTools\", parameters: z.object({}), execute: async (...) => ... })",
+          "handler": "execute reads Object.keys((server as any)[\"_tools\"] || {})"
+        }
+      }
+    ]
+  },
+  {
+    "repo_id": "178",
+    "repo_name": "mbrummerstedt/powerbi-analyst-mcp",
+    "source": "github_full_clone",
+    "status": "ok",
+    "notes": "FastMCP app registers all tools through powerbi_mcp.tools.register_tools(mcp, ...). Found 12 concrete Power BI tools.",
+    "tool": [
+      {
+        "tool_id": "178::authenticate::powerbi_mcp/tools.py:78",
+        "name": "authenticate",
+        "description": "Authenticate with Power BI using the OAuth 2.0 device code flow.",
+        "input_schema": {"type": "object", "properties": {}, "required": []},
+        "metadata": {"registration_style": "FastMCP @mcp.tool decorator", "registration_file": "powerbi_mcp/tools.py", "registration_line": 77, "implementation_file": "powerbi_mcp/tools.py", "implementation_line": 78, "schema_source": "function signature and docstring"},
+        "code": {"registration": "@mcp.tool()", "handler": "async def authenticate() -> str"}
+      },
+      {
+        "tool_id": "178::logout::powerbi_mcp/tools.py:150",
+        "name": "logout",
+        "description": "Sign out of Power BI by clearing the cached credentials.",
+        "input_schema": {"type": "object", "properties": {}, "required": []},
+        "metadata": {"registration_style": "FastMCP @mcp.tool decorator", "registration_file": "powerbi_mcp/tools.py", "registration_line": 149, "implementation_file": "powerbi_mcp/tools.py", "implementation_line": 150, "schema_source": "function signature and docstring"},
+        "code": {"registration": "@mcp.tool()", "handler": "async def logout() -> str"}
+      },
+      {
+        "tool_id": "178::list_apps::powerbi_mcp/tools.py:162",
+        "name": "list_apps",
+        "description": "List all Power BI apps installed for the authenticated user.",
+        "input_schema": {"type": "object", "properties": {}, "required": []},
+        "metadata": {"registration_style": "FastMCP @mcp.tool decorator", "registration_file": "powerbi_mcp/tools.py", "registration_line": 161, "implementation_file": "powerbi_mcp/tools.py", "implementation_line": 162, "schema_source": "function signature and docstring"},
+        "code": {"registration": "@mcp.tool()", "handler": "async def list_apps() -> str"}
+      },
+      {
+        "tool_id": "178::list_datasets::powerbi_mcp/tools.py:200",
+        "name": "list_datasets",
+        "description": "List all datasets (semantic models) in a Power BI workspace.",
+        "input_schema": {"type": "object", "properties": {"workspace_id": {"type": "string", "description": "GUID of the app-backed workspace from list_apps workspaceId."}}, "required": ["workspace_id"]},
+        "metadata": {"registration_style": "FastMCP @mcp.tool decorator", "registration_file": "powerbi_mcp/tools.py", "registration_line": 199, "implementation_file": "powerbi_mcp/tools.py", "implementation_line": 200, "schema_source": "Annotated function signature and docstring"},
+        "code": {"registration": "@mcp.tool()", "handler": "async def list_datasets(workspace_id: Annotated[str, ...]) -> str"}
+      },
+      {
+        "tool_id": "178::get_dataset_info::powerbi_mcp/tools.py:243",
+        "name": "get_dataset_info",
+        "description": "Return detailed metadata for a single Power BI dataset.",
+        "input_schema": {"type": "object", "properties": {"workspace_id": {"type": "string", "description": "GUID of the workspace containing the dataset."}, "dataset_id": {"type": "string", "description": "GUID of the dataset to inspect."}}, "required": ["workspace_id", "dataset_id"]},
+        "metadata": {"registration_style": "FastMCP @mcp.tool decorator", "registration_file": "powerbi_mcp/tools.py", "registration_line": 242, "implementation_file": "powerbi_mcp/tools.py", "implementation_line": 243, "schema_source": "Annotated function signature and docstring"},
+        "code": {"registration": "@mcp.tool()", "handler": "async def get_dataset_info(workspace_id: Annotated[str, ...], dataset_id: Annotated[str, ...]) -> str"}
+      },
+      {
+        "tool_id": "178::list_tables::powerbi_mcp/tools.py:291",
+        "name": "list_tables",
+        "description": "List all visible tables in a Power BI dataset.",
+        "input_schema": {"type": "object", "properties": {"workspace_id": {"type": "string"}, "dataset_id": {"type": "string"}}, "required": ["workspace_id", "dataset_id"]},
+        "metadata": {"registration_style": "FastMCP @mcp.tool decorator", "registration_file": "powerbi_mcp/tools.py", "registration_line": 290, "implementation_file": "powerbi_mcp/tools.py", "implementation_line": 291, "schema_source": "Annotated function signature and docstring"},
+        "code": {"registration": "@mcp.tool()", "handler": "async def list_tables(workspace_id: Annotated[str, ...], dataset_id: Annotated[str, ...]) -> str"}
+      },
+      {
+        "tool_id": "178::list_measures::powerbi_mcp/tools.py:330",
+        "name": "list_measures",
+        "description": "List measures defined in a Power BI dataset.",
+        "input_schema": {"type": "object", "properties": {"workspace_id": {"type": "string"}, "dataset_id": {"type": "string"}, "table_name": {"type": ["string", "null"], "description": "Optional table filter.", "default": null}}, "required": ["workspace_id", "dataset_id"]},
+        "metadata": {"registration_style": "FastMCP @mcp.tool decorator", "registration_file": "powerbi_mcp/tools.py", "registration_line": 329, "implementation_file": "powerbi_mcp/tools.py", "implementation_line": 330, "schema_source": "Annotated function signature and docstring"},
+        "code": {"registration": "@mcp.tool()", "handler": "async def list_measures(..., table_name: Annotated[str | None, ...] = None) -> str"}
+      },
+      {
+        "tool_id": "178::list_columns::powerbi_mcp/tools.py:370",
+        "name": "list_columns",
+        "description": "List columns (dimensions) in a Power BI dataset.",
+        "input_schema": {"type": "object", "properties": {"workspace_id": {"type": "string"}, "dataset_id": {"type": "string"}, "table_name": {"type": ["string", "null"], "description": "Optional table filter.", "default": null}}, "required": ["workspace_id", "dataset_id"]},
+        "metadata": {"registration_style": "FastMCP @mcp.tool decorator", "registration_file": "powerbi_mcp/tools.py", "registration_line": 369, "implementation_file": "powerbi_mcp/tools.py", "implementation_line": 370, "schema_source": "Annotated function signature and docstring"},
+        "code": {"registration": "@mcp.tool()", "handler": "async def list_columns(..., table_name: Annotated[str | None, ...] = None) -> str"}
+      },
+      {
+        "tool_id": "178::execute_dax::powerbi_mcp/tools.py:411",
+        "name": "execute_dax",
+        "description": "Execute a DAX query against a Power BI dataset and return the result rows.",
+        "input_schema": {"type": "object", "properties": {"workspace_id": {"type": "string"}, "dataset_id": {"type": "string"}, "dax_query": {"type": "string", "description": "Valid DAX query starting with EVALUATE."}, "max_rows": {"type": ["integer", "null"], "default": null}, "result_name": {"type": ["string", "null"], "default": null}, "query_summary": {"type": ["string", "null"], "default": null}}, "required": ["workspace_id", "dataset_id", "dax_query"]},
+        "metadata": {"registration_style": "FastMCP @mcp.tool decorator", "registration_file": "powerbi_mcp/tools.py", "registration_line": 410, "implementation_file": "powerbi_mcp/tools.py", "implementation_line": 411, "schema_source": "Annotated function signature and docstring"},
+        "code": {"registration": "@mcp.tool()", "handler": "async def execute_dax(workspace_id, dataset_id, dax_query, max_rows=None, result_name=None, query_summary=None) -> str"}
+      },
+      {
+        "tool_id": "178::read_query_result::powerbi_mcp/tools.py:559",
+        "name": "read_query_result",
+        "description": "Read a page of rows from a CSV file saved by execute_dax.",
+        "input_schema": {"type": "object", "properties": {"file_path": {"type": "string", "description": "Absolute path to a CSV file returned by execute_dax."}, "offset": {"type": "integer", "default": 0}, "limit": {"type": "integer", "default": 100}}, "required": ["file_path"]},
+        "metadata": {"registration_style": "FastMCP @mcp.tool decorator", "registration_file": "powerbi_mcp/tools.py", "registration_line": 558, "implementation_file": "powerbi_mcp/tools.py", "implementation_line": 559, "schema_source": "Annotated function signature and docstring"},
+        "code": {"registration": "@mcp.tool()", "handler": "async def read_query_result(file_path: Annotated[str, ...], offset: int = 0, limit: int = 100) -> str"}
+      },
+      {
+        "tool_id": "178::search_query_history::powerbi_mcp/tools.py:602",
+        "name": "search_query_history",
+        "description": "Search the local query history log for prior DAX executions.",
+        "input_schema": {"type": "object", "properties": {"keyword": {"type": ["string", "null"], "default": null}, "dataset_id": {"type": ["string", "null"], "default": null}, "since_days": {"type": "integer", "default": 90}, "limit": {"type": "integer", "default": 20}}, "required": []},
+        "metadata": {"registration_style": "FastMCP @mcp.tool decorator", "registration_file": "powerbi_mcp/tools.py", "registration_line": 601, "implementation_file": "powerbi_mcp/tools.py", "implementation_line": 602, "schema_source": "Annotated function signature and docstring"},
+        "code": {"registration": "@mcp.tool()", "handler": "async def search_query_history(keyword=None, dataset_id=None, since_days=90, limit=20) -> str"}
+      },
+      {
+        "tool_id": "178::delete_query_log_entry::powerbi_mcp/tools.py:654",
+        "name": "delete_query_log_entry",
+        "description": "Remove a single entry from the query history log.",
+        "input_schema": {"type": "object", "properties": {"entry_id": {"type": "string", "description": "UUID of the history entry to remove."}}, "required": ["entry_id"]},
+        "metadata": {"registration_style": "FastMCP @mcp.tool decorator", "registration_file": "powerbi_mcp/tools.py", "registration_line": 653, "implementation_file": "powerbi_mcp/tools.py", "implementation_line": 654, "schema_source": "Annotated function signature and docstring"},
+        "code": {"registration": "@mcp.tool()", "handler": "async def delete_query_log_entry(entry_id: Annotated[str, ...]) -> str"}
+      }
+    ]
+  },
+  {
+    "repo_id": "179",
+    "repo_name": "mclenhard/mcp-evals",
+    "source": "github_full_clone",
+    "status": "ok",
+    "notes": "Main package is an evaluator/metrics library, not an MCP tool server. The example-server directory contains a real demo MCP server registering one add tool, so it is recorded.",
+    "tool": [
+      {
+        "tool_id": "179::add::example-server/index.ts:12",
+        "name": "add",
+        "description": "Add two numbers.",
+        "input_schema": {"type": "object", "properties": {"a": {"type": "number"}, "b": {"type": "number"}}, "required": ["a", "b"]},
+        "metadata": {
+          "registration_style": "McpServer.tool",
+          "registration_file": "example-server/index.ts",
+          "registration_line": 12,
+          "implementation_file": "example-server/index.ts",
+          "implementation_line": 14,
+          "schema_source": "zod parameter object"
+        },
+        "code": {
+          "registration": "server.tool(\"add\", { a: z.number(), b: z.number() }, async ({ a, b }) => ...)",
+          "handler": "returns String(a + b)"
+        }
+      }
+    ]
+  },
+  {
+    "repo_id": "180",
+    "repo_name": "MCPPhalanx/binaryninja-mcp",
+    "source": "github_full_clone",
+    "status": "ok",
+    "notes": "FastMCP server factory in src/binaryninja_mcp/server.py registers 16 concrete Binary Ninja analysis tools. Resource handlers were not counted as tools.",
+    "tool": [
+      {
+        "tool_id": "180::list_filename::src/binaryninja_mcp/server.py:181",
+        "name": "list_filename",
+        "description": "List file names of all opened files",
+        "input_schema": {"type": "object", "properties": {}, "required": []},
+        "metadata": {"registration_style": "FastMCP @mcp.tool decorator", "registration_file": "src/binaryninja_mcp/server.py", "registration_line": 180, "implementation_file": "src/binaryninja_mcp/server.py", "implementation_line": 181, "schema_source": "function signature and docstring"},
+        "code": {"registration": "@mcp.tool()", "handler": "def list_filename(ctx: Context) -> List[str]"}
+      },
+      {
+        "tool_id": "180::get_triage_summary::src/binaryninja_mcp/server.py:187",
+        "name": "get_triage_summary",
+        "description": "Get basic information as shown in BinaryNinja Triage view",
+        "input_schema": {"type": "object", "properties": {"filename": {"type": "string"}}, "required": ["filename"]},
+        "metadata": {"registration_style": "FastMCP @mcp.tool decorator", "registration_file": "src/binaryninja_mcp/server.py", "registration_line": 186, "implementation_file": "src/binaryninja_mcp/server.py", "implementation_line": 187, "schema_source": "function signature and docstring"},
+        "code": {"registration": "@mcp.tool()", "handler": "def get_triage_summary(filename: str, ctx: Context) -> dict"}
+      },
+      {
+        "tool_id": "180::get_imports::src/binaryninja_mcp/server.py:195",
+        "name": "get_imports",
+        "description": "Get dictionary of imported symbols",
+        "input_schema": {"type": "object", "properties": {"filename": {"type": "string"}}, "required": ["filename"]},
+        "metadata": {"registration_style": "FastMCP @mcp.tool decorator", "registration_file": "src/binaryninja_mcp/server.py", "registration_line": 194, "implementation_file": "src/binaryninja_mcp/server.py", "implementation_line": 195, "schema_source": "function signature and docstring"},
+        "code": {"registration": "@mcp.tool()", "handler": "def get_imports(filename: str, ctx: Context) -> dict"}
+      },
+      {
+        "tool_id": "180::get_exports::src/binaryninja_mcp/server.py:203",
+        "name": "get_exports",
+        "description": "Get dictionary of exported symbols",
+        "input_schema": {"type": "object", "properties": {"filename": {"type": "string"}}, "required": ["filename"]},
+        "metadata": {"registration_style": "FastMCP @mcp.tool decorator", "registration_file": "src/binaryninja_mcp/server.py", "registration_line": 202, "implementation_file": "src/binaryninja_mcp/server.py", "implementation_line": 203, "schema_source": "function signature and docstring"},
+        "code": {"registration": "@mcp.tool()", "handler": "def get_exports(filename: str, ctx: Context) -> dict"}
+      },
+      {
+        "tool_id": "180::get_segments::src/binaryninja_mcp/server.py:211",
+        "name": "get_segments",
+        "description": "Get list of memory segments",
+        "input_schema": {"type": "object", "properties": {"filename": {"type": "string"}}, "required": ["filename"]},
+        "metadata": {"registration_style": "FastMCP @mcp.tool decorator", "registration_file": "src/binaryninja_mcp/server.py", "registration_line": 210, "implementation_file": "src/binaryninja_mcp/server.py", "implementation_line": 211, "schema_source": "function signature and docstring"},
+        "code": {"registration": "@mcp.tool()", "handler": "def get_segments(filename: str, ctx: Context) -> list"}
+      },
+      {
+        "tool_id": "180::get_sections::src/binaryninja_mcp/server.py:219",
+        "name": "get_sections",
+        "description": "Get list of binary sections",
+        "input_schema": {"type": "object", "properties": {"filename": {"type": "string"}}, "required": ["filename"]},
+        "metadata": {"registration_style": "FastMCP @mcp.tool decorator", "registration_file": "src/binaryninja_mcp/server.py", "registration_line": 218, "implementation_file": "src/binaryninja_mcp/server.py", "implementation_line": 219, "schema_source": "function signature and docstring"},
+        "code": {"registration": "@mcp.tool()", "handler": "def get_sections(filename: str, ctx: Context) -> list"}
+      },
+      {
+        "tool_id": "180::get_strings::src/binaryninja_mcp/server.py:227",
+        "name": "get_strings",
+        "description": "Get list of strings found in the binary",
+        "input_schema": {"type": "object", "properties": {"filename": {"type": "string"}}, "required": ["filename"]},
+        "metadata": {"registration_style": "FastMCP @mcp.tool decorator", "registration_file": "src/binaryninja_mcp/server.py", "registration_line": 226, "implementation_file": "src/binaryninja_mcp/server.py", "implementation_line": 227, "schema_source": "function signature and docstring"},
+        "code": {"registration": "@mcp.tool()", "handler": "def get_strings(filename: str, ctx: Context) -> list"}
+      },
+      {
+        "tool_id": "180::get_functions::src/binaryninja_mcp/server.py:235",
+        "name": "get_functions",
+        "description": "Get list of functions",
+        "input_schema": {"type": "object", "properties": {"filename": {"type": "string"}}, "required": ["filename"]},
+        "metadata": {"registration_style": "FastMCP @mcp.tool decorator", "registration_file": "src/binaryninja_mcp/server.py", "registration_line": 234, "implementation_file": "src/binaryninja_mcp/server.py", "implementation_line": 235, "schema_source": "function signature and docstring"},
+        "code": {"registration": "@mcp.tool()", "handler": "def get_functions(filename: str, ctx: Context) -> list"}
+      },
+      {
+        "tool_id": "180::get_data_variables::src/binaryninja_mcp/server.py:243",
+        "name": "get_data_variables",
+        "description": "Get list of data variables",
+        "input_schema": {"type": "object", "properties": {"filename": {"type": "string"}}, "required": ["filename"]},
+        "metadata": {"registration_style": "FastMCP @mcp.tool decorator", "registration_file": "src/binaryninja_mcp/server.py", "registration_line": 242, "implementation_file": "src/binaryninja_mcp/server.py", "implementation_line": 243, "schema_source": "function signature and docstring"},
+        "code": {"registration": "@mcp.tool()", "handler": "def get_data_variables(filename: str, ctx: Context) -> list"}
+      },
+      {
+        "tool_id": "180::rename_symbol::src/binaryninja_mcp/server.py:251",
+        "name": "rename_symbol",
+        "description": "Rename a function or a data variable",
+        "input_schema": {"type": "object", "properties": {"filename": {"type": "string"}, "address_or_name": {"type": "string"}, "new_name": {"type": "string"}}, "required": ["filename", "address_or_name", "new_name"]},
+        "metadata": {"registration_style": "FastMCP @mcp.tool decorator", "registration_file": "src/binaryninja_mcp/server.py", "registration_line": 250, "implementation_file": "src/binaryninja_mcp/tools.py", "implementation_line": 61, "schema_source": "function signature and docstring"},
+        "code": {"registration": "@mcp.tool()", "handler": "def rename_symbol(filename: str, address_or_name: str, new_name: str, ctx: Context) -> str"}
+      },
+      {
+        "tool_id": "180::pseudo_c::src/binaryninja_mcp/server.py:259",
+        "name": "pseudo_c",
+        "description": "Get pseudo C code of a specified function",
+        "input_schema": {"type": "object", "properties": {"filename": {"type": "string"}, "address_or_name": {"type": "string"}}, "required": ["filename", "address_or_name"]},
+        "metadata": {"registration_style": "FastMCP @mcp.tool decorator", "registration_file": "src/binaryninja_mcp/server.py", "registration_line": 258, "implementation_file": "src/binaryninja_mcp/tools.py", "implementation_line": 100, "schema_source": "function signature and docstring"},
+        "code": {"registration": "@mcp.tool()", "handler": "def pseudo_c(filename: str, address_or_name: str, ctx: Context) -> str"}
+      },
+      {
+        "tool_id": "180::pseudo_rust::src/binaryninja_mcp/server.py:267",
+        "name": "pseudo_rust",
+        "description": "Get pseudo Rust code of a specified function",
+        "input_schema": {"type": "object", "properties": {"filename": {"type": "string"}, "address_or_name": {"type": "string"}}, "required": ["filename", "address_or_name"]},
+        "metadata": {"registration_style": "FastMCP @mcp.tool decorator", "registration_file": "src/binaryninja_mcp/server.py", "registration_line": 266, "implementation_file": "src/binaryninja_mcp/tools.py", "implementation_line": 137, "schema_source": "function signature and docstring"},
+        "code": {"registration": "@mcp.tool()", "handler": "def pseudo_rust(filename: str, address_or_name: str, ctx: Context) -> str"}
+      },
+      {
+        "tool_id": "180::high_level_il::src/binaryninja_mcp/server.py:275",
+        "name": "high_level_il",
+        "description": "Get high level IL of a specified function",
+        "input_schema": {"type": "object", "properties": {"filename": {"type": "string"}, "address_or_name": {"type": "string"}}, "required": ["filename", "address_or_name"]},
+        "metadata": {"registration_style": "FastMCP @mcp.tool decorator", "registration_file": "src/binaryninja_mcp/server.py", "registration_line": 274, "implementation_file": "src/binaryninja_mcp/tools.py", "implementation_line": 174, "schema_source": "function signature and docstring"},
+        "code": {"registration": "@mcp.tool()", "handler": "def high_level_il(filename: str, address_or_name: str, ctx: Context) -> str"}
+      },
+      {
+        "tool_id": "180::medium_level_il::src/binaryninja_mcp/server.py:283",
+        "name": "medium_level_il",
+        "description": "Get medium level IL of a specified function",
+        "input_schema": {"type": "object", "properties": {"filename": {"type": "string"}, "address_or_name": {"type": "string"}}, "required": ["filename", "address_or_name"]},
+        "metadata": {"registration_style": "FastMCP @mcp.tool decorator", "registration_file": "src/binaryninja_mcp/server.py", "registration_line": 282, "implementation_file": "src/binaryninja_mcp/tools.py", "implementation_line": 204, "schema_source": "function signature and docstring"},
+        "code": {"registration": "@mcp.tool()", "handler": "def medium_level_il(filename: str, address_or_name: str, ctx: Context) -> str"}
+      },
+      {
+        "tool_id": "180::disassembly::src/binaryninja_mcp/server.py:291",
+        "name": "disassembly",
+        "description": "Get disassembly of a function or specified range",
+        "input_schema": {"type": "object", "properties": {"filename": {"type": "string"}, "address_or_name": {"type": "string"}, "length": {"type": ["integer", "null"], "default": null}}, "required": ["filename", "address_or_name"]},
+        "metadata": {"registration_style": "FastMCP @mcp.tool decorator", "registration_file": "src/binaryninja_mcp/server.py", "registration_line": 290, "implementation_file": "src/binaryninja_mcp/tools.py", "implementation_line": 234, "schema_source": "function signature and docstring"},
+        "code": {"registration": "@mcp.tool()", "handler": "def disassembly(filename: str, address_or_name: str, ctx: Context, length: Optional[int] = None) -> str"}
+      },
+      {
+        "tool_id": "180::update_analysis_and_wait::src/binaryninja_mcp/server.py:301",
+        "name": "update_analysis_and_wait",
+        "description": "Update analysis for the binary and wait for it to complete",
+        "input_schema": {"type": "object", "properties": {"filename": {"type": "string"}}, "required": ["filename"]},
+        "metadata": {"registration_style": "FastMCP @mcp.tool decorator", "registration_file": "src/binaryninja_mcp/server.py", "registration_line": 300, "implementation_file": "src/binaryninja_mcp/tools.py", "implementation_line": 349, "schema_source": "function signature and docstring"},
+        "code": {"registration": "@mcp.tool()", "handler": "def update_analysis_and_wait(filename: str, ctx: Context) -> str"}
+      }
+    ]
+  }
+]

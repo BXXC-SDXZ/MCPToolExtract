@@ -1,0 +1,54 @@
+---
+title: "Configuration"
+description: "Environment variables and license key setup."
+---
+
+## License Key
+
+All plans require `AGENT1ST_LICENSE_KEY`. Get yours at [agent1st.io/ads](https://agent1st.io/ads/).
+
+| Key Prefix | Plan | Price | Platforms |
+|------------|------|-------|-----------|
+| `a1s_...` | Scout | $29/mo | Meta OR TikTok |
+| `a1o_...` | Operator | $69/mo | Both |
+| `a1c_...` | Commander | $149/mo | Both + Advanced |
+| `a1a_...` | Agency | $399/mo | Unlimited |
+
+---
+
+## All Environment Variables
+
+| Variable | Platform | Description |
+|----------|----------|-------------|
+| `AGENT1ST_LICENSE_KEY` | Required | License key from agent1st.io/ads |
+| `META_ADS_ACCESS_TOKEN` | Meta | Marketing API access token |
+| `META_ADS_ACCOUNT_ID` | Meta | Ad account ID — format: `act_XXXXXXXXXX` |
+| `META_PAGE_ID` | Meta | Facebook Page ID — needed to create ads |
+| `TIKTOK_ADS_ACCESS_TOKEN` | TikTok | TikTok Business API access token |
+| `TIKTOK_ADVERTISER_ID` | TikTok | TikTok advertiser account ID |
+
+You can connect Meta only, TikTok only, or both.
+
+---
+
+## Where to Get Credentials
+
+**Meta:** [developers.facebook.com/tools/explorer](https://developers.facebook.com/tools/explorer)
+Add permissions: `ads_management` and `pages_read_engagement`
+
+**TikTok:** [business-api.tiktok.com](https://business-api.tiktok.com) — My Apps section
+
+---
+
+## Example .env
+
+```env
+AGENT1ST_LICENSE_KEY=a1o_your_key_here
+
+META_ADS_ACCESS_TOKEN=EAAxxxxxxxx
+META_ADS_ACCOUNT_ID=act_123456789
+META_PAGE_ID=987654321
+
+TIKTOK_ADS_ACCESS_TOKEN=your_tiktok_token
+TIKTOK_ADVERTISER_ID=1234567890
+```

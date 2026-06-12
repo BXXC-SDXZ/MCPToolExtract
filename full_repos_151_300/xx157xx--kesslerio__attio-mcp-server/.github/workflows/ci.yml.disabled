@@ -1,0 +1,571 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  statuses: write
+  checks: write
+
+env:
+  NODE_VERSION_MATRIX: '["20.x", "22.x"]'
+
+jobs:
+  # Job 1: Lint and Type Check
+  lint-and-typecheck:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: 'npm'
+          
+      - name: Install dependencies with Rollup workaround
+        run: |
+          # Enhanced Rollup dependency handling for Issue #42aa0598
+          # This addresses the known npm bug with optional dependencies on Linux CI
+          echo "Installing dependencies with Rollup workaround..."
+          
+          # First attempt with npm ci
+          if npm ci; then
+            echo "✅ npm ci succeeded"
+          else
+            echo "❌ npm ci failed, applying Rollup workaround..."
+            # Clean slate approach - remove all cached/installed dependencies
+            rm -rf node_modules package-lock.json ~/.npm/_cacache
+            # Use npm install instead of ci for better optional dependency handling
+            npm install
+          fi
+          
+          # Verify Rollup dependencies are properly installed
+          echo "Verifying Rollup installation..."
+          if npm list @rollup/rollup-linux-x64-gnu --depth=0 2>/dev/null; then
+            echo "✅ Rollup Linux binary found"
+          else
+            echo "⚠️ Rollup Linux binary not found, this may cause build issues"
+            # Attempt to install Rollup platform dependencies explicitly
+            npm install --no-save @rollup/rollup-linux-x64-gnu 2>/dev/null || echo "Could not install Rollup binary explicitly"
+          fi
+        
+      - name: Run linter
+        run: npm run lint:check
+        
+      - name: Run type checker
+        run: npm run typecheck
+        
+      - name: Check format
+        run: npm run check:format
+
+  # Job 2: Smart Test Execution with Matrix Strategy
+  test:
+    name: Test (Node ${{ matrix.node-version }}, ${{ matrix.test-category }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      matrix:
+        node-version: [20.x, 22.x]
+        test-category: [smoke, core, extended]
+        exclude:
+          # Only run extended tests on Node 22.x to save CI minutes
+          - node-version: 20.x
+            test-category: extended
+      fail-fast: false
+      
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+          
+      - name: Install dependencies with Rollup workaround
+        run: |
+          # Enhanced Rollup dependency handling for Issue #42aa0598
+          # This addresses the known npm bug with optional dependencies on Linux CI
+          echo "Installing dependencies with Rollup workaround..."
+          
+          # First attempt with npm ci
+          if npm ci; then
+            echo "✅ npm ci succeeded"
+          else
+            echo "❌ npm ci failed, applying Rollup workaround..."
+            # Clean slate approach - remove all cached/installed dependencies
+            rm -rf node_modules package-lock.json ~/.npm/_cacache
+            # Use npm install instead of ci for better optional dependency handling
+            npm install
+          fi
+          
+          # Verify Rollup dependencies are properly installed
+          echo "Verifying Rollup installation..."
+          if npm list @rollup/rollup-linux-x64-gnu --depth=0 2>/dev/null; then
+            echo "✅ Rollup Linux binary found"
+          else
+            echo "⚠️ Rollup Linux binary not found, this may cause build issues"
+            # Attempt to install Rollup platform dependencies explicitly
+            npm install --no-save @rollup/rollup-linux-x64-gnu 2>/dev/null || echo "Could not install Rollup binary explicitly"
+          fi
+        
+      - name: Verify Rollup dependencies before build
+        run: |
+          echo "Pre-build dependency verification..."
+          # Verify critical build dependencies are available
+          if ! node -e "require.resolve('rollup')" 2>/dev/null; then
+            echo "❌ Rollup not found, attempting recovery..."
+            npm install --no-save rollup @rollup/rollup-linux-x64-gnu || echo "Recovery attempt completed"
+          else
+            echo "✅ Rollup dependency verified"
+          fi
+        
+      - name: Build project
+        run: npm run build
+        
+      - name: Run ${{ matrix.test-category }} tests
+        run: |
+          case "${{ matrix.test-category }}" in
+            smoke)
+              npm run test:smoke
+              ;;
+            core)
+              npm run test:core
+              ;;
+            extended)
+              npm run test:extended
+              ;;
+          esac
+        
+      - name: Upload coverage reports to Codecov
+        if: matrix.node-version == '20.x' && matrix.test-category == 'extended'
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage/lcov.info
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
+          verbose: true
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  # Job 3: Integration Tests (conditional execution)
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: |
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      contains(github.event.pull_request.labels.*.name, 'run-integration-tests') ||
+      contains(github.event.pull_request.files.*.filename, 'src/api/') ||
+      contains(github.event.pull_request.files.*.filename, 'src/services/')
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: 'npm'
+          
+      - name: Install dependencies with Rollup workaround
+        run: |
+          # Enhanced Rollup dependency handling for Issue #42aa0598
+          # This addresses the known npm bug with optional dependencies on Linux CI
+          echo "Installing dependencies with Rollup workaround..."
+          
+          # First attempt with npm ci
+          if npm ci; then
+            echo "✅ npm ci succeeded"
+          else
+            echo "❌ npm ci failed, applying Rollup workaround..."
+            # Clean slate approach - remove all cached/installed dependencies
+            rm -rf node_modules package-lock.json ~/.npm/_cacache
+            # Use npm install instead of ci for better optional dependency handling
+            npm install
+          fi
+          
+          # Verify Rollup dependencies are properly installed
+          echo "Verifying Rollup installation..."
+          if npm list @rollup/rollup-linux-x64-gnu --depth=0 2>/dev/null; then
+            echo "✅ Rollup Linux binary found"
+          else
+            echo "⚠️ Rollup Linux binary not found, this may cause build issues"
+            # Attempt to install Rollup platform dependencies explicitly
+            npm install --no-save @rollup/rollup-linux-x64-gnu 2>/dev/null || echo "Could not install Rollup binary explicitly"
+          fi
+        
+      - name: Verify Rollup dependencies before build
+        run: |
+          echo "Pre-build dependency verification..."
+          # Verify critical build dependencies are available
+          if ! node -e "require.resolve('rollup')" 2>/dev/null; then
+            echo "❌ Rollup not found, attempting recovery..."
+            npm install --no-save rollup @rollup/rollup-linux-x64-gnu || echo "Recovery attempt completed"
+          else
+            echo "✅ Rollup dependency verified"
+          fi
+        
+      - name: Build project
+        run: npm run build
+        
+      - name: Run integration tests
+        env:
+          ATTIO_API_KEY: ${{ secrets.ATTIO_TEST_API_KEY }}
+          ATTIO_WORKSPACE_ID: ${{ secrets.ATTIO_TEST_WORKSPACE_ID }}
+        run: |
+          if [ -z "$ATTIO_API_KEY" ]; then
+            echo "⚠️ Integration tests skipped: ATTIO_TEST_API_KEY not available"
+            exit 0
+          fi
+          npm run test -- test/integration/
+        
+      - name: Upload integration test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-results
+          retention-days: 7
+          path: |
+            coverage/
+            test-results/
+
+  # Job 4: Build Verification
+  build:
+    name: Build Verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: 'npm'
+          
+      - name: Install dependencies with Rollup workaround
+        run: |
+          # Enhanced Rollup dependency handling for Issue #42aa0598
+          # This addresses the known npm bug with optional dependencies on Linux CI
+          echo "Installing dependencies with Rollup workaround..."
+          
+          # First attempt with npm ci
+          if npm ci; then
+            echo "✅ npm ci succeeded"
+          else
+            echo "❌ npm ci failed, applying Rollup workaround..."
+            # Clean slate approach - remove all cached/installed dependencies
+            rm -rf node_modules package-lock.json ~/.npm/_cacache
+            # Use npm install instead of ci for better optional dependency handling
+            npm install
+          fi
+          
+          # Verify Rollup dependencies are properly installed
+          echo "Verifying Rollup installation..."
+          if npm list @rollup/rollup-linux-x64-gnu --depth=0 2>/dev/null; then
+            echo "✅ Rollup Linux binary found"
+          else
+            echo "⚠️ Rollup Linux binary not found, this may cause build issues"
+            # Attempt to install Rollup platform dependencies explicitly
+            npm install --no-save @rollup/rollup-linux-x64-gnu 2>/dev/null || echo "Could not install Rollup binary explicitly"
+          fi
+        
+      - name: Verify Rollup dependencies before build
+        run: |
+          echo "Pre-build dependency verification..."
+          # Verify critical build dependencies are available
+          if ! node -e "require.resolve('rollup')" 2>/dev/null; then
+            echo "❌ Rollup not found, attempting recovery..."
+            npm install --no-save rollup @rollup/rollup-linux-x64-gnu || echo "Recovery attempt completed"
+          else
+            echo "✅ Rollup dependency verified"
+          fi
+        
+      - name: Build project
+        run: npm run build
+        
+      - name: Verify build artifacts
+        run: |
+          test -d dist/
+          test -f dist/index.js
+          test -f dist/cli/discover.js
+          
+      - name: Test CLI execution
+        run: |
+          chmod +x dist/index.js
+          chmod +x dist/cli/discover.js
+          node dist/index.js --help || echo "CLI help test completed"
+
+  # Job 5: Dependency Security Check
+  security:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: 'npm'
+          
+      - name: Install dependencies with Rollup workaround
+        run: |
+          # Enhanced Rollup dependency handling for Issue #42aa0598
+          # This addresses the known npm bug with optional dependencies on Linux CI
+          echo "Installing dependencies with Rollup workaround..."
+          
+          # First attempt with npm ci
+          if npm ci; then
+            echo "✅ npm ci succeeded"
+          else
+            echo "❌ npm ci failed, applying Rollup workaround..."
+            # Clean slate approach - remove all cached/installed dependencies
+            rm -rf node_modules package-lock.json ~/.npm/_cacache
+            # Use npm install instead of ci for better optional dependency handling
+            npm install
+          fi
+          
+          # Verify Rollup dependencies are properly installed
+          echo "Verifying Rollup installation..."
+          if npm list @rollup/rollup-linux-x64-gnu --depth=0 2>/dev/null; then
+            echo "✅ Rollup Linux binary found"
+          else
+            echo "⚠️ Rollup Linux binary not found, this may cause build issues"
+            # Attempt to install Rollup platform dependencies explicitly
+            npm install --no-save @rollup/rollup-linux-x64-gnu 2>/dev/null || echo "Could not install Rollup binary explicitly"
+          fi
+        
+      - name: Run security audit
+        run: npm audit --audit-level moderate
+        continue-on-error: true
+        
+      - name: Run vulnerability scan
+        run: npx audit-ci --moderate
+        continue-on-error: true
+
+  # Job 6: Performance Tests
+  performance:
+    name: Performance Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Run on main pushes and optionally on PRs with 'run-performance-tests' label
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' || contains(github.event.pull_request.labels.*.name, 'run-performance-tests')
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: 'npm'
+          
+      - name: Install dependencies with Rollup workaround
+        run: |
+          # Enhanced Rollup dependency handling for Issue #42aa0598
+          # This addresses the known npm bug with optional dependencies on Linux CI
+          echo "Installing dependencies with Rollup workaround..."
+          
+          # First attempt with npm ci
+          if npm ci; then
+            echo "✅ npm ci succeeded"
+          else
+            echo "❌ npm ci failed, applying Rollup workaround..."
+            # Clean slate approach - remove all cached/installed dependencies
+            rm -rf node_modules package-lock.json ~/.npm/_cacache
+            # Use npm install instead of ci for better optional dependency handling
+            npm install
+          fi
+          
+          # Verify Rollup dependencies are properly installed
+          echo "Verifying Rollup installation..."
+          if npm list @rollup/rollup-linux-x64-gnu --depth=0 2>/dev/null; then
+            echo "✅ Rollup Linux binary found"
+          else
+            echo "⚠️ Rollup Linux binary not found, this may cause build issues"
+            # Attempt to install Rollup platform dependencies explicitly
+            npm install --no-save @rollup/rollup-linux-x64-gnu 2>/dev/null || echo "Could not install Rollup binary explicitly"
+          fi
+        
+      - name: Verify Rollup dependencies before build
+        run: |
+          echo "Pre-build dependency verification..."
+          # Verify critical build dependencies are available
+          if ! node -e "require.resolve('rollup')" 2>/dev/null; then
+            echo "❌ Rollup not found, attempting recovery..."
+            npm install --no-save rollup @rollup/rollup-linux-x64-gnu || echo "Recovery attempt completed"
+          else
+            echo "✅ Rollup dependency verified"
+          fi
+        
+      - name: Build project
+        run: npm run build
+        
+      - name: Run performance benchmarks
+        run: |
+          # Run existing benchmark if available
+          if [ -f "test/performance/benchmark.test.ts" ]; then
+            npm run test -- test/performance/
+          fi
+          
+      - name: Upload performance results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-results
+          retention-days: 30
+          path: performance-results/
+
+  # Job 7: Consolidated Test Results Summary
+  # This job collects all test results and posts a SINGLE consolidated comment
+  test-summary:
+    name: Consolidated Test Results
+    runs-on: ubuntu-latest
+    needs: [lint-and-typecheck, test, build, security, performance]
+    if: always() && github.event_name == 'pull_request'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Create consolidated test summary
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Collect all job results
+            const ciJobs = {
+              'Lint & Type Check': '${{ needs.lint-and-typecheck.result }}',
+              'Unit Tests': '${{ needs.test.result }}',
+              'Build Verification': '${{ needs.build.result }}',
+              'Security Audit': '${{ needs.security.result }}'
+            };
+            
+            const performanceResult = '${{ needs.performance.result }}';
+            
+            // Build consolidated message
+            let summary = '# 📋 Consolidated CI/CD Results\n\n';
+            
+            // CI/CD Pipeline Section
+            summary += '## 🔍 CI/CD Pipeline\n\n';
+            let ciPassed = true;
+            
+            for (const [job, result] of Object.entries(ciJobs)) {
+              const emoji = result === 'success' ? '✅' : result === 'failure' ? '❌' : result === 'skipped' ? '⏭️' : '⚠️';
+              summary += `${emoji} **${job}**: ${result}\n`;
+              if (result !== 'success' && result !== 'skipped') ciPassed = false;
+            }
+            
+            // Performance Tests Section
+            summary += '\n## ⚡ Performance Tests\n\n';
+            if (performanceResult === 'skipped' || !performanceResult) {
+              summary += '⏭️ Performance tests only run on main branch pushes\n';
+            } else {
+              const perfEmoji = performanceResult === 'success' ? '✅' : '❌';
+              summary += `${perfEmoji} **Performance Regression Tests**: ${performanceResult}\n`;
+              summary += '\n### Performance Budgets\n';
+              summary += '| Operation | Budget | Status |\n';
+              summary += '|-----------|---------|---------|\n';
+              summary += '| 404 Responses | < 2s | Check artifacts |\n';
+              summary += '| Search | < 3s | Check artifacts |\n';
+              summary += '| CRUD Operations | < 3s | Check artifacts |\n';
+              summary += '| Batch Operations | < 5-10s | Check artifacts |\n';
+            }
+            
+            // Coverage Section
+            summary += '\n## 📊 Code Coverage\n\n';
+            summary += 'Coverage reports are available in the workflow artifacts.\n';
+            
+            // Overall Status
+            summary += '\n## 📝 Summary\n\n';
+            const overallPass = ciPassed && (performanceResult === 'success' || performanceResult === 'skipped' || !performanceResult);
+            
+            if (overallPass) {
+              summary += '🎉 **All checks passed!** This PR is ready for review.';
+            } else {
+              summary += '⚠️ **Some checks require attention.** Please review the failing jobs above.';
+            }
+            
+            // Add timestamp
+            summary += `\n\n---\n*Generated at ${new Date().toISOString()}*`;
+            
+            console.log(summary);
+            
+            // Find and update existing comment or create new one
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number
+            });
+            
+            const botComment = comments.find(comment => 
+              comment.user.type === 'Bot' && 
+              comment.body.includes('# 📋 Consolidated CI/CD Results')
+            );
+            
+            if (botComment) {
+              // Update existing comment
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: summary
+              });
+            } else {
+              // Create new comment
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: summary
+              });
+            }
+
+  # Job 8: PR Quality Gates
+  quality-gates:
+    name: Quality Gates
+    runs-on: ubuntu-latest
+    needs: [lint-and-typecheck, test, build]
+    if: github.event_name == 'pull_request'
+    
+    steps:
+      - name: Check quality gates
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const results = {
+              lint: '${{ needs.lint-and-typecheck.result }}',
+              test: '${{ needs.test.result }}',
+              build: '${{ needs.build.result }}'
+            };
+            
+            const failed = Object.entries(results).filter(([_, result]) => result !== 'success');
+            
+            if (failed.length > 0) {
+              const failedJobs = failed.map(([job, _]) => job).join(', ');
+              core.setFailed(`Quality gates failed: ${failedJobs}`);
+            } else {
+              console.log('✅ All quality gates passed!');
+            }

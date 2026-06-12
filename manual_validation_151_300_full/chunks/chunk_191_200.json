@@ -1,0 +1,3029 @@
+[
+  {
+    "repo_id": "191",
+    "repo_name": "nanbingxyz__mcpsvr",
+    "source": "github_full_clone",
+    "status": "NOT_CONCRETE_MCP_TOOL_SERVER",
+    "notes": "Next.js catalog UI over public/servers.json; no local MCP server tool registration/handler found. README/catalog entries not extracted.",
+    "tool": []
+  },
+  {
+    "repo_id": "192",
+    "repo_name": "nandishnagaraj__zephyr-mcp-server",
+    "source": "github_full_clone",
+    "status": "TOOL_SERVER_SOURCE_CONFIRMED",
+    "notes": "Python FastMCP server in zephyr/zephyr.py; one @mcp.tool handler.",
+    "tool": [
+      {
+        "tool_id": "192::get_test_cases::zephyr/zephyr.py:35",
+        "sdk": "python-sdk FastMCP",
+        "metadata": {
+          "name": "get_test_cases",
+          "title": null,
+          "description": "Get test cases from Zephyr Scale.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "type": "object",
+              "properties": {
+                "project_key": {
+                  "type": "string"
+                },
+                "folder_id": {
+                  "type": "integer",
+                  "nullable": true
+                },
+                "max_results": {
+                  "type": "integer",
+                  "default": 10
+                }
+              },
+              "required": [
+                "project_key"
+              ]
+            },
+            "schema_dialect": "pydantic-derived",
+            "parameters": [
+              {
+                "name": "project_key",
+                "type": "string",
+                "required": true,
+                "default": null,
+                "description": "Project key (e.g. SM)",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "folder_id",
+                "type": "integer",
+                "required": false,
+                "default": null,
+                "description": "Optional folder ID to filter test cases",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "max_results",
+                "type": "integer",
+                "required": false,
+                "default": "10",
+                "description": "Maximum number of test cases to return",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              }
+            ]
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "zephyr/zephyr.py",
+            "line_start": 35,
+            "line_end": null,
+            "function_name": "decorated function get_test_cases",
+            "function_content": null
+          },
+          "handler_resolution": "decorated function get_test_cases"
+        }
+      }
+    ]
+  },
+  {
+    "repo_id": "193",
+    "repo_name": "naotama2002__mcp-remote-go",
+    "source": "github_full_clone",
+    "status": "NOT_CONCRETE_MCP_TOOL_SERVER",
+    "notes": "Go stdio-to-remote MCP proxy/transport client. It forwards JSON-RPC to a remote server and has test mock tools, but no repo-owned MCP tool registration/handler.",
+    "tool": []
+  },
+  {
+    "repo_id": "194",
+    "repo_name": "neondatabase-labs__mcp-server-neon",
+    "source": "github_full_clone",
+    "status": "TOOL_SERVER_SOURCE_CONFIRMED",
+    "notes": "Full clone contains actual MCP server under landing/mcp-src. createMcpServer registers getAvailableTools(... NEON_TOOLS ...) via server.tool at landing/mcp-src/server/index.ts:95-108; handlers resolved through NEON_HANDLERS in landing/mcp-src/tools/tools.ts.",
+    "tool": [
+      {
+        "tool_id": "194::list_projects::landing/mcp-src/tools/definitions.ts:50",
+        "sdk": "typescript-sdk McpServer.tool",
+        "metadata": {
+          "name": "list_projects",
+          "title": "List Projects",
+          "description": null,
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "zod_schema_ref": "listProjectsInputSchema",
+              "schema_file": "landing/mcp-src/tools/toolsSchema.ts",
+              "registration_wrapper": "server.tool(tool.name, tool.description, { params: tool.inputSchema }, tool.annotations, handler) at landing/mcp-src/server/index.ts:103"
+            },
+            "schema_dialect": "zod-ref/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "landing/mcp-src/tools/definitions.ts",
+            "line_start": 50,
+            "line_end": null,
+            "function_name": "NEON_HANDLERS.list_projects at landing/mcp-src/tools/tools.ts:1082",
+            "function_content": null
+          },
+          "handler_resolution": "NEON_HANDLERS.list_projects at landing/mcp-src/tools/tools.ts:1082"
+        }
+      },
+      {
+        "tool_id": "194::list_organizations::landing/mcp-src/tools/definitions.ts:64",
+        "sdk": "typescript-sdk McpServer.tool",
+        "metadata": {
+          "name": "list_organizations",
+          "title": "List Organizations",
+          "description": null,
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "zod_schema_ref": "listOrganizationsInputSchema",
+              "schema_file": "landing/mcp-src/tools/toolsSchema.ts",
+              "registration_wrapper": "server.tool(tool.name, tool.description, { params: tool.inputSchema }, tool.annotations, handler) at landing/mcp-src/server/index.ts:103"
+            },
+            "schema_dialect": "zod-ref/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "landing/mcp-src/tools/definitions.ts",
+            "line_start": 64,
+            "line_end": null,
+            "function_name": "NEON_HANDLERS.list_organizations at landing/mcp-src/tools/tools.ts:1652",
+            "function_content": null
+          },
+          "handler_resolution": "NEON_HANDLERS.list_organizations at landing/mcp-src/tools/tools.ts:1652"
+        }
+      },
+      {
+        "tool_id": "194::list_shared_projects::landing/mcp-src/tools/definitions.ts:78",
+        "sdk": "typescript-sdk McpServer.tool",
+        "metadata": {
+          "name": "list_shared_projects",
+          "title": "List Shared Projects",
+          "description": null,
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "zod_schema_ref": "listSharedProjectsInputSchema",
+              "schema_file": "landing/mcp-src/tools/toolsSchema.ts",
+              "registration_wrapper": "server.tool(tool.name, tool.description, { params: tool.inputSchema }, tool.annotations, handler) at landing/mcp-src/server/index.ts:103"
+            },
+            "schema_dialect": "zod-ref/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "landing/mcp-src/tools/definitions.ts",
+            "line_start": 78,
+            "line_end": null,
+            "function_name": "NEON_HANDLERS.list_shared_projects at landing/mcp-src/tools/tools.ts:1668",
+            "function_content": null
+          },
+          "handler_resolution": "NEON_HANDLERS.list_shared_projects at landing/mcp-src/tools/tools.ts:1668"
+        }
+      },
+      {
+        "tool_id": "194::create_project::landing/mcp-src/tools/definitions.ts:92",
+        "sdk": "typescript-sdk McpServer.tool",
+        "metadata": {
+          "name": "create_project",
+          "title": "Create Project",
+          "description": null,
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "zod_schema_ref": "createProjectInputSchema",
+              "schema_file": "landing/mcp-src/tools/toolsSchema.ts",
+              "registration_wrapper": "server.tool(tool.name, tool.description, { params: tool.inputSchema }, tool.annotations, handler) at landing/mcp-src/server/index.ts:103"
+            },
+            "schema_dialect": "zod-ref/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "idempotentHint": false,
+            "openWorldHint": false
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "landing/mcp-src/tools/definitions.ts",
+            "line_start": 92,
+            "line_end": null,
+            "function_name": "NEON_HANDLERS.create_project at landing/mcp-src/tools/tools.ts:1115",
+            "function_content": null
+          },
+          "handler_resolution": "NEON_HANDLERS.create_project at landing/mcp-src/tools/tools.ts:1115"
+        }
+      },
+      {
+        "tool_id": "194::delete_project::landing/mcp-src/tools/definitions.ts:107",
+        "sdk": "typescript-sdk McpServer.tool",
+        "metadata": {
+          "name": "delete_project",
+          "title": "Delete Project",
+          "description": null,
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "zod_schema_ref": "deleteProjectInputSchema",
+              "schema_file": "landing/mcp-src/tools/toolsSchema.ts",
+              "registration_wrapper": "server.tool(tool.name, tool.description, { params: tool.inputSchema }, tool.annotations, handler) at landing/mcp-src/server/index.ts:103"
+            },
+            "schema_dialect": "zod-ref/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "idempotentHint": false,
+            "openWorldHint": false
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "landing/mcp-src/tools/definitions.ts",
+            "line_start": 107,
+            "line_end": null,
+            "function_name": "NEON_HANDLERS.delete_project at landing/mcp-src/tools/tools.ts:1184",
+            "function_content": null
+          },
+          "handler_resolution": "NEON_HANDLERS.delete_project at landing/mcp-src/tools/tools.ts:1184"
+        }
+      },
+      {
+        "tool_id": "194::describe_project::landing/mcp-src/tools/definitions.ts:122",
+        "sdk": "typescript-sdk McpServer.tool",
+        "metadata": {
+          "name": "describe_project",
+          "title": "Describe Project",
+          "description": null,
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "zod_schema_ref": "describeProjectInputSchema",
+              "schema_file": "landing/mcp-src/tools/toolsSchema.ts",
+              "registration_wrapper": "server.tool(tool.name, tool.description, { params: tool.inputSchema }, tool.annotations, handler) at landing/mcp-src/server/index.ts:103"
+            },
+            "schema_dialect": "zod-ref/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "landing/mcp-src/tools/definitions.ts",
+            "line_start": 122,
+            "line_end": null,
+            "function_name": "NEON_HANDLERS.describe_project at landing/mcp-src/tools/tools.ts:1199",
+            "function_content": null
+          },
+          "handler_resolution": "NEON_HANDLERS.describe_project at landing/mcp-src/tools/tools.ts:1199"
+        }
+      },
+      {
+        "tool_id": "194::run_sql::landing/mcp-src/tools/definitions.ts:137",
+        "sdk": "typescript-sdk McpServer.tool",
+        "metadata": {
+          "name": "run_sql",
+          "title": "Run SQL",
+          "description": null,
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "zod_schema_ref": "runSqlInputSchema",
+              "schema_file": "landing/mcp-src/tools/toolsSchema.ts",
+              "registration_wrapper": "server.tool(tool.name, tool.description, { params: tool.inputSchema }, tool.annotations, handler) at landing/mcp-src/server/index.ts:103"
+            },
+            "schema_dialect": "zod-ref/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "idempotentHint": false,
+            "openWorldHint": false
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "landing/mcp-src/tools/definitions.ts",
+            "line_start": 137,
+            "line_end": null,
+            "function_name": "NEON_HANDLERS.run_sql at landing/mcp-src/tools/tools.ts:1219",
+            "function_content": null
+          },
+          "handler_resolution": "NEON_HANDLERS.run_sql at landing/mcp-src/tools/tools.ts:1219"
+        }
+      },
+      {
+        "tool_id": "194::run_sql_transaction::landing/mcp-src/tools/definitions.ts:162",
+        "sdk": "typescript-sdk McpServer.tool",
+        "metadata": {
+          "name": "run_sql_transaction",
+          "title": "Run SQL Transaction",
+          "description": null,
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "zod_schema_ref": "runSqlTransactionInputSchema",
+              "schema_file": "landing/mcp-src/tools/toolsSchema.ts",
+              "registration_wrapper": "server.tool(tool.name, tool.description, { params: tool.inputSchema }, tool.annotations, handler) at landing/mcp-src/server/index.ts:103"
+            },
+            "schema_dialect": "zod-ref/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "idempotentHint": false,
+            "openWorldHint": false
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "landing/mcp-src/tools/definitions.ts",
+            "line_start": 162,
+            "line_end": null,
+            "function_name": "NEON_HANDLERS.run_sql_transaction at landing/mcp-src/tools/tools.ts:1235",
+            "function_content": null
+          },
+          "handler_resolution": "NEON_HANDLERS.run_sql_transaction at landing/mcp-src/tools/tools.ts:1235"
+        }
+      },
+      {
+        "tool_id": "194::describe_table_schema::landing/mcp-src/tools/definitions.ts:187",
+        "sdk": "typescript-sdk McpServer.tool",
+        "metadata": {
+          "name": "describe_table_schema",
+          "title": "Describe Table Schema",
+          "description": null,
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "zod_schema_ref": "describeTableSchemaInputSchema",
+              "schema_file": "landing/mcp-src/tools/toolsSchema.ts",
+              "registration_wrapper": "server.tool(tool.name, tool.description, { params: tool.inputSchema }, tool.annotations, handler) at landing/mcp-src/server/index.ts:103"
+            },
+            "schema_dialect": "zod-ref/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "landing/mcp-src/tools/definitions.ts",
+            "line_start": 187,
+            "line_end": null,
+            "function_name": "NEON_HANDLERS.describe_table_schema at landing/mcp-src/tools/tools.ts:1251",
+            "function_content": null
+          },
+          "handler_resolution": "NEON_HANDLERS.describe_table_schema at landing/mcp-src/tools/tools.ts:1251"
+        }
+      },
+      {
+        "tool_id": "194::get_database_tables::landing/mcp-src/tools/definitions.ts:202",
+        "sdk": "typescript-sdk McpServer.tool",
+        "metadata": {
+          "name": "get_database_tables",
+          "title": "Get Database Tables",
+          "description": null,
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "zod_schema_ref": "getDatabaseTablesInputSchema",
+              "schema_file": "landing/mcp-src/tools/toolsSchema.ts",
+              "registration_wrapper": "server.tool(tool.name, tool.description, { params: tool.inputSchema }, tool.annotations, handler) at landing/mcp-src/server/index.ts:103"
+            },
+            "schema_dialect": "zod-ref/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "landing/mcp-src/tools/definitions.ts",
+            "line_start": 202,
+            "line_end": null,
+            "function_name": "NEON_HANDLERS.get_database_tables at landing/mcp-src/tools/tools.ts:1267",
+            "function_content": null
+          },
+          "handler_resolution": "NEON_HANDLERS.get_database_tables at landing/mcp-src/tools/tools.ts:1267"
+        }
+      },
+      {
+        "tool_id": "194::create_branch::landing/mcp-src/tools/definitions.ts:217",
+        "sdk": "typescript-sdk McpServer.tool",
+        "metadata": {
+          "name": "create_branch",
+          "title": "Create Branch",
+          "description": null,
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "zod_schema_ref": "createBranchInputSchema",
+              "schema_file": "landing/mcp-src/tools/toolsSchema.ts",
+              "registration_wrapper": "server.tool(tool.name, tool.description, { params: tool.inputSchema }, tool.annotations, handler) at landing/mcp-src/server/index.ts:103"
+            },
+            "schema_dialect": "zod-ref/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "idempotentHint": false,
+            "openWorldHint": false
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "landing/mcp-src/tools/definitions.ts",
+            "line_start": 217,
+            "line_end": null,
+            "function_name": "NEON_HANDLERS.create_branch at landing/mcp-src/tools/tools.ts:1287",
+            "function_content": null
+          },
+          "handler_resolution": "NEON_HANDLERS.create_branch at landing/mcp-src/tools/tools.ts:1287"
+        }
+      },
+      {
+        "tool_id": "194::prepare_database_migration::landing/mcp-src/tools/definitions.ts:232",
+        "sdk": "typescript-sdk McpServer.tool",
+        "metadata": {
+          "name": "prepare_database_migration",
+          "title": "Prepare Database Migration",
+          "description": null,
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "zod_schema_ref": "prepareDatabaseMigrationInputSchema",
+              "schema_file": "landing/mcp-src/tools/toolsSchema.ts",
+              "registration_wrapper": "server.tool(tool.name, tool.description, { params: tool.inputSchema }, tool.annotations, handler) at landing/mcp-src/server/index.ts:103"
+            },
+            "schema_dialect": "zod-ref/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "idempotentHint": false,
+            "openWorldHint": false
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "landing/mcp-src/tools/definitions.ts",
+            "line_start": 232,
+            "line_end": null,
+            "function_name": "NEON_HANDLERS.prepare_database_migration at landing/mcp-src/tools/tools.ts:1312",
+            "function_content": null
+          },
+          "handler_resolution": "NEON_HANDLERS.prepare_database_migration at landing/mcp-src/tools/tools.ts:1312"
+        }
+      },
+      {
+        "tool_id": "194::complete_database_migration::landing/mcp-src/tools/definitions.ts:371",
+        "sdk": "typescript-sdk McpServer.tool",
+        "metadata": {
+          "name": "complete_database_migration",
+          "title": "Complete Database Migration",
+          "description": null,
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "zod_schema_ref": "completeDatabaseMigrationInputSchema",
+              "schema_file": "landing/mcp-src/tools/toolsSchema.ts",
+              "registration_wrapper": "server.tool(tool.name, tool.description, { params: tool.inputSchema }, tool.annotations, handler) at landing/mcp-src/server/index.ts:103"
+            },
+            "schema_dialect": "zod-ref/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "idempotentHint": false,
+            "openWorldHint": false
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "landing/mcp-src/tools/definitions.ts",
+            "line_start": 371,
+            "line_end": null,
+            "function_name": "NEON_HANDLERS.complete_database_migration at landing/mcp-src/tools/tools.ts:1366",
+            "function_content": null
+          },
+          "handler_resolution": "NEON_HANDLERS.complete_database_migration at landing/mcp-src/tools/tools.ts:1366"
+        }
+      },
+      {
+        "tool_id": "194::describe_branch::landing/mcp-src/tools/definitions.ts:402",
+        "sdk": "typescript-sdk McpServer.tool",
+        "metadata": {
+          "name": "describe_branch",
+          "title": "Describe Branch",
+          "description": null,
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "zod_schema_ref": "describeBranchInputSchema",
+              "schema_file": "landing/mcp-src/tools/toolsSchema.ts",
+              "registration_wrapper": "server.tool(tool.name, tool.description, { params: tool.inputSchema }, tool.annotations, handler) at landing/mcp-src/server/index.ts:103"
+            },
+            "schema_dialect": "zod-ref/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "landing/mcp-src/tools/definitions.ts",
+            "line_start": 402,
+            "line_end": null,
+            "function_name": "NEON_HANDLERS.describe_branch at landing/mcp-src/tools/tools.ts:1396",
+            "function_content": null
+          },
+          "handler_resolution": "NEON_HANDLERS.describe_branch at landing/mcp-src/tools/tools.ts:1396"
+        }
+      },
+      {
+        "tool_id": "194::delete_branch::landing/mcp-src/tools/definitions.ts:417",
+        "sdk": "typescript-sdk McpServer.tool",
+        "metadata": {
+          "name": "delete_branch",
+          "title": "Delete Branch",
+          "description": null,
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "zod_schema_ref": "deleteBranchInputSchema",
+              "schema_file": "landing/mcp-src/tools/toolsSchema.ts",
+              "registration_wrapper": "server.tool(tool.name, tool.description, { params: tool.inputSchema }, tool.annotations, handler) at landing/mcp-src/server/index.ts:103"
+            },
+            "schema_dialect": "zod-ref/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "idempotentHint": false,
+            "openWorldHint": false
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "landing/mcp-src/tools/definitions.ts",
+            "line_start": 417,
+            "line_end": null,
+            "function_name": "NEON_HANDLERS.delete_branch at landing/mcp-src/tools/tools.ts:1408",
+            "function_content": null
+          },
+          "handler_resolution": "NEON_HANDLERS.delete_branch at landing/mcp-src/tools/tools.ts:1408"
+        }
+      },
+      {
+        "tool_id": "194::reset_from_parent::landing/mcp-src/tools/definitions.ts:432",
+        "sdk": "typescript-sdk McpServer.tool",
+        "metadata": {
+          "name": "reset_from_parent",
+          "title": "Reset Branch from Parent",
+          "description": null,
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "zod_schema_ref": "resetFromParentInputSchema",
+              "schema_file": "landing/mcp-src/tools/toolsSchema.ts",
+              "registration_wrapper": "server.tool(tool.name, tool.description, { params: tool.inputSchema }, tool.annotations, handler) at landing/mcp-src/server/index.ts:103"
+            },
+            "schema_dialect": "zod-ref/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "idempotentHint": false,
+            "openWorldHint": false
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "landing/mcp-src/tools/definitions.ts",
+            "line_start": 432,
+            "line_end": null,
+            "function_name": "NEON_HANDLERS.reset_from_parent at landing/mcp-src/tools/tools.ts:1430",
+            "function_content": null
+          },
+          "handler_resolution": "NEON_HANDLERS.reset_from_parent at landing/mcp-src/tools/tools.ts:1430"
+        }
+      },
+      {
+        "tool_id": "194::get_connection_string::landing/mcp-src/tools/definitions.ts:446",
+        "sdk": "typescript-sdk McpServer.tool",
+        "metadata": {
+          "name": "get_connection_string",
+          "title": "Get Connection String",
+          "description": null,
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "zod_schema_ref": "getConnectionStringInputSchema",
+              "schema_file": "landing/mcp-src/tools/toolsSchema.ts",
+              "registration_wrapper": "server.tool(tool.name, tool.description, { params: tool.inputSchema }, tool.annotations, handler) at landing/mcp-src/server/index.ts:103"
+            },
+            "schema_dialect": "zod-ref/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "landing/mcp-src/tools/definitions.ts",
+            "line_start": 446,
+            "line_end": null,
+            "function_name": "NEON_HANDLERS.get_connection_string at landing/mcp-src/tools/tools.ts:1469",
+            "function_content": null
+          },
+          "handler_resolution": "NEON_HANDLERS.get_connection_string at landing/mcp-src/tools/tools.ts:1469"
+        }
+      },
+      {
+        "tool_id": "194::provision_neon_auth::landing/mcp-src/tools/definitions.ts:461",
+        "sdk": "typescript-sdk McpServer.tool",
+        "metadata": {
+          "name": "provision_neon_auth",
+          "title": "Provision Neon Auth",
+          "description": null,
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "zod_schema_ref": "provisionNeonAuthInputSchema",
+              "schema_file": "landing/mcp-src/tools/toolsSchema.ts",
+              "registration_wrapper": "server.tool(tool.name, tool.description, { params: tool.inputSchema }, tool.annotations, handler) at landing/mcp-src/server/index.ts:103"
+            },
+            "schema_dialect": "zod-ref/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "landing/mcp-src/tools/definitions.ts",
+            "line_start": 461,
+            "line_end": null,
+            "function_name": "NEON_HANDLERS.provision_neon_auth at landing/mcp-src/tools/tools.ts:1506",
+            "function_content": null
+          },
+          "handler_resolution": "NEON_HANDLERS.provision_neon_auth at landing/mcp-src/tools/tools.ts:1506"
+        }
+      },
+      {
+        "tool_id": "194::configure_neon_auth::landing/mcp-src/tools/definitions.ts:493",
+        "sdk": "typescript-sdk McpServer.tool",
+        "metadata": {
+          "name": "configure_neon_auth",
+          "title": "Configure Neon Auth",
+          "description": null,
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "zod_schema_ref": "configureNeonAuthInputSchema",
+              "schema_file": "landing/mcp-src/tools/toolsSchema.ts",
+              "registration_wrapper": "server.tool(tool.name, tool.description, { params: tool.inputSchema }, tool.annotations, handler) at landing/mcp-src/server/index.ts:103"
+            },
+            "schema_dialect": "zod-ref/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "idempotentHint": false,
+            "openWorldHint": false
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "landing/mcp-src/tools/definitions.ts",
+            "line_start": 493,
+            "line_end": null,
+            "function_name": "NEON_HANDLERS.configure_neon_auth at landing/mcp-src/tools/tools.ts:1519",
+            "function_content": null
+          },
+          "handler_resolution": "NEON_HANDLERS.configure_neon_auth at landing/mcp-src/tools/tools.ts:1519"
+        }
+      },
+      {
+        "tool_id": "194::get_neon_auth_config::landing/mcp-src/tools/definitions.ts:532",
+        "sdk": "typescript-sdk McpServer.tool",
+        "metadata": {
+          "name": "get_neon_auth_config",
+          "title": "Get Neon Auth configuration",
+          "description": null,
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "zod_schema_ref": "getNeonAuthConfigInputSchema",
+              "schema_file": "landing/mcp-src/tools/toolsSchema.ts",
+              "registration_wrapper": "server.tool(tool.name, tool.description, { params: tool.inputSchema }, tool.annotations, handler) at landing/mcp-src/server/index.ts:103"
+            },
+            "schema_dialect": "zod-ref/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "landing/mcp-src/tools/definitions.ts",
+            "line_start": 532,
+            "line_end": null,
+            "function_name": "NEON_HANDLERS.get_neon_auth_config at landing/mcp-src/tools/tools.ts:1523",
+            "function_content": null
+          },
+          "handler_resolution": "NEON_HANDLERS.get_neon_auth_config at landing/mcp-src/tools/tools.ts:1523"
+        }
+      },
+      {
+        "tool_id": "194::provision_neon_data_api::landing/mcp-src/tools/definitions.ts:550",
+        "sdk": "typescript-sdk McpServer.tool",
+        "metadata": {
+          "name": "provision_neon_data_api",
+          "title": "Provision Neon Data API",
+          "description": null,
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "zod_schema_ref": "provisionNeonDataApiInputSchema",
+              "schema_file": "landing/mcp-src/tools/toolsSchema.ts",
+              "registration_wrapper": "server.tool(tool.name, tool.description, { params: tool.inputSchema }, tool.annotations, handler) at landing/mcp-src/server/index.ts:103"
+            },
+            "schema_dialect": "zod-ref/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "landing/mcp-src/tools/definitions.ts",
+            "line_start": 550,
+            "line_end": null,
+            "function_name": "NEON_HANDLERS.provision_neon_data_api at landing/mcp-src/tools/tools.ts:1527",
+            "function_content": null
+          },
+          "handler_resolution": "NEON_HANDLERS.provision_neon_data_api at landing/mcp-src/tools/tools.ts:1527"
+        }
+      },
+      {
+        "tool_id": "194::explain_sql_statement::landing/mcp-src/tools/definitions.ts:603",
+        "sdk": "typescript-sdk McpServer.tool",
+        "metadata": {
+          "name": "explain_sql_statement",
+          "title": "Explain SQL Statement",
+          "description": null,
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "zod_schema_ref": "explainSqlStatementInputSchema",
+              "schema_file": "landing/mcp-src/tools/toolsSchema.ts",
+              "registration_wrapper": "server.tool(tool.name, tool.description, { params: tool.inputSchema }, tool.annotations, handler) at landing/mcp-src/server/index.ts:103"
+            },
+            "schema_dialect": "zod-ref/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "landing/mcp-src/tools/definitions.ts",
+            "line_start": 603,
+            "line_end": null,
+            "function_name": "NEON_HANDLERS.explain_sql_statement at landing/mcp-src/tools/tools.ts:1544",
+            "function_content": null
+          },
+          "handler_resolution": "NEON_HANDLERS.explain_sql_statement at landing/mcp-src/tools/tools.ts:1544"
+        }
+      },
+      {
+        "tool_id": "194::prepare_query_tuning::landing/mcp-src/tools/definitions.ts:618",
+        "sdk": "typescript-sdk McpServer.tool",
+        "metadata": {
+          "name": "prepare_query_tuning",
+          "title": "Prepare Query Tuning",
+          "description": null,
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "zod_schema_ref": "prepareQueryTuningInputSchema",
+              "schema_file": "landing/mcp-src/tools/toolsSchema.ts",
+              "registration_wrapper": "server.tool(tool.name, tool.description, { params: tool.inputSchema }, tool.annotations, handler) at landing/mcp-src/server/index.ts:103"
+            },
+            "schema_dialect": "zod-ref/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "idempotentHint": false,
+            "openWorldHint": false
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "landing/mcp-src/tools/definitions.ts",
+            "line_start": 618,
+            "line_end": null,
+            "function_name": "NEON_HANDLERS.prepare_query_tuning at landing/mcp-src/tools/tools.ts:1553",
+            "function_content": null
+          },
+          "handler_resolution": "NEON_HANDLERS.prepare_query_tuning at landing/mcp-src/tools/tools.ts:1553"
+        }
+      },
+      {
+        "tool_id": "194::complete_query_tuning::landing/mcp-src/tools/definitions.ts:776",
+        "sdk": "typescript-sdk McpServer.tool",
+        "metadata": {
+          "name": "complete_query_tuning",
+          "title": "Complete Query Tuning",
+          "description": null,
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "zod_schema_ref": "completeQueryTuningInputSchema",
+              "schema_file": "landing/mcp-src/tools/toolsSchema.ts",
+              "registration_wrapper": "server.tool(tool.name, tool.description, { params: tool.inputSchema }, tool.annotations, handler) at landing/mcp-src/server/index.ts:103"
+            },
+            "schema_dialect": "zod-ref/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": false,
+            "destructiveHint": true,
+            "idempotentHint": false,
+            "openWorldHint": false
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "landing/mcp-src/tools/definitions.ts",
+            "line_start": 776,
+            "line_end": null,
+            "function_name": "NEON_HANDLERS.complete_query_tuning at landing/mcp-src/tools/tools.ts:1585",
+            "function_content": null
+          },
+          "handler_resolution": "NEON_HANDLERS.complete_query_tuning at landing/mcp-src/tools/tools.ts:1585"
+        }
+      },
+      {
+        "tool_id": "194::list_slow_queries::landing/mcp-src/tools/definitions.ts:814",
+        "sdk": "typescript-sdk McpServer.tool",
+        "metadata": {
+          "name": "list_slow_queries",
+          "title": "List Slow Queries",
+          "description": null,
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "zod_schema_ref": "listSlowQueriesInputSchema",
+              "schema_file": "landing/mcp-src/tools/toolsSchema.ts",
+              "registration_wrapper": "server.tool(tool.name, tool.description, { params: tool.inputSchema }, tool.annotations, handler) at landing/mcp-src/server/index.ts:103"
+            },
+            "schema_dialect": "zod-ref/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": false,
+            "openWorldHint": false
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "landing/mcp-src/tools/definitions.ts",
+            "line_start": 814,
+            "line_end": null,
+            "function_name": "NEON_HANDLERS.list_slow_queries at landing/mcp-src/tools/tools.ts:1616",
+            "function_content": null
+          },
+          "handler_resolution": "NEON_HANDLERS.list_slow_queries at landing/mcp-src/tools/tools.ts:1616"
+        }
+      },
+      {
+        "tool_id": "194::list_branch_computes::landing/mcp-src/tools/definitions.ts:836",
+        "sdk": "typescript-sdk McpServer.tool",
+        "metadata": {
+          "name": "list_branch_computes",
+          "title": "List Branch Computes",
+          "description": null,
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "zod_schema_ref": "listBranchComputesInputSchema",
+              "schema_file": "landing/mcp-src/tools/toolsSchema.ts",
+              "registration_wrapper": "server.tool(tool.name, tool.description, { params: tool.inputSchema }, tool.annotations, handler) at landing/mcp-src/server/index.ts:103"
+            },
+            "schema_dialect": "zod-ref/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "landing/mcp-src/tools/definitions.ts",
+            "line_start": 836,
+            "line_end": null,
+            "function_name": "NEON_HANDLERS.list_branch_computes at landing/mcp-src/tools/tools.ts:1638",
+            "function_content": null
+          },
+          "handler_resolution": "NEON_HANDLERS.list_branch_computes at landing/mcp-src/tools/tools.ts:1638"
+        }
+      },
+      {
+        "tool_id": "194::compare_database_schema::landing/mcp-src/tools/definitions.ts:851",
+        "sdk": "typescript-sdk McpServer.tool",
+        "metadata": {
+          "name": "compare_database_schema",
+          "title": "Compare Database Schema",
+          "description": null,
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "zod_schema_ref": "compareDatabaseSchemaInputSchema",
+              "schema_file": "landing/mcp-src/tools/toolsSchema.ts",
+              "registration_wrapper": "server.tool(tool.name, tool.description, { params: tool.inputSchema }, tool.annotations, handler) at landing/mcp-src/server/index.ts:103"
+            },
+            "schema_dialect": "zod-ref/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "landing/mcp-src/tools/definitions.ts",
+            "line_start": 851,
+            "line_end": null,
+            "function_name": "NEON_HANDLERS.compare_database_schema at landing/mcp-src/tools/tools.ts:1687",
+            "function_content": null
+          },
+          "handler_resolution": "NEON_HANDLERS.compare_database_schema at landing/mcp-src/tools/tools.ts:1687"
+        }
+      },
+      {
+        "tool_id": "194::search::landing/mcp-src/tools/definitions.ts:1129",
+        "sdk": "typescript-sdk McpServer.tool",
+        "metadata": {
+          "name": "search",
+          "title": "Search",
+          "description": null,
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "zod_schema_ref": "searchInputSchema",
+              "schema_file": "landing/mcp-src/tools/toolsSchema.ts",
+              "registration_wrapper": "server.tool(tool.name, tool.description, { params: tool.inputSchema }, tool.annotations, handler) at landing/mcp-src/server/index.ts:103"
+            },
+            "schema_dialect": "zod-ref/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "landing/mcp-src/tools/definitions.ts",
+            "line_start": 1129,
+            "line_end": null,
+            "function_name": "NEON_HANDLERS.search at landing/mcp-src/tools/tools.ts:1701",
+            "function_content": null
+          },
+          "handler_resolution": "NEON_HANDLERS.search at landing/mcp-src/tools/tools.ts:1701"
+        }
+      },
+      {
+        "tool_id": "194::fetch::landing/mcp-src/tools/definitions.ts:1143",
+        "sdk": "typescript-sdk McpServer.tool",
+        "metadata": {
+          "name": "fetch",
+          "title": "Fetch",
+          "description": null,
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "zod_schema_ref": "fetchInputSchema",
+              "schema_file": "landing/mcp-src/tools/toolsSchema.ts",
+              "registration_wrapper": "server.tool(tool.name, tool.description, { params: tool.inputSchema }, tool.annotations, handler) at landing/mcp-src/server/index.ts:103"
+            },
+            "schema_dialect": "zod-ref/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "landing/mcp-src/tools/definitions.ts",
+            "line_start": 1143,
+            "line_end": null,
+            "function_name": "NEON_HANDLERS.fetch at landing/mcp-src/tools/tools.ts:1705",
+            "function_content": null
+          },
+          "handler_resolution": "NEON_HANDLERS.fetch at landing/mcp-src/tools/tools.ts:1705"
+        }
+      },
+      {
+        "tool_id": "194::list_docs_resources::landing/mcp-src/tools/definitions.ts:1157",
+        "sdk": "typescript-sdk McpServer.tool",
+        "metadata": {
+          "name": "list_docs_resources",
+          "title": "List Documentation Resources",
+          "description": null,
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "zod_schema_ref": "listDocsResourcesInputSchema",
+              "schema_file": "landing/mcp-src/tools/toolsSchema.ts",
+              "registration_wrapper": "server.tool(tool.name, tool.description, { params: tool.inputSchema }, tool.annotations, handler) at landing/mcp-src/server/index.ts:103"
+            },
+            "schema_dialect": "zod-ref/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": true
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "landing/mcp-src/tools/definitions.ts",
+            "line_start": 1157,
+            "line_end": null,
+            "function_name": "NEON_HANDLERS.list_docs_resources at landing/mcp-src/tools/tools.ts:1709",
+            "function_content": null
+          },
+          "handler_resolution": "NEON_HANDLERS.list_docs_resources at landing/mcp-src/tools/tools.ts:1709"
+        }
+      },
+      {
+        "tool_id": "194::get_doc_resource::landing/mcp-src/tools/definitions.ts:1194",
+        "sdk": "typescript-sdk McpServer.tool",
+        "metadata": {
+          "name": "get_doc_resource",
+          "title": "Get Documentation Resource",
+          "description": null,
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "zod_schema_ref": "getDocResourceInputSchema",
+              "schema_file": "landing/mcp-src/tools/toolsSchema.ts",
+              "registration_wrapper": "server.tool(tool.name, tool.description, { params: tool.inputSchema }, tool.annotations, handler) at landing/mcp-src/server/index.ts:103"
+            },
+            "schema_dialect": "zod-ref/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": true
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "landing/mcp-src/tools/definitions.ts",
+            "line_start": 1194,
+            "line_end": null,
+            "function_name": "NEON_HANDLERS.get_doc_resource at landing/mcp-src/tools/tools.ts:1721",
+            "function_content": null
+          },
+          "handler_resolution": "NEON_HANDLERS.get_doc_resource at landing/mcp-src/tools/tools.ts:1721"
+        }
+      }
+    ]
+  },
+  {
+    "repo_id": "195",
+    "repo_name": "nicodishanthj__icici-direct-mcp-server",
+    "source": "github_full_clone",
+    "status": "NO_SOURCE_OR_README_ONLY",
+    "notes": "Clone contains README.md only; no source files with MCP registration/handler.",
+    "tool": []
+  },
+  {
+    "repo_id": "196",
+    "repo_name": "Nightfallsh4__evm-mcp",
+    "source": "github_full_clone",
+    "status": "TOOL_SERVER_SOURCE_CONFIRMED",
+    "notes": "TypeScript McpServer with two server.tool registrations in src/index.ts.",
+    "tool": [
+      {
+        "tool_id": "196::get-eth-balance::src/index.ts:53",
+        "sdk": "typescript-sdk McpServer.tool",
+        "metadata": {
+          "name": "get-eth-balance",
+          "title": null,
+          "description": "Gets the ETH balance of a given wallet",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "type": "object",
+              "properties": {
+                "address": {
+                  "type": "string",
+                  "description": "The Address of the wallet to fetch the balance"
+                }
+              },
+              "required": [
+                "address"
+              ]
+            },
+            "schema_dialect": "zod-derived",
+            "parameters": [
+              {
+                "name": "address",
+                "type": "string",
+                "required": true,
+                "default": null,
+                "description": "The Address of the wallet to fetch the balance",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              }
+            ]
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/index.ts",
+            "line_start": 53,
+            "line_end": null,
+            "function_name": "inline async handler at src/index.ts:57",
+            "function_content": null
+          },
+          "handler_resolution": "inline async handler at src/index.ts:57"
+        }
+      },
+      {
+        "tool_id": "196::send-eth::src/index.ts:72",
+        "sdk": "typescript-sdk McpServer.tool",
+        "metadata": {
+          "name": "send-eth",
+          "title": null,
+          "description": "Sends a given amount of ETH to a given address",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "type": "object",
+              "properties": {
+                "toAddress": {
+                  "type": "string",
+                  "description": "Address to send the ETH to"
+                },
+                "amount": {
+                  "type": "string",
+                  "description": "The amount of ETH to send in numerical form"
+                }
+              },
+              "required": [
+                "toAddress",
+                "amount"
+              ]
+            },
+            "schema_dialect": "zod-derived",
+            "parameters": [
+              {
+                "name": "toAddress",
+                "type": "string",
+                "required": true,
+                "default": null,
+                "description": "Address to send the ETH to",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "amount",
+                "type": "string",
+                "required": true,
+                "default": null,
+                "description": "The amount of ETH to send in numerical form",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              }
+            ]
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/index.ts",
+            "line_start": 72,
+            "line_end": null,
+            "function_name": "inline async handler at src/index.ts:79",
+            "function_content": null
+          },
+          "handler_resolution": "inline async handler at src/index.ts:79"
+        }
+      }
+    ]
+  },
+  {
+    "repo_id": "197",
+    "repo_name": "nihal1294__openapi-to-mcp",
+    "source": "github_full_clone",
+    "status": "GENERATOR_TEMPLATE_NOT_EXTRACTED",
+    "notes": "Project is an OpenAPI-to-MCP generator. MCP ListTools/CallTool code is in Jinja template openapi_to_mcp/templates/src/server.ts.j2 and generated runtime, not a concrete repo-owned tool surface; no specific generated tools present to extract.",
+    "tool": []
+  },
+  {
+    "repo_id": "198",
+    "repo_name": "nkapila6__mcp-meme-sticky",
+    "source": "github_full_clone",
+    "status": "CLONE_EMPTY_OR_FAILED",
+    "notes": "Clone directory contains only .git metadata/shallow.lock and no working tree source files; no tools extracted.",
+    "tool": []
+  },
+  {
+    "repo_id": "199",
+    "repo_name": "Nolas-Shadow__agent1st-ads-mcp",
+    "source": "github_full_clone",
+    "status": "TOOL_SERVER_SOURCE_CONFIRMED",
+    "notes": "TypeScript low-level MCP Server exposes TOOLS through ListToolsRequestSchema at src/index.ts:659 and dispatches CallToolRequestSchema to handleTool switch at src/index.ts:660-663.",
+    "tool": [
+      {
+        "tool_id": "199::check_setup::src/index.ts:204",
+        "sdk": "typescript-sdk low-level Server",
+        "metadata": {
+          "name": "check_setup",
+          "title": null,
+          "description": "ALWAYS call this first. Verifies license tier and which ad platforms are connected. Shows what is available based on your plan (Starter/Pro/Premium/Elite). Use this before any other tool.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "type": "object",
+              "properties": {},
+              "required": []
+            },
+            "schema_dialect": "json-schema-literal",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/index.ts",
+            "line_start": 204,
+            "line_end": null,
+            "function_name": "handleTool switch case 'check_setup' in src/index.ts",
+            "function_content": null
+          },
+          "handler_resolution": "handleTool switch case 'check_setup' in src/index.ts"
+        }
+      },
+      {
+        "tool_id": "199::get_ad_account_info::src/index.ts:209",
+        "sdk": "typescript-sdk low-level Server",
+        "metadata": {
+          "name": "get_ad_account_info",
+          "title": null,
+          "description": "Get current balance, total spend, currency, and account status for all connected ad accounts (Meta and/or TikTok). Call before creating campaigns to confirm account is active and has sufficient funds. Requires valid license.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "type": "object",
+              "properties": {},
+              "required": []
+            },
+            "schema_dialect": "json-schema-literal",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/index.ts",
+            "line_start": 209,
+            "line_end": null,
+            "function_name": "handleTool switch case 'get_ad_account_info' in src/index.ts",
+            "function_content": null
+          },
+          "handler_resolution": "handleTool switch case 'get_ad_account_info' in src/index.ts"
+        }
+      },
+      {
+        "tool_id": "199::list_meta_campaigns::src/index.ts:214",
+        "sdk": "typescript-sdk low-level Server",
+        "metadata": {
+          "name": "list_meta_campaigns",
+          "title": null,
+          "description": "List all campaigns in the Meta (Facebook/Instagram) ad account with campaign ID, name, status (ACTIVE/PAUSED/ARCHIVED), objective, and daily budget. Use campaign IDs to get stats, adjust budgets, or pause/enable. Requires Starter plan or higher.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "type": "object",
+              "properties": {
+                "limit": {
+                  "type": "number",
+                  "description": "Max campaigns to return. Default: 20."
+                },
+                "status": {
+                  "type": "string",
+                  "description": "Filter by status: ACTIVE, PAUSED, or ARCHIVED. Omit to return all."
+                }
+              },
+              "required": []
+            },
+            "schema_dialect": "json-schema-literal",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/index.ts",
+            "line_start": 214,
+            "line_end": null,
+            "function_name": "handleTool switch case 'list_meta_campaigns' in src/index.ts",
+            "function_content": null
+          },
+          "handler_resolution": "handleTool switch case 'list_meta_campaigns' in src/index.ts"
+        }
+      },
+      {
+        "tool_id": "199::create_meta_campaign::src/index.ts:226",
+        "sdk": "typescript-sdk low-level Server",
+        "metadata": {
+          "name": "create_meta_campaign",
+          "title": null,
+          "description": "Create a complete Meta (Facebook/Instagram) ad campaign in one call — campaign + ad set with targeting + creative + ad. Created in PAUSED state. Call enable_meta_campaign to activate. Minimum budget $1/day. Requires Starter plan or higher.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "objective": {
+                  "type": "string"
+                },
+                "daily_budget_usd": {
+                  "type": "number"
+                },
+                "destination_url": {
+                  "type": "string"
+                },
+                "ad_headline": {
+                  "type": "string"
+                },
+                "ad_body": {
+                  "type": "string"
+                },
+                "targeting_countries": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "age_min": {
+                  "type": "number"
+                },
+                "age_max": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "name",
+                "daily_budget_usd",
+                "destination_url",
+                "ad_headline",
+                "ad_body"
+              ]
+            },
+            "schema_dialect": "json-schema-literal",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/index.ts",
+            "line_start": 226,
+            "line_end": null,
+            "function_name": "handleTool switch case 'create_meta_campaign' in src/index.ts",
+            "function_content": null
+          },
+          "handler_resolution": "handleTool switch case 'create_meta_campaign' in src/index.ts"
+        }
+      },
+      {
+        "tool_id": "199::enable_meta_campaign::src/index.ts:245",
+        "sdk": "typescript-sdk low-level Server",
+        "metadata": {
+          "name": "enable_meta_campaign",
+          "title": null,
+          "description": "Activate a paused Meta campaign so it starts spending. Use campaign_id from create_meta_campaign or list_meta_campaigns. Requires Starter plan or higher.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "type": "object",
+              "properties": {
+                "campaign_id": {
+                  "type": "string",
+                  "description": "Meta campaign ID to activate."
+                }
+              },
+              "required": [
+                "campaign_id"
+              ]
+            },
+            "schema_dialect": "json-schema-literal",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/index.ts",
+            "line_start": 245,
+            "line_end": null,
+            "function_name": "handleTool switch case 'enable_meta_campaign' in src/index.ts",
+            "function_content": null
+          },
+          "handler_resolution": "handleTool switch case 'enable_meta_campaign' in src/index.ts"
+        }
+      },
+      {
+        "tool_id": "199::pause_meta_campaign::src/index.ts:254",
+        "sdk": "typescript-sdk low-level Server",
+        "metadata": {
+          "name": "pause_meta_campaign",
+          "title": null,
+          "description": "Pause a live Meta campaign to stop all spending immediately. Campaign and settings are preserved — use enable_meta_campaign to resume. Requires Starter plan or higher.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "type": "object",
+              "properties": {
+                "campaign_id": {
+                  "type": "string",
+                  "description": "Meta campaign ID to pause."
+                }
+              },
+              "required": [
+                "campaign_id"
+              ]
+            },
+            "schema_dialect": "json-schema-literal",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/index.ts",
+            "line_start": 254,
+            "line_end": null,
+            "function_name": "handleTool switch case 'pause_meta_campaign' in src/index.ts",
+            "function_content": null
+          },
+          "handler_resolution": "handleTool switch case 'pause_meta_campaign' in src/index.ts"
+        }
+      },
+      {
+        "tool_id": "199::get_meta_campaign_stats::src/index.ts:263",
+        "sdk": "typescript-sdk low-level Server",
+        "metadata": {
+          "name": "get_meta_campaign_stats",
+          "title": null,
+          "description": "Get performance metrics for a Meta campaign: impressions, clicks, spend (USD), CTR, CPM, and conversions. Use to evaluate performance before budget decisions. Requires Starter plan or higher.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "type": "object",
+              "properties": {
+                "campaign_id": {
+                  "type": "string",
+                  "description": "Meta campaign ID."
+                },
+                "date_preset": {
+                  "type": "string",
+                  "description": "Time range: today, yesterday, last_7d, last_14d, last_30d, this_month. Default: last_7d."
+                }
+              },
+              "required": [
+                "campaign_id"
+              ]
+            },
+            "schema_dialect": "json-schema-literal",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/index.ts",
+            "line_start": 263,
+            "line_end": null,
+            "function_name": "handleTool switch case 'get_meta_campaign_stats' in src/index.ts",
+            "function_content": null
+          },
+          "handler_resolution": "handleTool switch case 'get_meta_campaign_stats' in src/index.ts"
+        }
+      },
+      {
+        "tool_id": "199::update_meta_campaign_budget::src/index.ts:275",
+        "sdk": "typescript-sdk low-level Server",
+        "metadata": {
+          "name": "update_meta_campaign_budget",
+          "title": null,
+          "description": "Change the daily budget of a Meta campaign. Takes effect immediately. Increase to scale a winning campaign, decrease to throttle spend. Minimum $1/day. Requires Starter plan or higher.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "type": "object",
+              "properties": {
+                "campaign_id": {
+                  "type": "string"
+                },
+                "daily_budget_usd": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "campaign_id",
+                "daily_budget_usd"
+              ]
+            },
+            "schema_dialect": "json-schema-literal",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/index.ts",
+            "line_start": 275,
+            "line_end": null,
+            "function_name": "handleTool switch case 'update_meta_campaign_budget' in src/index.ts",
+            "function_content": null
+          },
+          "handler_resolution": "handleTool switch case 'update_meta_campaign_budget' in src/index.ts"
+        }
+      },
+      {
+        "tool_id": "199::delete_meta_campaign::src/index.ts:287",
+        "sdk": "typescript-sdk low-level Server",
+        "metadata": {
+          "name": "delete_meta_campaign",
+          "title": null,
+          "description": "Permanently delete a Meta campaign and all its ad sets and ads. Cannot be undone. Use pause_meta_campaign to stop spending temporarily. Requires Starter plan or higher.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "type": "object",
+              "properties": {
+                "campaign_id": {
+                  "type": "string",
+                  "description": "Meta campaign ID to permanently delete."
+                }
+              },
+              "required": [
+                "campaign_id"
+              ]
+            },
+            "schema_dialect": "json-schema-literal",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/index.ts",
+            "line_start": 287,
+            "line_end": null,
+            "function_name": "handleTool switch case 'delete_meta_campaign' in src/index.ts",
+            "function_content": null
+          },
+          "handler_resolution": "handleTool switch case 'delete_meta_campaign' in src/index.ts"
+        }
+      },
+      {
+        "tool_id": "199::list_tiktok_campaigns::src/index.ts:296",
+        "sdk": "typescript-sdk low-level Server",
+        "metadata": {
+          "name": "list_tiktok_campaigns",
+          "title": null,
+          "description": "List all campaigns in the TikTok ad account with campaign ID, name, status, objective, and budget. Requires Pro plan or higher ($69/mo).",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "type": "object",
+              "properties": {
+                "limit": {
+                  "type": "number",
+                  "description": "Max campaigns to return. Default: 20."
+                }
+              },
+              "required": []
+            },
+            "schema_dialect": "json-schema-literal",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/index.ts",
+            "line_start": 296,
+            "line_end": null,
+            "function_name": "handleTool switch case 'list_tiktok_campaigns' in src/index.ts",
+            "function_content": null
+          },
+          "handler_resolution": "handleTool switch case 'list_tiktok_campaigns' in src/index.ts"
+        }
+      },
+      {
+        "tool_id": "199::create_tiktok_campaign::src/index.ts:305",
+        "sdk": "typescript-sdk low-level Server",
+        "metadata": {
+          "name": "create_tiktok_campaign",
+          "title": null,
+          "description": "Create a complete TikTok ad campaign in one call — campaign + ad group with targeting + ad. Created in DISABLE state. Call enable_tiktok_campaign to activate. TikTok minimum budget is $20/day. Requires Pro plan or higher ($69/mo).",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "objective": {
+                  "type": "string"
+                },
+                "budget_usd": {
+                  "type": "number"
+                },
+                "destination_url": {
+                  "type": "string"
+                },
+                "ad_text": {
+                  "type": "string"
+                },
+                "targeting_countries": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "age_groups": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "name",
+                "budget_usd",
+                "destination_url",
+                "ad_text"
+              ]
+            },
+            "schema_dialect": "json-schema-literal",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/index.ts",
+            "line_start": 305,
+            "line_end": null,
+            "function_name": "handleTool switch case 'create_tiktok_campaign' in src/index.ts",
+            "function_content": null
+          },
+          "handler_resolution": "handleTool switch case 'create_tiktok_campaign' in src/index.ts"
+        }
+      },
+      {
+        "tool_id": "199::enable_tiktok_campaign::src/index.ts:322",
+        "sdk": "typescript-sdk low-level Server",
+        "metadata": {
+          "name": "enable_tiktok_campaign",
+          "title": null,
+          "description": "Activate a disabled TikTok campaign so it starts running. Requires Pro plan or higher ($69/mo).",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "type": "object",
+              "properties": {
+                "campaign_id": {
+                  "type": "string",
+                  "description": "TikTok campaign ID to enable."
+                }
+              },
+              "required": [
+                "campaign_id"
+              ]
+            },
+            "schema_dialect": "json-schema-literal",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/index.ts",
+            "line_start": 322,
+            "line_end": null,
+            "function_name": "handleTool switch case 'enable_tiktok_campaign' in src/index.ts",
+            "function_content": null
+          },
+          "handler_resolution": "handleTool switch case 'enable_tiktok_campaign' in src/index.ts"
+        }
+      },
+      {
+        "tool_id": "199::pause_tiktok_campaign::src/index.ts:331",
+        "sdk": "typescript-sdk low-level Server",
+        "metadata": {
+          "name": "pause_tiktok_campaign",
+          "title": null,
+          "description": "Pause a running TikTok campaign to stop all spending. Settings preserved — use enable_tiktok_campaign to resume. Requires Pro plan or higher ($69/mo).",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "type": "object",
+              "properties": {
+                "campaign_id": {
+                  "type": "string",
+                  "description": "TikTok campaign ID to pause."
+                }
+              },
+              "required": [
+                "campaign_id"
+              ]
+            },
+            "schema_dialect": "json-schema-literal",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/index.ts",
+            "line_start": 331,
+            "line_end": null,
+            "function_name": "handleTool switch case 'pause_tiktok_campaign' in src/index.ts",
+            "function_content": null
+          },
+          "handler_resolution": "handleTool switch case 'pause_tiktok_campaign' in src/index.ts"
+        }
+      },
+      {
+        "tool_id": "199::get_tiktok_campaign_stats::src/index.ts:340",
+        "sdk": "typescript-sdk low-level Server",
+        "metadata": {
+          "name": "get_tiktok_campaign_stats",
+          "title": null,
+          "description": "Get performance metrics for a TikTok campaign: impressions, clicks, spend, CTR, CPC, conversions. Requires Pro plan or higher ($69/mo).",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "type": "object",
+              "properties": {
+                "campaign_id": {
+                  "type": "string"
+                },
+                "start_date": {
+                  "type": "string"
+                },
+                "end_date": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "campaign_id"
+              ]
+            },
+            "schema_dialect": "json-schema-literal",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/index.ts",
+            "line_start": 340,
+            "line_end": null,
+            "function_name": "handleTool switch case 'get_tiktok_campaign_stats' in src/index.ts",
+            "function_content": null
+          },
+          "handler_resolution": "handleTool switch case 'get_tiktok_campaign_stats' in src/index.ts"
+        }
+      },
+      {
+        "tool_id": "199::update_tiktok_campaign_budget::src/index.ts:353",
+        "sdk": "typescript-sdk low-level Server",
+        "metadata": {
+          "name": "update_tiktok_campaign_budget",
+          "title": null,
+          "description": "Change the daily budget of a TikTok campaign. TikTok minimum is $20/day. Requires Pro plan or higher ($69/mo).",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "type": "object",
+              "properties": {
+                "campaign_id": {
+                  "type": "string"
+                },
+                "budget_usd": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "campaign_id",
+                "budget_usd"
+              ]
+            },
+            "schema_dialect": "json-schema-literal",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/index.ts",
+            "line_start": 353,
+            "line_end": null,
+            "function_name": "handleTool switch case 'update_tiktok_campaign_budget' in src/index.ts",
+            "function_content": null
+          },
+          "handler_resolution": "handleTool switch case 'update_tiktok_campaign_budget' in src/index.ts"
+        }
+      }
+    ]
+  },
+  {
+    "repo_id": "200",
+    "repo_name": "nowucca__quack-mcp-server",
+    "source": "github_full_clone",
+    "status": "TOOL_SERVER_SOURCE_CONFIRMED",
+    "notes": "Python FastMCP server factory in quack/server.py; quack.py creates server via create_server() and runs stdio/SSE.",
+    "tool": [
+      {
+        "tool_id": "200::submit_code::quack/server.py:59",
+        "sdk": "python-sdk FastMCP",
+        "metadata": {
+          "name": "submit_code",
+          "title": null,
+          "description": "Submit Python code for analysis",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "type": "object",
+              "properties": {
+                "job_type": {
+                  "type": "string"
+                },
+                "code": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "job_type",
+                "code"
+              ]
+            },
+            "schema_dialect": "pydantic-derived",
+            "parameters": [
+              {
+                "name": "job_type",
+                "type": "string",
+                "required": true,
+                "default": null,
+                "description": "Type of analysis to perform (\"lint\" or \"static_analysis\")",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "code",
+                "type": "string",
+                "required": true,
+                "default": null,
+                "description": "Python code content to analyze",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              }
+            ]
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "quack/server.py",
+            "line_start": 59,
+            "line_end": null,
+            "function_name": "decorated function submit_code",
+            "function_content": null
+          },
+          "handler_resolution": "decorated function submit_code"
+        }
+      },
+      {
+        "tool_id": "200::submit_code_for_linting::quack/server.py:96",
+        "sdk": "python-sdk FastMCP",
+        "metadata": {
+          "name": "submit_code_for_linting",
+          "title": null,
+          "description": "Submit Python code for linting analysis",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code"
+              ]
+            },
+            "schema_dialect": "pydantic-derived",
+            "parameters": [
+              {
+                "name": "code",
+                "type": "string",
+                "required": true,
+                "default": null,
+                "description": "Python code content to analyze",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              }
+            ]
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "quack/server.py",
+            "line_start": 96,
+            "line_end": null,
+            "function_name": "decorated function submit_code_for_linting",
+            "function_content": null
+          },
+          "handler_resolution": "decorated function submit_code_for_linting"
+        }
+      },
+      {
+        "tool_id": "200::submit_code_for_static_analysis::quack/server.py:110",
+        "sdk": "python-sdk FastMCP",
+        "metadata": {
+          "name": "submit_code_for_static_analysis",
+          "title": null,
+          "description": "Submit Python code for static type analysis",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code"
+              ]
+            },
+            "schema_dialect": "pydantic-derived",
+            "parameters": [
+              {
+                "name": "code",
+                "type": "string",
+                "required": true,
+                "default": null,
+                "description": "Python code content to analyze",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              }
+            ]
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "quack/server.py",
+            "line_start": 110,
+            "line_end": null,
+            "function_name": "decorated function submit_code_for_static_analysis",
+            "function_content": null
+          },
+          "handler_resolution": "decorated function submit_code_for_static_analysis"
+        }
+      },
+      {
+        "tool_id": "200::get_job_results::quack/server.py:125",
+        "sdk": "python-sdk FastMCP",
+        "metadata": {
+          "name": "get_job_results",
+          "title": null,
+          "description": "Get the results of a previously submitted job",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "type": "object",
+              "properties": {
+                "job_id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "job_id"
+              ]
+            },
+            "schema_dialect": "pydantic-derived",
+            "parameters": [
+              {
+                "name": "job_id",
+                "type": "string",
+                "required": true,
+                "default": null,
+                "description": "ID of the job",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              }
+            ]
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "quack/server.py",
+            "line_start": 125,
+            "line_end": null,
+            "function_name": "decorated function get_job_results",
+            "function_content": null
+          },
+          "handler_resolution": "decorated function get_job_results"
+        }
+      },
+      {
+        "tool_id": "200::list_jobs::quack/server.py:172",
+        "sdk": "python-sdk FastMCP",
+        "metadata": {
+          "name": "list_jobs",
+          "title": null,
+          "description": "List all jobs and their statuses",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "type": "object",
+              "properties": {
+                "job_type": {
+                  "type": "string",
+                  "nullable": true
+                }
+              },
+              "required": []
+            },
+            "schema_dialect": "pydantic-derived",
+            "parameters": [
+              {
+                "name": "job_type",
+                "type": "string",
+                "required": false,
+                "default": null,
+                "description": "Optional filter for job type",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              }
+            ]
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "quack/server.py",
+            "line_start": 172,
+            "line_end": null,
+            "function_name": "decorated function list_jobs",
+            "function_content": null
+          },
+          "handler_resolution": "decorated function list_jobs"
+        }
+      }
+    ]
+  }
+]

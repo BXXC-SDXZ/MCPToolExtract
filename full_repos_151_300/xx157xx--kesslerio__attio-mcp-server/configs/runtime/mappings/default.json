@@ -1,0 +1,95 @@
+{
+  "version": "1.0",
+  "metadata": {
+    "generated": "2025-01-22T00:00:00Z",
+    "description": "Default attribute mappings for Attio MCP Server - Official Attio CRM attributes only"
+  },
+  "mappings": {
+    "attributes": {
+      "common": {
+        "Postal Code": "postal_code",
+        "ZIP": "postal_code",
+        "Name": "name",
+        "Description": "description",
+        "Created At": "created_at",
+        "Created By": "created_by",
+        "Record ID": "record_id"
+      },
+      "objects": {
+        "companies": {
+          "Domains": "domains",
+          "Name": "name",
+          "Description": "description",
+          "Team": "team",
+          "Categories": "categories",
+          "Primary Location": "primary_location",
+          "AngelList": "angellist",
+          "Facebook": "facebook",
+          "Instagram": "instagram",
+          "LinkedIn": "linkedin",
+          "Twitter": "twitter",
+          "Associated Deals": "associated_deals",
+          "Associated Workspaces": "associated_workspaces"
+        },
+        "people": {
+          "Name": "name",
+          "Description": "description",
+          "Email Addresses": "email_addresses",
+          "Job Title": "job_title",
+          "Company": "company",
+          "LinkedIn": "linkedin",
+          "Twitter": "twitter",
+          "Facebook": "facebook",
+          "Instagram": "instagram",
+          "Phone Numbers": "phone_numbers",
+          "Primary Location": "primary_location",
+          "Avatar URL": "avatar_url",
+          "AngelList": "angellist",
+          "Associated Deals": "associated_deals",
+          "Associated Users": "associated_users"
+        },
+        "deals": {
+          "Name": "name",
+          "Deal Stage": "stage",
+          "Deal Owner": "owner",
+          "Deal Value": "value",
+          "Associated People": "associated_people",
+          "Associated Company": "associated_company"
+        },
+        "users": {
+          "Person": "person",
+          "Primary Email Address": "primary_email_address",
+          "ID": "user_id",
+          "Workspaces": "workspace"
+        },
+        "workspaces": {
+          "ID": "workspace_id",
+          "Name": "name",
+          "Users": "users",
+          "Company": "company",
+          "Avatar URL": "avatar_url"
+        }
+      },
+      "custom": {}
+    },
+    "objects": {
+      "Companies": "companies",
+      "People": "people",
+      "Deals": "deals",
+      "Users": "users",
+      "Workspaces": "workspaces"
+    },
+    "lists": {},
+    "relationships": {
+      "Company Team": "team",
+      "Person Company": "company",
+      "Deal People": "associated_people",
+      "Deal Company": "associated_company",
+      "Company Workspaces": "associated_workspaces",
+      "User Workspace": "workspace",
+      "Workspace Users": "users",
+      "User Person": "person",
+      "Person Users": "associated_users"
+    }
+  }
+}

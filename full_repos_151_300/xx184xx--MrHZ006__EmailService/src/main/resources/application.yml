@@ -1,0 +1,12 @@
+spring:
+  application:
+    name: Email-service
+
+  profiles:
+    active: stdio
+server:
+  port: 8081
+
+qq:
+  username: ${QQ_USERNAME:}
+  password: ${QQ_PASSWORD:}

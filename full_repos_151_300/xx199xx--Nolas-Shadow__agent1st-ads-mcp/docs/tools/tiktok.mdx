@@ -1,0 +1,120 @@
+---
+title: "TikTok Tools"
+description: "Create and manage TikTok ad campaigns from your AI agent."
+---
+
+<Note>TikTok tools require an Operator plan or higher ($69/mo). You need `TIKTOK_ADS_ACCESS_TOKEN` and `TIKTOK_ADVERTISER_ID` set in your config.</Note>
+
+---
+
+## list_tiktok_campaigns
+
+Get a list of all your TikTok campaigns. Use this to find campaign IDs before calling other tools, or to see the current state of everything running in your TikTok account.
+
+```json
+{ "limit": 20 }
+```
+
+Returns campaign IDs, names, status, budget, and objective for each campaign.
+
+---
+
+## create_tiktok_campaign
+
+Creates a complete TikTok campaign in one call — campaign, ad group, targeting, and ad are all set up together.
+
+**The campaign starts DISABLED.** This is intentional so you can review it before it spends money. Call `enable_tiktok_campaign` when you're ready to go live.
+
+**TikTok's minimum budget is $20/day.** Setting `budget_usd` below 20 will cause an error.
+
+```json
+{
+  "name": "Product Launch — TikTok",
+  "objective": "TRAFFIC",
+  "budget_usd": 30,
+  "destination_url": "https://yoursite.com/product",
+  "ad_text": "This changed everything. Tap to see why.",
+  "targeting_countries": ["US"],
+  "age_groups": ["AGE_18_24", "AGE_25_34"]
+}
+```
+
+**What each field does:**
+- `name` — the campaign name as it appears in TikTok Ads Manager
+- `objective` — what the campaign is optimized for (see table below)
+- `budget_usd` — daily budget in USD (minimum $20)
+- `destination_url` — where users go when they tap the ad
+- `ad_text` — the text shown on the TikTok ad
+- `targeting_countries` — list of country codes (e.g. `"US"`, `"GB"`, `"AU"`)
+- `age_groups` — age ranges to target (see options below)
+
+**Objectives — pick the one that matches your goal:**
+
+| Objective | When to use it |
+|-----------|----------------|
+| `TRAFFIC` | You want people to visit your website |
+| `LEAD_GENERATION` | You want people to submit a lead form |
+| `WEBSITE_CONVERSIONS` | You want purchases or signups |
+| `ENGAGEMENT` | You want video views, likes, and comments |
+| `APP_PROMOTION` | You want app installs |
+
+**Age group options:**
+
+`AGE_13_17` `AGE_18_24` `AGE_25_34` `AGE_35_44` `AGE_45_54` `AGE_55_100`
+
+You can include multiple age groups in the array. Most TikTok advertisers target `AGE_18_24` and `AGE_25_34` as TikTok's core audience.
+
+The response includes `campaign_id`, `adgroup_id`, and `ad_id` — save the `campaign_id` to use with other tools.
+
+---
+
+## enable_tiktok_campaign
+
+Activates a disabled campaign. It starts running and spending immediately after you call this.
+
+```json
+{ "campaign_id": "1234567890123" }
+```
+
+Only call this when the campaign is ready. Once enabled, it will start charging your TikTok ad account.
+
+---
+
+## pause_tiktok_campaign
+
+Stops a running campaign from spending. All settings are preserved and you can re-enable it at any time. Use this when a campaign is underperforming, you've hit your target, or you need to stop spending temporarily.
+
+```json
+{ "campaign_id": "1234567890123" }
+```
+
+---
+
+## get_tiktok_campaign_stats
+
+Pull performance data for a TikTok campaign over a specific date range. Use this to measure whether your ads are working — how many people saw them, how many clicked, and how much it cost.
+
+```json
+{
+  "campaign_id": "1234567890123",
+  "start_date": "2025-03-01",
+  "end_date": "2025-03-07"
+}
+```
+
+- `start_date` and `end_date` use the format `YYYY-MM-DD`
+- Omit both dates to default to the last 7 days
+
+Returns daily breakdowns of spend, impressions, clicks, CTR (click-through rate), and CPC (cost per click).
+
+---
+
+## update_tiktok_campaign_budget
+
+Change the daily budget for a running campaign. Takes effect immediately. Use this to scale up a winner or reduce spend on a campaign that isn't converting.
+
+```json
+{ "campaign_id": "1234567890123", "budget_usd": 60 }
+```
+
+TikTok enforces a **minimum of $20/day**. Setting the budget below 20 will return an error.

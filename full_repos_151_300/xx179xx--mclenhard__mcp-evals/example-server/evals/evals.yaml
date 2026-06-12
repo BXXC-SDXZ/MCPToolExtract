@@ -1,0 +1,31 @@
+# MCP Evals YAML Configuration Example
+# This file demonstrates how to configure evaluations using YAML
+
+# Model configuration (optional)
+# If not specified, defaults to OpenAI GPT-4o
+model:
+  provider: openai  # 'openai' or 'anthropic'
+  name: gpt-4o     # Model name
+  # api_key: sk-... # Optional, can use environment variable instead
+
+# List of evaluations to run
+evals:
+  - name: weather_query_basic
+    description: Test basic weather information retrieval
+    prompt: "What is the current weather in San Francisco?"
+    expected_result: "Should return current weather data for San Francisco including temperature, conditions, etc."
+
+  - name: weather_query_specific
+    description: Test specific weather parameter retrieval
+    prompt: "What is the temperature and humidity in New York City right now?"
+    expected_result: "Should return specific temperature and humidity values for NYC"
+
+  - name: weather_forecast
+    description: Test weather forecast functionality
+    prompt: "Can you give me the 3-day weather forecast for Seattle?"
+    expected_result: "Should return a multi-day forecast for Seattle"
+
+  - name: invalid_location
+    description: Test handling of invalid location requests
+    prompt: "What's the weather in Atlantis?"
+    expected_result: "Should handle invalid location gracefully with appropriate error message"

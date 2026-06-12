@@ -1,0 +1,90 @@
+---
+title: "Errors & Troubleshooting"
+description: "What the errors mean and exactly how to fix them."
+---
+
+Most errors fall into three categories: license issues, credential issues, and platform-specific issues. Here's what each one means and what to do about it.
+
+---
+
+## License errors
+
+<AccordionGroup>
+  <Accordion title="License required. Get your Agent 1st Ads key at agent1st.io/ads">
+    **What it means:** The `AGENT1ST_LICENSE_KEY` environment variable is missing from your MCP config. The server won't run at all without a valid key.
+
+    **How to fix it:** Go to [agent1st.io/ads](https://agent1st.io/ads/), purchase a plan, and add the key you receive to your MCP config under `env`:
+    ```json
+    "AGENT1ST_LICENSE_KEY": "a1o_your_key_here"
+    ```
+  </Accordion>
+  <Accordion title="Your Scout plan supports one ad platform. Upgrade to Operator to use both.">
+    **What it means:** You're on the Scout plan ($29/mo), which only allows one platform — either Meta or TikTok, not both. You tried to use TikTok while already using Meta (or vice versa).
+
+    **How to fix it:** Upgrade to the Operator plan ($69/mo) at [agent1st.io/ads](https://agent1st.io/ads/). Operator includes both platforms.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Meta errors
+
+<AccordionGroup>
+  <Accordion title="Meta API: Invalid OAuth access token (code 190)">
+    **What it means:** Your Meta access token has expired. Meta tokens generated from the Graph API Explorer expire after 60 days by default.
+
+    **How to fix it:**
+    1. Go to [developers.facebook.com/tools/explorer](https://developers.facebook.com/tools/explorer)
+    2. Select your app from the dropdown
+    3. Click **Generate Access Token**
+    4. Add the `ads_management` and `pages_read_engagement` permissions
+    5. Copy the new token and update `META_ADS_ACCESS_TOKEN` in your MCP config
+
+    For long-lived tokens that don't expire, you'll need to use the token exchange endpoint in the Meta API.
+  </Accordion>
+  <Accordion title="META_PAGE_ID is required to create ads">
+    **What it means:** The `META_PAGE_ID` environment variable is not set. Meta requires a Facebook Page to serve ads — even if you're not advertising the page itself.
+
+    **How to fix it:**
+    1. Go to your Facebook Page
+    2. Click **About** in the left sidebar
+    3. Scroll down to find your **Page ID** (it's a long number)
+    4. Add it to your MCP config: `"META_PAGE_ID": "123456789"`
+  </Accordion>
+  <Accordion title="Meta not connected — META_ADS_ACCESS_TOKEN or META_ADS_ACCOUNT_ID missing">
+    **What it means:** One or both of the required Meta credentials are not set in your config.
+
+    **How to fix it:** Make sure both of these are in your MCP config env block:
+    - `META_ADS_ACCESS_TOKEN` — your access token from Graph API Explorer
+    - `META_ADS_ACCOUNT_ID` — your ad account ID in the format `act_123456789` (must include `act_` prefix)
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## TikTok errors
+
+<AccordionGroup>
+  <Accordion title="TikTok not connected — credentials missing">
+    **What it means:** `TIKTOK_ADS_ACCESS_TOKEN` or `TIKTOK_ADVERTISER_ID` (or both) are not set in your config.
+
+    **How to fix it:**
+    1. Log in to [ads.tiktok.com](https://ads.tiktok.com)
+    2. Your **Advertiser ID** is under Account → Basic Information
+    3. Get your **Access Token** from [business-api.tiktok.com](https://business-api.tiktok.com) → My Apps
+    4. Add both to your MCP config
+
+    TikTok tools also require an Operator plan or higher.
+  </Accordion>
+  <Accordion title="Budget is less than TikTok minimum (code 40002)">
+    **What it means:** TikTok requires a minimum daily budget of $20 USD. You set `budget_usd` to something lower.
+
+    **How to fix it:** Set `budget_usd` to 20 or higher in your `create_tiktok_campaign` or `update_tiktok_campaign_budget` call.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Still stuck?
+
+Email [Info@Agent1st.io](mailto:Info@Agent1st.io) with your error message and which tool you were calling. We'll get back to you fast.

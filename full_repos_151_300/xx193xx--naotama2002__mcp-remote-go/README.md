@@ -1,0 +1,450 @@
+# MCP Remote for Go
+
+This Go implementation allows MCP clients that only support local (stdio) connections to connect to remote MCP servers with authentication support.
+
+## Overview
+
+MCP Remote proxies between:
+- A local MCP client using stdio transport
+- A remote MCP server using Streamable HTTP or Server-Sent Events (SSE) with OAuth authentication
+
+## Features
+
+- **Streamable HTTP transport** (MCP 2025-11-25) - Single-endpoint POST/GET with session management
+- **Legacy SSE transport** (MCP 2024-11-05) - Traditional two-endpoint SSE connection
+- **Auto-negotiation** - Automatically detects server capabilities and selects the optimal transport
+- **OAuth 2.1 with PKCE** (RFC 7636) - Secure authorization with S256 code challenge
+- **Protected Resource Metadata** (RFC 9728) - Discover authorization servers from resource endpoints, including `WWW-Authenticate`-driven discovery on 401 responses (§5.1)
+- **Resource Indicators** (RFC 8707) - The MCP server's canonical URI is sent as `resource` on both authorization and token requests
+- **OAuth Discovery** (RFC 8414) and OpenID Connect Discovery
+- **Custom headers** and HTTPS enforcement
+
+## Installation
+
+### Desktop Extension (MCPB)
+
+Download the `.mcpb` file for your platform from [GitHub Releases](https://github.com/naotama2002/mcp-remote-go/releases):
+
+| Platform | File |
+|----------|------|
+| macOS (Apple Silicon) | `mcp-remote-go-darwin-arm64.mcpb` |
+| macOS (Intel) | `mcp-remote-go-darwin-amd64.mcpb` |
+| Windows (x64) | `mcp-remote-go-windows-amd64.mcpb` |
+| Windows (ARM64) | `mcp-remote-go-windows-arm64.mcpb` |
+
+Install by opening the `.mcpb` file in Claude Desktop. A configuration UI will appear where you can set the remote server URL and other options.
+
+### Building from Source
+
+```bash
+# Clone the repository
+git clone https://github.com/naotama2002/mcp-remote-go.git
+cd mcp-remote-go
+
+# Build the binary
+make build
+```
+
+### Using Docker
+
+You can also run `mcp-remote-go` using Docker, which provides a consistent environment and easier deployment.
+
+#### Pull from GitHub Container Registry
+
+```bash
+# Pull the latest image
+docker pull ghcr.io/naotama2002/mcp-remote-go:latest
+
+# Or pull a specific version
+docker pull ghcr.io/naotama2002/mcp-remote-go:{TAG}
+```
+
+#### Build locally
+
+```bash
+# Build the Docker image
+docker build -t mcp-remote-go .
+```
+
+## Usage
+
+### Binary Usage
+
+```bash
+# Basic usage (auto-detects transport: tries Streamable HTTP first, falls back to SSE)
+mcp-remote-go https://remote.mcp.server/mcp
+
+# Force Streamable HTTP transport
+mcp-remote-go https://remote.mcp.server/mcp --transport streamable-http
+
+# Force legacy SSE transport
+mcp-remote-go https://remote.mcp.server/sse --transport sse
+
+# With custom port for OAuth callback
+mcp-remote-go https://remote.mcp.server/mcp 9090
+
+# With a custom header (useful for auth tokens, API keys, etc.)
+mcp-remote-go https://remote.mcp.server/mcp --header "Authorization: Bearer YOUR_TOKEN"
+
+# Multiple headers — repeat --header as many times as needed
+# (Note: there is no --headers plural flag; `--header` takes one Name:Value at a time.)
+mcp-remote-go https://remote.mcp.server/mcp \
+  --header "Authorization: Bearer YOUR_TOKEN" \
+  --header "X-API-Key: secret" \
+  --header "X-Tenant-Id: acme"
+
+# Allow HTTP for trusted networks (normally HTTPS is required)
+mcp-remote-go http://internal.mcp.server/mcp --allow-http
+
+# Via HTTP/HTTPS proxy
+mcp-remote-go https://remote.mcp.server/mcp --https-proxy http://proxy.example.com:8080
+```
+
+### Docker Usage
+
+```bash
+# Basic usage with Docker (auto-detects transport)
+docker run --rm -it -p 3334:3334 ghcr.io/naotama2002/mcp-remote-go:latest https://remote.mcp.server/mcp
+
+# Force Streamable HTTP transport
+docker run --rm -it -p 3334:3334 ghcr.io/naotama2002/mcp-remote-go:latest https://remote.mcp.server/mcp --transport streamable-http
+
+# Force legacy SSE transport
+docker run --rm -it -p 3334:3334 ghcr.io/naotama2002/mcp-remote-go:latest https://remote.mcp.server/sse --transport sse
+
+# With custom port for OAuth callback
+docker run --rm -it -p 9090:9090 ghcr.io/naotama2002/mcp-remote-go:latest https://remote.mcp.server/mcp 9090
+
+# With custom headers
+docker run --rm -it -p 3334:3334 ghcr.io/naotama2002/mcp-remote-go:latest https://remote.mcp.server/mcp --header "Authorization: Bearer YOUR_TOKEN"
+
+# Allow HTTP for trusted networks
+docker run --rm -it -p 3334:3334 ghcr.io/naotama2002/mcp-remote-go:latest http://internal.mcp.server/mcp --allow-http
+
+# Mount auth directory to persist OAuth tokens
+docker run --rm -it -p 3334:3334 -v ~/.mcp-remote-go-auth:/home/appuser/.mcp-remote-go-auth ghcr.io/naotama2002/mcp-remote-go:latest https://remote.mcp.server/mcp
+```
+
+## Configuration for MCP Clients
+
+By default, `mcp-remote-go` auto-detects the transport (Streamable HTTP or SSE). You can force a specific transport with the `--transport` flag.
+
+### Claude Desktop (MCPB Extension)
+
+The easiest way to use with Claude Desktop is via the `.mcpb` extension. After installing, configure through the GUI:
+
+| Setting | Description | Default |
+|---------|-------------|---------|
+| Remote MCP Server URL | The remote server URL (required) | — |
+| Transport Mode | `auto`, `streamable-http`, or `sse` | `auto` |
+| OAuth Callback Port | Local port for OAuth callback | `3334` |
+| Allow HTTP | Allow insecure HTTP connections | `false` |
+| HTTP/HTTPS Proxy | Proxy server URL (e.g. `http://proxy:8080`) | — |
+| Authorization Header Value | **Value portion only** — do NOT prepend `Authorization:`. Examples: `Bearer eyJhbGc...`, `Basic dXNlcjpwYXNz` | — |
+| Custom Header 1–5 — Name / Value | Up to five additional headers, one per Name/Value field pair. Put the header name (e.g. `X-API-Key`) in the Name field — it stays visible so you can see which headers are configured — and the value in the Value field, which is stored encrypted and masked. Leave the Name blank to skip a row. Authorization goes in the field above. | — |
+
+#### Format notes
+
+The same value can be entered three ways depending on how you launch the proxy. Each path uses a slightly different format:
+
+| Where | Authorization header | Other headers |
+|---|---|---|
+| MCPB UI (above) | `Authorization Header Value` field — **value only** (`Bearer xxx`) | `Custom Header N` field pairs — name and value in separate fields |
+| CLI `--header` (repeat the flag) | `--header "Authorization: Bearer xxx"` | `--header "X-API-Key: secret"` |
+| Env vars | `MCP_AUTH_HEADER="Bearer xxx"` (value only) | `MCP_HEADERS` — newline-separated `Name: Value` per line (see examples below) |
+
+> **There is no `--headers` (plural) flag.** Pass each header as its own `--header "Name: Value"`; repeat the flag for multiple headers.
+
+If `MCP_HEADERS` already contains an `Authorization:` line, `MCP_AUTH_HEADER` is ignored to avoid duplicates.
+
+##### Writing `MCP_HEADERS` in different contexts
+
+Embedding newlines in a single env-var value looks different in each tool. All of the following set the same two headers (`X-API-Key: secret` and `X-Tenant: acme`):
+
+```bash
+# bash / zsh — $'...' is ANSI-C quoting that turns \n into a real newline
+export MCP_HEADERS=$'X-API-Key: secret\nX-Tenant: acme'
+```
+
+```bash
+# Portable shell — leave the double quotes open across a real newline
+export MCP_HEADERS="X-API-Key: secret
+X-Tenant: acme"
+```
+
+```json
+// Claude Desktop manual config — JSON \n is interpreted as a real newline
+{
+  "mcpServers": {
+    "remote-example": {
+      "command": "/path/to/mcp-remote-go",
+      "args": ["https://remote.mcp.server/mcp"],
+      "env": {
+        "MCP_HEADERS": "X-API-Key: secret\nX-Tenant: acme"
+      }
+    }
+  }
+}
+```
+
+```yaml
+# docker-compose — YAML block scalar (|) preserves newlines
+services:
+  mcp-remote:
+    image: ghcr.io/naotama2002/mcp-remote-go:latest
+    environment:
+      MCP_HEADERS: |
+        X-API-Key: secret
+        X-Tenant: acme
+```
+
+```bash
+# docker run — same $'...' trick as bash/zsh
+docker run --rm -it \
+  -e MCP_HEADERS=$'X-API-Key: secret\nX-Tenant: acme' \
+  ghcr.io/naotama2002/mcp-remote-go:latest https://remote.mcp.server/mcp
+```
+
+```cmd
+:: Windows CMD — double quotes don't expand \n, so use the literal escape
+::               and the proxy will interpret it (see "Escape fallback" below).
+set MCP_HEADERS=X-API-Key: secret\nX-Tenant: acme
+```
+
+```powershell
+# Windows PowerShell — backtick-n is the PowerShell newline escape
+$env:MCP_HEADERS = "X-API-Key: secret`nX-Tenant: acme"
+```
+
+The MCPB UI does not use `MCP_HEADERS`; each `Custom Header N` Name/Value pair is passed to the proxy separately, so no separator is needed there.
+
+##### Escape fallback (literal `\n`)
+
+When the value passed to the binary contains **no real newlines**, the proxy interprets the literal two-character sequence `\n` (backslash + `n`) as a separator. This covers contexts that cannot embed real newlines: Windows CMD and plain-double-quote shells. As soon as a real newline is present, the literal `\n` is **left untouched** so a header value that legitimately contains `\n` survives unchanged.
+
+Blank lines and lines without `:` are ignored (the latter logs a warning), so a typo in one entry never blocks the others.
+
+### Claude Desktop (Manual Configuration)
+
+Edit the configuration file at:
+- macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+
+#### Using Binary
+
+```json
+{
+  "mcpServers": {
+    "remote-example": {
+      "command": "/path/to/mcp-remote-go",
+      "args": [
+        "https://remote.mcp.server/mcp"
+      ]
+    }
+  }
+}
+```
+
+#### Using Docker
+
+```json
+{
+  "mcpServers": {
+    "remote-example": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "--net=host",
+        "ghcr.io/naotama2002/mcp-remote-go:latest",
+        "https://remote.mcp.server/mcp"
+      ]
+    }
+  }
+}
+```
+
+For persistent OAuth tokens with Docker:
+
+```json
+{
+  "mcpServers": {
+    "remote-example": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "--net=host",
+        "-v",
+        "~/.mcp-remote-go-auth:/home/appuser/.mcp-remote-go-auth",
+        "ghcr.io/naotama2002/mcp-remote-go:latest",
+        "https://remote.mcp.server/mcp"
+      ]
+    }
+  }
+}
+```
+
+### Cursor
+
+Edit the configuration file at `~/.cursor/mcp.json`:
+
+#### Using Binary
+
+```json
+{
+  "mcpServers": {
+    "remote-example": {
+      "command": "/path/to/mcp-remote-go",
+      "args": [
+        "https://remote.mcp.server/mcp"
+      ]
+    }
+  }
+}
+```
+
+#### Using Docker
+
+```json
+{
+  "mcpServers": {
+    "remote-example": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "--net=host",
+        "ghcr.io/naotama2002/mcp-remote-go:latest",
+        "https://remote.mcp.server/mcp"
+      ]
+    }
+  }
+}
+```
+
+### Windsurf
+
+Edit the configuration file at `~/.codeium/windsurf/mcp_config.json`:
+
+#### Using Binary
+
+```json
+{
+  "mcpServers": {
+    "remote-example": {
+      "command": "/path/to/mcp-remote-go",
+      "args": [
+        "https://remote.mcp.server/mcp"
+      ]
+    }
+  }
+}
+```
+
+#### Using Docker
+
+```json
+{
+  "mcpServers": {
+    "remote-example": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "--net=host",
+        "ghcr.io/naotama2002/mcp-remote-go:latest",
+        "https://remote.mcp.server/mcp"
+      ]
+    }
+  }
+}
+```
+
+### Environment Variables
+
+All options can also be set via environment variables. CLI flags take precedence when both are set.
+
+| Variable | Description | Equivalent Flag |
+|----------|-------------|-----------------|
+| `MCP_SERVER_URL` | Remote MCP server URL | `--server` |
+| `MCP_TRANSPORT` | Transport mode (`auto`, `streamable-http`, `sse`) | `--transport` |
+| `MCP_PORT` | OAuth callback port | `--port` |
+| `MCP_ALLOW_HTTP` | Set to `true` to allow HTTP | `--allow-http` |
+| `MCP_HTTPS_PROXY` | HTTP/HTTPS proxy URL | `--https-proxy` |
+| `MCP_AUTH_HEADER` | Authorization header **value only** (e.g. `Bearer xxx`) — the proxy prepends `Authorization:` automatically | `--header "Authorization: ..."` |
+| `MCP_HEADERS` | Newline-separated `Name: Value` list for arbitrary headers (e.g. `X-API-Key: secret`) | One `--header "Name: Value"` per entry |
+
+These environment variables are used internally by the MCPB extension to pass GUI-configured values to the binary.
+
+## Authentication
+
+The first time you connect to a server requiring authentication, you'll be prompted to open a URL in your browser to authorize access. The program will wait for you to complete the OAuth flow and then establish the connection. The callback port for OAuth authentication will automatically use an available port if the default port is in use.
+
+The OAuth implementation supports:
+- **PKCE (RFC 7636)** with S256 code challenge for enhanced security
+- **Protected Resource Metadata (RFC 9728)** for discovering authorization servers, with `WWW-Authenticate`-driven PRM lookup on 401 (§5.1)
+- **Resource Indicators (RFC 8707)** — the MCP server's canonical URI is sent as `resource` on both authorization and token requests, as required by the MCP authorization spec
+- **OAuth 2.0 Authorization Server Metadata (RFC 8414)** and OpenID Connect Discovery
+
+Authorization tokens are stored in `~/.mcp-remote-go-auth/` and will be reused for future connections.
+
+## Troubleshooting
+
+### Clear Authentication Data
+
+If you're having issues with authentication, you can clear the stored data:
+
+```bash
+rm -rf ~/.mcp-remote-go-auth
+```
+
+### VPN/Certificate Issues
+
+If you're behind a VPN and experiencing certificate issues, you might need to specify CA certificates:
+
+```bash
+export SSL_CERT_FILE=/path/to/ca-certificates.crt
+mcp-remote-go https://remote.mcp.server/sse
+```
+
+### Docker Issues
+
+#### Port Already in Use
+
+If you get a "port already in use" error, either stop the conflicting service or use a different port:
+
+```bash
+# Use a different port
+docker run --rm -it -p 3335:3334 ghcr.io/naotama2002/mcp-remote-go:latest https://remote.mcp.server/sse
+```
+
+#### Permission Issues with Volume Mount
+
+If you have permission issues when mounting the auth directory:
+
+```bash
+# Make sure the directory exists and has proper permissions
+mkdir -p ~/.mcp-remote-go-auth
+chmod 755 ~/.mcp-remote-go-auth
+
+# Run with volume mount
+docker run --rm -it -p 3334:3334 -v ~/.mcp-remote-go-auth:/home/appuser/.mcp-remote-go-auth ghcr.io/naotama2002/mcp-remote-go:latest https://remote.mcp.server/sse
+```
+
+#### Network Issues with MCP Clients
+
+If MCP clients can't connect to the Docker container, try using host networking:
+
+```bash
+# Use host networking mode
+docker run --rm -i --net=host ghcr.io/naotama2002/mcp-remote-go:latest https://remote.mcp.server/sse
+```
+
+## License
+
+MIT 

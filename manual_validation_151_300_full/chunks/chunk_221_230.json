@@ -1,0 +1,3536 @@
+[
+  {
+    "repo_id": "221",
+    "repo_name": "PsychArch__minimax-mcp-tools",
+    "source": "github_full_clone",
+    "status": "TOOL_SERVER_SOURCE_CONFIRMED",
+    "notes": "TypeScript McpServer stdio server in src/index.ts registers three tools with server.registerTool; schemas are Zod .shape refs from src/config/schemas.ts.",
+    "tool": [
+      {
+        "tool_id": "221::submit_image_generation::src/index.ts:57",
+        "sdk": "typescript-sdk McpServer.registerTool",
+        "metadata": {
+          "name": "submit_image_generation",
+          "title": "Submit Image Generation Task",
+          "description": "Generate images asynchronously. RECOMMENDED: Submit multiple tasks in batch to saturate rate limits, then call task_barrier once to wait for all completions. Returns task ID only - actual files available after task_barrier.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "zod_schema_ref": "imageGenerationSchema.shape",
+              "schema_file": "src/config/schemas.ts"
+            },
+            "schema_dialect": "zod-ref/raw",
+            "parameters": [
+              {
+                "name": "prompt",
+                "type": "string",
+                "required": true,
+                "default": null,
+                "description": "Image generation prompt",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "outputFile",
+                "type": "string",
+                "required": true,
+                "default": null,
+                "description": "Absolute path for generated image",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "aspectRatio",
+                "type": "string",
+                "required": false,
+                "default": "1:1",
+                "description": "Aspect ratio for the image",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "customSize",
+                "type": "object",
+                "required": false,
+                "default": null,
+                "description": "Custom image dimensions",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "seed",
+                "type": "integer",
+                "required": false,
+                "default": null,
+                "description": "Random seed",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "subjectReference",
+                "type": "string",
+                "required": false,
+                "default": null,
+                "description": "Portrait image path or URL",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "style",
+                "type": "object",
+                "required": false,
+                "default": null,
+                "description": "Art style control settings",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              }
+            ]
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/index.ts",
+            "line_start": 57,
+            "line_end": null,
+            "function_name": "async handler at src/index.ts:64",
+            "function_content": null
+          },
+          "handler_resolution": "async handler at src/index.ts:64"
+        }
+      },
+      {
+        "tool_id": "221::submit_speech_generation::src/index.ts:90",
+        "sdk": "typescript-sdk McpServer.registerTool",
+        "metadata": {
+          "name": "submit_speech_generation",
+          "title": "Submit Speech Generation Task",
+          "description": "Convert text to speech asynchronously. RECOMMENDED: Submit multiple tasks in batch to saturate rate limits, then call task_barrier once to wait for all completions. Returns task ID only - actual files available after task_barrier.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "zod_schema_ref": "textToSpeechSchema.shape",
+              "schema_file": "src/config/schemas.ts"
+            },
+            "schema_dialect": "zod-ref/raw",
+            "parameters": [
+              {
+                "name": "text",
+                "type": "string",
+                "required": true,
+                "default": null,
+                "description": "Text to convert to speech",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "outputFile",
+                "type": "string",
+                "required": true,
+                "default": null,
+                "description": "Absolute path for audio file",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "highQuality",
+                "type": "boolean",
+                "required": false,
+                "default": "false",
+                "description": "Use high-quality model",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "voiceId",
+                "type": "string",
+                "required": false,
+                "default": "female-shaonv",
+                "description": "Voice ID",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "speed",
+                "type": "number",
+                "required": false,
+                "default": "1.0",
+                "description": "Speech speed multiplier",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "volume",
+                "type": "number",
+                "required": false,
+                "default": "1.0",
+                "description": "Audio volume level",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "pitch",
+                "type": "number",
+                "required": false,
+                "default": "0",
+                "description": "Pitch adjustment",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "emotion",
+                "type": "string",
+                "required": false,
+                "default": "neutral",
+                "description": "Emotional tone",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "format",
+                "type": "string",
+                "required": false,
+                "default": "mp3",
+                "description": "Output audio format",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "sampleRate",
+                "type": "string",
+                "required": false,
+                "default": "32000",
+                "description": "Audio sample rate",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "bitrate",
+                "type": "string",
+                "required": false,
+                "default": "128000",
+                "description": "Audio bitrate",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "languageBoost",
+                "type": "string",
+                "required": false,
+                "default": "auto",
+                "description": "Language boost",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "intensity",
+                "type": "integer",
+                "required": false,
+                "default": null,
+                "description": "Voice intensity adjustment",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "timbre",
+                "type": "integer",
+                "required": false,
+                "default": null,
+                "description": "Voice timbre adjustment",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "sound_effects",
+                "type": "string",
+                "required": false,
+                "default": null,
+                "description": "Sound effect",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              }
+            ]
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/index.ts",
+            "line_start": 90,
+            "line_end": null,
+            "function_name": "async handler at src/index.ts:97",
+            "function_content": null
+          },
+          "handler_resolution": "async handler at src/index.ts:97"
+        }
+      },
+      {
+        "tool_id": "221::task_barrier::src/index.ts:123",
+        "sdk": "typescript-sdk McpServer.registerTool",
+        "metadata": {
+          "name": "task_barrier",
+          "title": "Wait for Task Completion",
+          "description": "Wait for ALL submitted tasks to complete and retrieve results. Essential for batch processing - submit multiple tasks first, then call task_barrier once to collect all results efficiently. Clears completed tasks.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "zod_schema_ref": "taskBarrierSchema.shape",
+              "schema_file": "src/config/schemas.ts"
+            },
+            "schema_dialect": "zod-ref/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/index.ts",
+            "line_start": 123,
+            "line_end": null,
+            "function_name": "async handler at src/index.ts:130",
+            "function_content": null
+          },
+          "handler_resolution": "async handler at src/index.ts:130"
+        }
+      }
+    ]
+  },
+  {
+    "repo_id": "222",
+    "repo_name": "Publik-Works__civicnet-mcp-tools",
+    "source": "github_full_clone",
+    "status": "NOT_CONCRETE_MCP_TOOL_SERVER",
+    "notes": "Full clone contains README/LICENSE only plus git metadata; no local MCP server source or tool registration/handler to extract.",
+    "tool": []
+  },
+  {
+    "repo_id": "223",
+    "repo_name": "PV-Bhat__vibe-check-mcp-server",
+    "source": "github_full_clone",
+    "status": "TOOL_SERVER_SOURCE_CONFIRMED",
+    "notes": "TypeScript low-level SDK server in src/index.ts advertises five tools through ListToolsRequestSchema and dispatches them in CallToolRequestSchema switch.",
+    "tool": [
+      {
+        "tool_id": "223::vibe_check::src/index.ts:75",
+        "sdk": "typescript-sdk low-level Server setRequestHandler",
+        "metadata": {
+          "name": "vibe_check",
+          "title": null,
+          "description": "Metacognitive questioning tool that identifies assumptions and breaks tunnel vision to prevent cascading errors",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "source": "inline tools array returned by ListToolsRequestSchema at src/index.ts:72"
+            },
+            "schema_dialect": "json-schema/raw",
+            "parameters": [
+              {
+                "name": "goal",
+                "type": "string",
+                "required": true,
+                "default": null,
+                "description": "The agent's current goal",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "plan",
+                "type": "string",
+                "required": true,
+                "default": null,
+                "description": "The agent's detailed plan",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "modelOverride",
+                "type": "object",
+                "required": false,
+                "default": null,
+                "description": "Optional provider/model override",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "userPrompt",
+                "type": "string",
+                "required": false,
+                "default": null,
+                "description": "Original user prompt",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "progress",
+                "type": "string",
+                "required": false,
+                "default": null,
+                "description": "The agent's progress so far",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "uncertainties",
+                "type": "array",
+                "required": false,
+                "default": null,
+                "description": "The agent's uncertainties",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "taskContext",
+                "type": "string",
+                "required": false,
+                "default": null,
+                "description": "Current task context",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "sessionId",
+                "type": "string",
+                "required": false,
+                "default": null,
+                "description": "Optional session ID",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              }
+            ]
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/index.ts",
+            "line_start": 75,
+            "line_end": null,
+            "function_name": "case vibe_check dispatch at src/index.ts:218; handler vibeCheckTool at src/tools/vibeCheck.ts:28",
+            "function_content": null
+          },
+          "handler_resolution": "case vibe_check dispatch at src/index.ts:218; handler vibeCheckTool at src/tools/vibeCheck.ts:28"
+        }
+      },
+      {
+        "tool_id": "223::vibe_learn::src/index.ts:131",
+        "sdk": "typescript-sdk low-level Server setRequestHandler",
+        "metadata": {
+          "name": "vibe_learn",
+          "title": null,
+          "description": "Pattern recognition system that tracks common errors and solutions to prevent recurring issues",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "source": "inline tools array returned by ListToolsRequestSchema at src/index.ts:72"
+            },
+            "schema_dialect": "json-schema/raw",
+            "parameters": [
+              {
+                "name": "mistake",
+                "type": "string",
+                "required": true,
+                "default": null,
+                "description": "One-sentence description of the learning entry",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "category",
+                "type": "string",
+                "required": true,
+                "default": null,
+                "description": "Category",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "solution",
+                "type": "string",
+                "required": false,
+                "default": null,
+                "description": "How it was corrected",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "type",
+                "type": "string",
+                "required": false,
+                "default": null,
+                "description": "Type of learning entry",
+                "enum": [
+                  "mistake",
+                  "preference",
+                  "success"
+                ],
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "sessionId",
+                "type": "string",
+                "required": false,
+                "default": null,
+                "description": "Optional session ID",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              }
+            ]
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/index.ts",
+            "line_start": 131,
+            "line_end": null,
+            "function_name": "case vibe_learn dispatch at src/index.ts:243; handler vibeLearnTool at src/tools/vibeLearn.ts:33",
+            "function_content": null
+          },
+          "handler_resolution": "case vibe_learn dispatch at src/index.ts:243; handler vibeLearnTool at src/tools/vibeLearn.ts:33"
+        }
+      },
+      {
+        "tool_id": "223::update_constitution::src/index.ts:169",
+        "sdk": "typescript-sdk low-level Server setRequestHandler",
+        "metadata": {
+          "name": "update_constitution",
+          "title": null,
+          "description": "Append a constitutional rule for this session (in-memory)",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "source": "inline tools array returned by ListToolsRequestSchema at src/index.ts:72"
+            },
+            "schema_dialect": "json-schema/raw",
+            "parameters": [
+              {
+                "name": "sessionId",
+                "type": "string",
+                "required": true,
+                "default": null,
+                "description": "Session ID",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "rule",
+                "type": "string",
+                "required": true,
+                "default": null,
+                "description": "Rule to append",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              }
+            ]
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/index.ts",
+            "line_start": 169,
+            "line_end": null,
+            "function_name": "case update_constitution dispatch at src/index.ts:267; handler updateConstitution at src/tools/constitution.ts:10",
+            "function_content": null
+          },
+          "handler_resolution": "case update_constitution dispatch at src/index.ts:267; handler updateConstitution at src/tools/constitution.ts:10"
+        }
+      },
+      {
+        "tool_id": "223::reset_constitution::src/index.ts:182",
+        "sdk": "typescript-sdk low-level Server setRequestHandler",
+        "metadata": {
+          "name": "reset_constitution",
+          "title": null,
+          "description": "Overwrite all constitutional rules for this session",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "source": "inline tools array returned by ListToolsRequestSchema at src/index.ts:72"
+            },
+            "schema_dialect": "json-schema/raw",
+            "parameters": [
+              {
+                "name": "sessionId",
+                "type": "string",
+                "required": true,
+                "default": null,
+                "description": "Session ID",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "rules",
+                "type": "array",
+                "required": true,
+                "default": null,
+                "description": "Rules to set",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              }
+            ]
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/index.ts",
+            "line_start": 182,
+            "line_end": null,
+            "function_name": "case reset_constitution dispatch at src/index.ts:283; handler resetConstitution at src/tools/constitution.ts:18",
+            "function_content": null
+          },
+          "handler_resolution": "case reset_constitution dispatch at src/index.ts:283; handler resetConstitution at src/tools/constitution.ts:18"
+        }
+      },
+      {
+        "tool_id": "223::check_constitution::src/index.ts:199",
+        "sdk": "typescript-sdk low-level Server setRequestHandler",
+        "metadata": {
+          "name": "check_constitution",
+          "title": null,
+          "description": "Return the current constitution rules for this session",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "source": "inline tools array returned by ListToolsRequestSchema at src/index.ts:72"
+            },
+            "schema_dialect": "json-schema/raw",
+            "parameters": [
+              {
+                "name": "sessionId",
+                "type": "string",
+                "required": true,
+                "default": null,
+                "description": "Session ID",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              }
+            ]
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/index.ts",
+            "line_start": 199,
+            "line_end": null,
+            "function_name": "case check_constitution dispatch at src/index.ts:299; handler getConstitution at src/tools/constitution.ts:26",
+            "function_content": null
+          },
+          "handler_resolution": "case check_constitution dispatch at src/index.ts:299; handler getConstitution at src/tools/constitution.ts:26"
+        }
+      }
+    ]
+  },
+  {
+    "repo_id": "224",
+    "repo_name": "pvincentbrown-sys__espergrid-construction-monitor",
+    "source": "github_full_clone",
+    "status": "TOOL_SERVER_SOURCE_CONFIRMED",
+    "notes": "Minimal line-delimited JSON MCP-like server in server.py returns one tool for tools/list and handles tools/call by running an external sync.py script under ~/agent-factory.",
+    "tool": [
+      {
+        "tool_id": "224::monitor_construction_project::server.py:8",
+        "sdk": "raw JSON-RPC MCP tools/list handler",
+        "metadata": {
+          "name": "monitor_construction_project",
+          "title": null,
+          "description": "Use this tool to automate construction project communications, notify stakeholders of status changes, or log project updates to a CRM. Monitors Procore or Autodesk.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "type": "object",
+              "properties": {
+                "platform": {
+                  "type": "string",
+                  "enum": [
+                    "procore",
+                    "autodesk"
+                  ]
+                },
+                "project_id": {
+                  "type": "string"
+                }
+              }
+            },
+            "schema_dialect": "json-schema/raw",
+            "parameters": [
+              {
+                "name": "platform",
+                "type": "string",
+                "required": false,
+                "default": null,
+                "description": "Platform to monitor",
+                "enum": [
+                  "procore",
+                  "autodesk"
+                ],
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "project_id",
+                "type": "string",
+                "required": false,
+                "default": null,
+                "description": "Project ID",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              }
+            ]
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "server.py",
+            "line_start": 8,
+            "line_end": null,
+            "function_name": "tools/call branch at server.py:9-12",
+            "function_content": null
+          },
+          "handler_resolution": "tools/call branch at server.py:9-12"
+        }
+      }
+    ]
+  },
+  {
+    "repo_id": "225",
+    "repo_name": "qianping-sara__mcpframework-http-server",
+    "source": "github_full_clone",
+    "status": "NOT_CONCRETE_MCP_TOOL_SERVER",
+    "notes": "Creates and starts an mcp-framework HTTP server in src/index.ts, but no repo-owned concrete tools are imported or registered; commented WeatherTool import ignored.",
+    "tool": []
+  },
+  {
+    "repo_id": "226",
+    "repo_name": "quazaai__UnityMCPIntegration",
+    "source": "github_full_clone",
+    "status": "TOOL_SERVER_SOURCE_CONFIRMED",
+    "notes": "Unity integration includes a Node MCP server under mcpServer/src. registerTools advertises 15 tools via ListToolsRequestSchema at toolDefinitions.ts:75 and dispatches Unity/WebSocket or filesystem handlers in CallToolRequestSchema.",
+    "tool": [
+      {
+        "tool_id": "226::get_current_scene_info::mcpServer/src/toolDefinitions.ts:79",
+        "sdk": "typescript-sdk low-level Server setRequestHandler",
+        "metadata": {
+          "name": "get_current_scene_info",
+          "title": null,
+          "description": "Retrieve information about the current scene in Unity Editor with configurable detail level",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "type": "object",
+              "properties": {
+                "detailLevel": {
+                  "type": "string",
+                  "enum": [
+                    "RootObjectsOnly",
+                    "FullHierarchy"
+                  ],
+                  "default": "RootObjectsOnly"
+                }
+              },
+              "additionalProperties": false
+            },
+            "schema_dialect": "json-schema/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {
+              "category": "see inline tool definition",
+              "tags": "see inline tool definition"
+            }
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "mcpServer/src/toolDefinitions.ts",
+            "line_start": 79,
+            "line_end": null,
+            "function_name": "case get_current_scene_info at mcpServer/src/toolDefinitions.ts:400",
+            "function_content": null
+          },
+          "handler_resolution": "case get_current_scene_info at mcpServer/src/toolDefinitions.ts:400"
+        }
+      },
+      {
+        "tool_id": "226::get_game_objects_info::mcpServer/src/toolDefinitions.ts:101",
+        "sdk": "typescript-sdk low-level Server setRequestHandler",
+        "metadata": {
+          "name": "get_game_objects_info",
+          "title": null,
+          "description": "Retrieve detailed information about specific GameObjects in the current scene",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "type": "object",
+              "properties": {
+                "instanceIDs": {
+                  "type": "array",
+                  "items": {
+                    "type": "number"
+                  },
+                  "minItems": 1
+                },
+                "detailLevel": {
+                  "type": "string",
+                  "enum": [
+                    "BasicInfo",
+                    "IncludeComponents",
+                    "IncludeChildren",
+                    "IncludeComponentsAndChildren"
+                  ],
+                  "default": "IncludeComponents"
+                }
+              },
+              "required": [
+                "instanceIDs"
+              ],
+              "additionalProperties": false
+            },
+            "schema_dialect": "json-schema/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {
+              "category": "see inline tool definition",
+              "tags": "see inline tool definition"
+            }
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "mcpServer/src/toolDefinitions.ts",
+            "line_start": 101,
+            "line_end": null,
+            "function_name": "case get_game_objects_info at mcpServer/src/toolDefinitions.ts:421",
+            "function_content": null
+          },
+          "handler_resolution": "case get_game_objects_info at mcpServer/src/toolDefinitions.ts:421"
+        }
+      },
+      {
+        "tool_id": "226::execute_editor_command::mcpServer/src/toolDefinitions.ts:132",
+        "sdk": "typescript-sdk low-level Server setRequestHandler",
+        "metadata": {
+          "name": "execute_editor_command",
+          "title": null,
+          "description": "Execute C# code directly in the Unity Editor - allows full flexibility including custom namespaces and multiple classes",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "code"
+              ],
+              "additionalProperties": false
+            },
+            "schema_dialect": "json-schema/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {
+              "category": "see inline tool definition",
+              "tags": "see inline tool definition"
+            }
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "mcpServer/src/toolDefinitions.ts",
+            "line_start": 132,
+            "line_end": null,
+            "function_name": "case execute_editor_command at mcpServer/src/toolDefinitions.ts:450",
+            "function_content": null
+          },
+          "handler_resolution": "case execute_editor_command at mcpServer/src/toolDefinitions.ts:450"
+        }
+      },
+      {
+        "tool_id": "226::get_logs::mcpServer/src/toolDefinitions.ts:154",
+        "sdk": "typescript-sdk low-level Server setRequestHandler",
+        "metadata": {
+          "name": "get_logs",
+          "title": null,
+          "description": "Retrieve Unity Editor logs with filtering options",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "type": "object",
+              "properties": {
+                "types": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "Log",
+                      "Warning",
+                      "Error",
+                      "Exception"
+                    ]
+                  }
+                },
+                "count": {
+                  "type": "number",
+                  "minimum": 1,
+                  "maximum": 1000
+                },
+                "fields": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "message",
+                      "stackTrace",
+                      "logType",
+                      "timestamp"
+                    ]
+                  }
+                },
+                "messageContains": {
+                  "type": "string"
+                },
+                "stackTraceContains": {
+                  "type": "string"
+                },
+                "timestampAfter": {
+                  "type": "string"
+                },
+                "timestampBefore": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "schema_dialect": "json-schema/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {
+              "category": "see inline tool definition",
+              "tags": "see inline tool definition"
+            }
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "mcpServer/src/toolDefinitions.ts",
+            "line_start": 154,
+            "line_end": null,
+            "function_name": "case get_logs at mcpServer/src/toolDefinitions.ts:504",
+            "function_content": null
+          },
+          "handler_resolution": "case get_logs at mcpServer/src/toolDefinitions.ts:504"
+        }
+      },
+      {
+        "tool_id": "226::verify_connection::mcpServer/src/toolDefinitions.ts:208",
+        "sdk": "typescript-sdk low-level Server setRequestHandler",
+        "metadata": {
+          "name": "verify_connection",
+          "title": null,
+          "description": "Verify that the MCP server has an active connection to Unity Editor",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "type": "object",
+              "properties": {},
+              "additionalProperties": false
+            },
+            "schema_dialect": "json-schema/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {
+              "category": "see inline tool definition",
+              "tags": "see inline tool definition"
+            }
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "mcpServer/src/toolDefinitions.ts",
+            "line_start": 208,
+            "line_end": null,
+            "function_name": "special-case handler at mcpServer/src/toolDefinitions.ts:310",
+            "function_content": null
+          },
+          "handler_resolution": "special-case handler at mcpServer/src/toolDefinitions.ts:310"
+        }
+      },
+      {
+        "tool_id": "226::get_editor_state::mcpServer/src/toolDefinitions.ts:223",
+        "sdk": "typescript-sdk low-level Server setRequestHandler",
+        "metadata": {
+          "name": "get_editor_state",
+          "title": null,
+          "description": "Get the current Unity Editor state including project information",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "type": "object",
+              "properties": {},
+              "additionalProperties": false
+            },
+            "schema_dialect": "json-schema/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {
+              "category": "see inline tool definition",
+              "tags": "see inline tool definition"
+            }
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "mcpServer/src/toolDefinitions.ts",
+            "line_start": 223,
+            "line_end": null,
+            "function_name": "case get_editor_state at mcpServer/src/toolDefinitions.ts:375",
+            "function_content": null
+          },
+          "handler_resolution": "case get_editor_state at mcpServer/src/toolDefinitions.ts:375"
+        }
+      },
+      {
+        "tool_id": "226::read_file::mcpServer/src/toolDefinitions.ts:240",
+        "sdk": "typescript-sdk low-level Server setRequestHandler",
+        "metadata": {
+          "name": "read_file",
+          "title": null,
+          "description": "Read the contents of a file from the Unity project. Paths are relative to the project's Assets folder.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "zod_to_json_schema_ref": "ReadFileArgsSchema at mcpServer/src/toolDefinitions.ts:15"
+            },
+            "schema_dialect": "zod-to-json-schema-ref/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {
+              "category": "Filesystem",
+              "tags": "see inline tool definition"
+            }
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "mcpServer/src/toolDefinitions.ts",
+            "line_start": 240,
+            "line_end": null,
+            "function_name": "case read_file at mcpServer/src/filesystemTools.ts:361",
+            "function_content": null
+          },
+          "handler_resolution": "case read_file at mcpServer/src/filesystemTools.ts:361"
+        }
+      },
+      {
+        "tool_id": "226::read_multiple_files::mcpServer/src/toolDefinitions.ts:247",
+        "sdk": "typescript-sdk low-level Server setRequestHandler",
+        "metadata": {
+          "name": "read_multiple_files",
+          "title": null,
+          "description": "Read the contents of multiple files from the Unity project simultaneously.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "zod_to_json_schema_ref": "ReadMultipleFilesArgsSchema at mcpServer/src/toolDefinitions.ts:19"
+            },
+            "schema_dialect": "zod-to-json-schema-ref/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {
+              "category": "Filesystem",
+              "tags": "see inline tool definition"
+            }
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "mcpServer/src/toolDefinitions.ts",
+            "line_start": 247,
+            "line_end": null,
+            "function_name": "case read_multiple_files at mcpServer/src/filesystemTools.ts:370",
+            "function_content": null
+          },
+          "handler_resolution": "case read_multiple_files at mcpServer/src/filesystemTools.ts:370"
+        }
+      },
+      {
+        "tool_id": "226::write_file::mcpServer/src/toolDefinitions.ts:254",
+        "sdk": "typescript-sdk low-level Server setRequestHandler",
+        "metadata": {
+          "name": "write_file",
+          "title": null,
+          "description": "Create a new file or completely overwrite an existing file in the Unity project.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "zod_to_json_schema_ref": "WriteFileArgsSchema at mcpServer/src/toolDefinitions.ts:23"
+            },
+            "schema_dialect": "zod-to-json-schema-ref/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {
+              "category": "Filesystem",
+              "tags": "see inline tool definition"
+            }
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "mcpServer/src/toolDefinitions.ts",
+            "line_start": 254,
+            "line_end": null,
+            "function_name": "case write_file at mcpServer/src/filesystemTools.ts:388",
+            "function_content": null
+          },
+          "handler_resolution": "case write_file at mcpServer/src/filesystemTools.ts:388"
+        }
+      },
+      {
+        "tool_id": "226::edit_file::mcpServer/src/toolDefinitions.ts:261",
+        "sdk": "typescript-sdk low-level Server setRequestHandler",
+        "metadata": {
+          "name": "edit_file",
+          "title": null,
+          "description": "Make precise edits to a text file in the Unity project. Returns a git-style diff showing changes.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "zod_to_json_schema_ref": "EditFileArgsSchema at mcpServer/src/toolDefinitions.ts:33"
+            },
+            "schema_dialect": "zod-to-json-schema-ref/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {
+              "category": "Filesystem",
+              "tags": "see inline tool definition"
+            }
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "mcpServer/src/toolDefinitions.ts",
+            "line_start": 261,
+            "line_end": null,
+            "function_name": "case edit_file at mcpServer/src/filesystemTools.ts:404",
+            "function_content": null
+          },
+          "handler_resolution": "case edit_file at mcpServer/src/filesystemTools.ts:404"
+        }
+      },
+      {
+        "tool_id": "226::list_directory::mcpServer/src/toolDefinitions.ts:268",
+        "sdk": "typescript-sdk low-level Server setRequestHandler",
+        "metadata": {
+          "name": "list_directory",
+          "title": null,
+          "description": "Get a listing of all files and directories in a specified path in the Unity project.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "zod_to_json_schema_ref": "ListDirectoryArgsSchema at mcpServer/src/toolDefinitions.ts:39"
+            },
+            "schema_dialect": "zod-to-json-schema-ref/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {
+              "category": "Filesystem",
+              "tags": "see inline tool definition"
+            }
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "mcpServer/src/toolDefinitions.ts",
+            "line_start": 268,
+            "line_end": null,
+            "function_name": "case list_directory at mcpServer/src/filesystemTools.ts:413",
+            "function_content": null
+          },
+          "handler_resolution": "case list_directory at mcpServer/src/filesystemTools.ts:413"
+        }
+      },
+      {
+        "tool_id": "226::directory_tree::mcpServer/src/toolDefinitions.ts:275",
+        "sdk": "typescript-sdk low-level Server setRequestHandler",
+        "metadata": {
+          "name": "directory_tree",
+          "title": null,
+          "description": "Get a recursive tree view of files and directories in the Unity project as a JSON structure.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "zod_to_json_schema_ref": "DirectoryTreeArgsSchema at mcpServer/src/toolDefinitions.ts:43"
+            },
+            "schema_dialect": "zod-to-json-schema-ref/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {
+              "category": "Filesystem",
+              "tags": "see inline tool definition"
+            }
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "mcpServer/src/toolDefinitions.ts",
+            "line_start": 275,
+            "line_end": null,
+            "function_name": "case directory_tree at mcpServer/src/filesystemTools.ts:425",
+            "function_content": null
+          },
+          "handler_resolution": "case directory_tree at mcpServer/src/filesystemTools.ts:425"
+        }
+      },
+      {
+        "tool_id": "226::search_files::mcpServer/src/toolDefinitions.ts:282",
+        "sdk": "typescript-sdk low-level Server setRequestHandler",
+        "metadata": {
+          "name": "search_files",
+          "title": null,
+          "description": "Recursively search for files and directories matching a pattern in the Unity project.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "zod_to_json_schema_ref": "SearchFilesArgsSchema at mcpServer/src/toolDefinitions.ts:48"
+            },
+            "schema_dialect": "zod-to-json-schema-ref/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {
+              "category": "Filesystem",
+              "tags": "see inline tool definition"
+            }
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "mcpServer/src/toolDefinitions.ts",
+            "line_start": 282,
+            "line_end": null,
+            "function_name": "case search_files at mcpServer/src/filesystemTools.ts:433",
+            "function_content": null
+          },
+          "handler_resolution": "case search_files at mcpServer/src/filesystemTools.ts:433"
+        }
+      },
+      {
+        "tool_id": "226::get_file_info::mcpServer/src/toolDefinitions.ts:289",
+        "sdk": "typescript-sdk low-level Server setRequestHandler",
+        "metadata": {
+          "name": "get_file_info",
+          "title": null,
+          "description": "Retrieve detailed metadata about a file or directory in the Unity project.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "zod_to_json_schema_ref": "GetFileInfoArgsSchema at mcpServer/src/toolDefinitions.ts:54"
+            },
+            "schema_dialect": "zod-to-json-schema-ref/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {
+              "category": "Filesystem",
+              "tags": "see inline tool definition"
+            }
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "mcpServer/src/toolDefinitions.ts",
+            "line_start": 289,
+            "line_end": null,
+            "function_name": "case get_file_info at mcpServer/src/filesystemTools.ts:449",
+            "function_content": null
+          },
+          "handler_resolution": "case get_file_info at mcpServer/src/filesystemTools.ts:449"
+        }
+      },
+      {
+        "tool_id": "226::find_assets_by_type::mcpServer/src/toolDefinitions.ts:296",
+        "sdk": "typescript-sdk low-level Server setRequestHandler",
+        "metadata": {
+          "name": "find_assets_by_type",
+          "title": null,
+          "description": "Find all Unity assets of a specified type (e.g., Material, Prefab, Scene, Script) in the project.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "zod_to_json_schema_ref": "FindAssetsByTypeArgsSchema at mcpServer/src/toolDefinitions.ts:58"
+            },
+            "schema_dialect": "zod-to-json-schema-ref/raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {
+              "category": "Filesystem",
+              "tags": "see inline tool definition"
+            }
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "mcpServer/src/toolDefinitions.ts",
+            "line_start": 296,
+            "line_end": null,
+            "function_name": "case find_assets_by_type at mcpServer/src/filesystemTools.ts:463",
+            "function_content": null
+          },
+          "handler_resolution": "case find_assets_by_type at mcpServer/src/filesystemTools.ts:463"
+        }
+      }
+    ]
+  },
+  {
+    "repo_id": "227",
+    "repo_name": "QuincyMillerDev__ilograph-mcp-server",
+    "source": "github_full_clone",
+    "status": "TOOL_SERVER_SOURCE_CONFIRMED",
+    "notes": "Python FastMCP server in src/ilograph_mcp/server.py creates the server and calls register_* functions that define 11 @mcp.tool-decorated handlers.",
+    "tool": [
+      {
+        "tool_id": "227::fetch_documentation_tool::src/ilograph_mcp/tools/register_fetch_documentation_tools.py:21",
+        "sdk": "python FastMCP @mcp.tool",
+        "metadata": {
+          "name": "fetch_documentation_tool",
+          "title": "Fetch Ilograph Documentation",
+          "description": "Fetches narrative documentation from ilograph.com with explanations and examples",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "source": "FastMCP derives schema from Python signature/docstring",
+              "registration": "src/ilograph_mcp/server.py registers this module"
+            },
+            "schema_dialect": "python-signature-derived",
+            "parameters": [
+              {
+                "name": "section",
+                "type": "string",
+                "required": true,
+                "default": null,
+                "description": "Documentation section to fetch",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              }
+            ]
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/ilograph_mcp/tools/register_fetch_documentation_tools.py",
+            "line_start": 21,
+            "line_end": null,
+            "function_name": "decorated function fetch_documentation_tool at line 28",
+            "function_content": null
+          },
+          "handler_resolution": "decorated function fetch_documentation_tool at line 28"
+        }
+      },
+      {
+        "tool_id": "227::list_documentation_sections::src/ilograph_mcp/tools/register_fetch_documentation_tools.py:115",
+        "sdk": "python FastMCP @mcp.tool",
+        "metadata": {
+          "name": "list_documentation_sections",
+          "title": "List Available Documentation Sections",
+          "description": "Lists all available Ilograph documentation sections with descriptions",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "source": "FastMCP derives schema from Python signature/docstring",
+              "registration": "src/ilograph_mcp/server.py registers this module"
+            },
+            "schema_dialect": "python-signature-derived",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/ilograph_mcp/tools/register_fetch_documentation_tools.py",
+            "line_start": 115,
+            "line_end": null,
+            "function_name": "decorated function list_documentation_sections at line 122",
+            "function_content": null
+          },
+          "handler_resolution": "decorated function list_documentation_sections at line 122"
+        }
+      },
+      {
+        "tool_id": "227::check_documentation_health::src/ilograph_mcp/tools/register_fetch_documentation_tools.py:160",
+        "sdk": "python FastMCP @mcp.tool",
+        "metadata": {
+          "name": "check_documentation_health",
+          "title": "Check Documentation Service Health",
+          "description": "Checks the health and connectivity of the documentation fetching service",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "source": "FastMCP derives schema from Python signature/docstring",
+              "registration": "src/ilograph_mcp/server.py registers this module"
+            },
+            "schema_dialect": "python-signature-derived",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/ilograph_mcp/tools/register_fetch_documentation_tools.py",
+            "line_start": 160,
+            "line_end": null,
+            "function_name": "decorated function check_documentation_health at line 167",
+            "function_content": null
+          },
+          "handler_resolution": "decorated function check_documentation_health at line 167"
+        }
+      },
+      {
+        "tool_id": "227::fetch_spec_tool::src/ilograph_mcp/tools/register_fetch_spec_tool.py:21",
+        "sdk": "python FastMCP @mcp.tool",
+        "metadata": {
+          "name": "fetch_spec_tool",
+          "title": "Fetch Ilograph Specification",
+          "description": "Fetches the concise Ilograph specification with property definitions and types",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "source": "FastMCP derives schema from Python signature/docstring",
+              "registration": "src/ilograph_mcp/server.py registers this module"
+            },
+            "schema_dialect": "python-signature-derived",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/ilograph_mcp/tools/register_fetch_spec_tool.py",
+            "line_start": 21,
+            "line_end": null,
+            "function_name": "decorated function fetch_spec_tool at line 28",
+            "function_content": null
+          },
+          "handler_resolution": "decorated function fetch_spec_tool at line 28"
+        }
+      },
+      {
+        "tool_id": "227::check_spec_health::src/ilograph_mcp/tools/register_fetch_spec_tool.py:89",
+        "sdk": "python FastMCP @mcp.tool",
+        "metadata": {
+          "name": "check_spec_health",
+          "title": "Check Specification Service Health",
+          "description": "Checks the health and connectivity of the specification fetching service",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "source": "FastMCP derives schema from Python signature/docstring",
+              "registration": "src/ilograph_mcp/server.py registers this module"
+            },
+            "schema_dialect": "python-signature-derived",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/ilograph_mcp/tools/register_fetch_spec_tool.py",
+            "line_start": 89,
+            "line_end": null,
+            "function_name": "decorated function check_spec_health at line 96",
+            "function_content": null
+          },
+          "handler_resolution": "decorated function check_spec_health at line 96"
+        }
+      },
+      {
+        "tool_id": "227::list_examples::src/ilograph_mcp/tools/register_example_tools.py:105",
+        "sdk": "python FastMCP @mcp.tool",
+        "metadata": {
+          "name": "list_examples",
+          "title": "List Available Example Diagrams",
+          "description": "Lists available Ilograph example diagrams with their categories and descriptions.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "source": "FastMCP derives schema from Python signature/docstring",
+              "registration": "src/ilograph_mcp/server.py registers this module"
+            },
+            "schema_dialect": "python-signature-derived",
+            "parameters": [
+              {
+                "name": "category",
+                "type": "string",
+                "required": false,
+                "default": null,
+                "description": "Filter examples by complexity",
+                "enum": [
+                  "beginner",
+                  "intermediate",
+                  "advanced"
+                ],
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              }
+            ]
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/ilograph_mcp/tools/register_example_tools.py",
+            "line_start": 105,
+            "line_end": null,
+            "function_name": "decorated function list_examples_tool at line 113",
+            "function_content": null
+          },
+          "handler_resolution": "decorated function list_examples_tool at line 113"
+        }
+      },
+      {
+        "tool_id": "227::fetch_example::src/ilograph_mcp/tools/register_example_tools.py:139",
+        "sdk": "python FastMCP @mcp.tool",
+        "metadata": {
+          "name": "fetch_example",
+          "title": "Get Example Diagram",
+          "description": "Retrieves a specific Ilograph example diagram with its content and rich metadata.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "source": "FastMCP derives schema from Python signature/docstring",
+              "registration": "src/ilograph_mcp/server.py registers this module"
+            },
+            "schema_dialect": "python-signature-derived",
+            "parameters": [
+              {
+                "name": "example_name",
+                "type": "string",
+                "required": true,
+                "default": null,
+                "description": "The filename of the example to fetch",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              }
+            ]
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/ilograph_mcp/tools/register_example_tools.py",
+            "line_start": 139,
+            "line_end": null,
+            "function_name": "decorated function fetch_example_tool at line 147",
+            "function_content": null
+          },
+          "handler_resolution": "decorated function fetch_example_tool at line 147"
+        }
+      },
+      {
+        "tool_id": "227::validate_diagram_tool::src/ilograph_mcp/tools/register_validate_diagram_tool.py:482",
+        "sdk": "python FastMCP @mcp.tool",
+        "metadata": {
+          "name": "validate_diagram_tool",
+          "title": "Validate Ilograph Diagram",
+          "description": "Validates Ilograph diagram syntax and provides detailed error messages with suggestions",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "source": "FastMCP derives schema from Python signature/docstring",
+              "registration": "src/ilograph_mcp/server.py registers this module"
+            },
+            "schema_dialect": "python-signature-derived",
+            "parameters": [
+              {
+                "name": "content",
+                "type": "string",
+                "required": true,
+                "default": null,
+                "description": "The Ilograph diagram content as a string",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              }
+            ]
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/ilograph_mcp/tools/register_validate_diagram_tool.py",
+            "line_start": 482,
+            "line_end": null,
+            "function_name": "decorated function validate_diagram_tool at line 489",
+            "function_content": null
+          },
+          "handler_resolution": "decorated function validate_diagram_tool at line 489"
+        }
+      },
+      {
+        "tool_id": "227::get_validation_help::src/ilograph_mcp/tools/register_validate_diagram_tool.py:592",
+        "sdk": "python FastMCP @mcp.tool",
+        "metadata": {
+          "name": "get_validation_help",
+          "title": "Get Validation Help",
+          "description": "Provides guidance on Ilograph diagram validation and common issues",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "source": "FastMCP derives schema from Python signature/docstring",
+              "registration": "src/ilograph_mcp/server.py registers this module"
+            },
+            "schema_dialect": "python-signature-derived",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/ilograph_mcp/tools/register_validate_diagram_tool.py",
+            "line_start": 592,
+            "line_end": null,
+            "function_name": "decorated function get_validation_help at line 599",
+            "function_content": null
+          },
+          "handler_resolution": "decorated function get_validation_help at line 599"
+        }
+      },
+      {
+        "tool_id": "227::search_icons_tool::src/ilograph_mcp/tools/register_fetch_icons_tool.py:22",
+        "sdk": "python FastMCP @mcp.tool",
+        "metadata": {
+          "name": "search_icons_tool",
+          "title": "Search Ilograph Icons",
+          "description": "Searches the live icon catalog with semantic matching and provider filtering",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "source": "FastMCP derives schema from Python signature/docstring",
+              "registration": "src/ilograph_mcp/server.py registers this module"
+            },
+            "schema_dialect": "python-signature-derived",
+            "parameters": [
+              {
+                "name": "query",
+                "type": "string",
+                "required": true,
+                "default": null,
+                "description": "Search term",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "provider",
+                "type": "string",
+                "required": false,
+                "default": null,
+                "description": "Optional provider filter",
+                "enum": [
+                  "AWS",
+                  "Azure",
+                  "GCP",
+                  "Networking"
+                ],
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              }
+            ]
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/ilograph_mcp/tools/register_fetch_icons_tool.py",
+            "line_start": 22,
+            "line_end": null,
+            "function_name": "decorated function search_icons_tool at line 29",
+            "function_content": null
+          },
+          "handler_resolution": "decorated function search_icons_tool at line 29"
+        }
+      },
+      {
+        "tool_id": "227::list_icon_providers_tool::src/ilograph_mcp/tools/register_fetch_icons_tool.py:127",
+        "sdk": "python FastMCP @mcp.tool",
+        "metadata": {
+          "name": "list_icon_providers_tool",
+          "title": "List Available Icon Providers",
+          "description": "Lists all available icon providers and categories from the icon catalog",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "source": "FastMCP derives schema from Python signature/docstring",
+              "registration": "src/ilograph_mcp/server.py registers this module"
+            },
+            "schema_dialect": "python-signature-derived",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/ilograph_mcp/tools/register_fetch_icons_tool.py",
+            "line_start": 127,
+            "line_end": null,
+            "function_name": "decorated function list_icon_providers_tool at line 134",
+            "function_content": null
+          },
+          "handler_resolution": "decorated function list_icon_providers_tool at line 134"
+        }
+      }
+    ]
+  },
+  {
+    "repo_id": "228",
+    "repo_name": "raw391__coin_daemon_mcp",
+    "source": "github_full_clone",
+    "status": "TOOL_SERVER_SOURCE_CONFIRMED",
+    "notes": "TypeScript server in src/mcpServer.ts creates an MCP Server and registers five crypto daemon tools with server.tool; resources/prompts ignored.",
+    "tool": [
+      {
+        "tool_id": "228::execute-command::src/mcpServer.ts:153",
+        "sdk": "typescript-sdk Server.tool",
+        "metadata": {
+          "name": "execute-command",
+          "title": null,
+          "description": "Execute a command on a specific cryptocurrency daemon",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "raw_parameter_map": "string literals passed as third argument to server.tool"
+            },
+            "schema_dialect": "unknown/raw",
+            "parameters": [
+              {
+                "name": "daemon",
+                "type": "string",
+                "required": true,
+                "default": null,
+                "description": null,
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "command",
+                "type": "string",
+                "required": true,
+                "default": null,
+                "description": null,
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "params",
+                "type": "any[]",
+                "required": false,
+                "default": null,
+                "description": null,
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              }
+            ]
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/mcpServer.ts",
+            "line_start": 153,
+            "line_end": null,
+            "function_name": "async handler at src/mcpServer.ts:161",
+            "function_content": null
+          },
+          "handler_resolution": "async handler at src/mcpServer.ts:161"
+        }
+      },
+      {
+        "tool_id": "228::send-coins::src/mcpServer.ts:193",
+        "sdk": "typescript-sdk Server.tool",
+        "metadata": {
+          "name": "send-coins",
+          "title": null,
+          "description": "Send coins to a transparent address",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "raw_parameter_map": "string literals passed as third argument to server.tool"
+            },
+            "schema_dialect": "unknown/raw",
+            "parameters": [
+              {
+                "name": "daemon",
+                "type": "string",
+                "required": true,
+                "default": null,
+                "description": null,
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "address",
+                "type": "string",
+                "required": true,
+                "default": null,
+                "description": null,
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "amount",
+                "type": "number",
+                "required": true,
+                "default": null,
+                "description": null,
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "comment",
+                "type": "string",
+                "required": false,
+                "default": null,
+                "description": null,
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "subtractFee",
+                "type": "boolean",
+                "required": false,
+                "default": null,
+                "description": null,
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              }
+            ]
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/mcpServer.ts",
+            "line_start": 193,
+            "line_end": null,
+            "function_name": "async handler at src/mcpServer.ts:203",
+            "function_content": null
+          },
+          "handler_resolution": "async handler at src/mcpServer.ts:203"
+        }
+      },
+      {
+        "tool_id": "228::zsend-coins::src/mcpServer.ts:241",
+        "sdk": "typescript-sdk Server.tool",
+        "metadata": {
+          "name": "zsend-coins",
+          "title": null,
+          "description": "Send coins using shielded transaction",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "raw_parameter_map": "string literals passed as third argument to server.tool"
+            },
+            "schema_dialect": "unknown/raw",
+            "parameters": [
+              {
+                "name": "daemon",
+                "type": "string",
+                "required": true,
+                "default": null,
+                "description": null,
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "fromAddress",
+                "type": "string",
+                "required": true,
+                "default": null,
+                "description": null,
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "toAddress",
+                "type": "string",
+                "required": true,
+                "default": null,
+                "description": null,
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "amount",
+                "type": "number",
+                "required": true,
+                "default": null,
+                "description": null,
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "memo",
+                "type": "string",
+                "required": false,
+                "default": null,
+                "description": null,
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              }
+            ]
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/mcpServer.ts",
+            "line_start": 241,
+            "line_end": null,
+            "function_name": "async handler at src/mcpServer.ts:251",
+            "function_content": null
+          },
+          "handler_resolution": "async handler at src/mcpServer.ts:251"
+        }
+      },
+      {
+        "tool_id": "228::get-balance::src/mcpServer.ts:289",
+        "sdk": "typescript-sdk Server.tool",
+        "metadata": {
+          "name": "get-balance",
+          "title": null,
+          "description": "Get wallet balance",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "raw_parameter_map": "string literals passed as third argument to server.tool"
+            },
+            "schema_dialect": "unknown/raw",
+            "parameters": [
+              {
+                "name": "daemon",
+                "type": "string",
+                "required": true,
+                "default": null,
+                "description": null,
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              }
+            ]
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/mcpServer.ts",
+            "line_start": 289,
+            "line_end": null,
+            "function_name": "async handler at src/mcpServer.ts:295",
+            "function_content": null
+          },
+          "handler_resolution": "async handler at src/mcpServer.ts:295"
+        }
+      },
+      {
+        "tool_id": "228::check-status::src/mcpServer.ts:326",
+        "sdk": "typescript-sdk Server.tool",
+        "metadata": {
+          "name": "check-status",
+          "title": null,
+          "description": "Check daemon status",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "raw_parameter_map": "string literals passed as third argument to server.tool"
+            },
+            "schema_dialect": "unknown/raw",
+            "parameters": [
+              {
+                "name": "daemon",
+                "type": "string",
+                "required": true,
+                "default": null,
+                "description": null,
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              }
+            ]
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/mcpServer.ts",
+            "line_start": 326,
+            "line_end": null,
+            "function_name": "async handler at src/mcpServer.ts:332",
+            "function_content": null
+          },
+          "handler_resolution": "async handler at src/mcpServer.ts:332"
+        }
+      }
+    ]
+  },
+  {
+    "repo_id": "229",
+    "repo_name": "relayshield__relayshield-mcp",
+    "source": "github_full_clone",
+    "status": "TOOL_SERVER_SOURCE_CONFIRMED",
+    "notes": "Python MCP server in src/relayshield_mcp/server.py uses @app.list_tools to return nine types.Tool definitions and @app.call_tool to dispatch to RelayShield API endpoints.",
+    "tool": [
+      {
+        "tool_id": "229::check_breach::src/relayshield_mcp/server.py:70",
+        "sdk": "python mcp.server Server list_tools/call_tool",
+        "metadata": {
+          "name": "check_breach",
+          "title": null,
+          "description": "Check whether an email address appears in known data breaches.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "source": "types.Tool inputSchema literal in @app.list_tools result"
+            },
+            "schema_dialect": "json-schema/raw",
+            "parameters": [
+              {
+                "name": "email",
+                "type": "string",
+                "required": true,
+                "default": null,
+                "description": "Email address to check",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              }
+            ]
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/relayshield_mcp/server.py",
+            "line_start": 70,
+            "line_end": null,
+            "function_name": "if name == check_breach dispatch at src/relayshield_mcp/server.py:340",
+            "function_content": null
+          },
+          "handler_resolution": "if name == check_breach dispatch at src/relayshield_mcp/server.py:340"
+        }
+      },
+      {
+        "tool_id": "229::check_sim_swap::src/relayshield_mcp/server.py:92",
+        "sdk": "python mcp.server Server list_tools/call_tool",
+        "metadata": {
+          "name": "check_sim_swap",
+          "title": null,
+          "description": "Detect whether a SIM swap or eSIM provisioning event has occurred on a phone number in the last 24 hours.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "source": "types.Tool inputSchema literal in @app.list_tools result"
+            },
+            "schema_dialect": "json-schema/raw",
+            "parameters": [
+              {
+                "name": "phone",
+                "type": "string",
+                "required": true,
+                "default": null,
+                "description": "Phone number in E.164 format",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": "^\\+[1-9]\\d{6,14}$",
+                  "additionalProperties": null
+                }
+              }
+            ]
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/relayshield_mcp/server.py",
+            "line_start": 92,
+            "line_end": null,
+            "function_name": "if name == check_sim_swap dispatch at src/relayshield_mcp/server.py:347",
+            "function_content": null
+          },
+          "handler_resolution": "if name == check_sim_swap dispatch at src/relayshield_mcp/server.py:347"
+        }
+      },
+      {
+        "tool_id": "229::check_domain_lookalikes::src/relayshield_mcp/server.py:115",
+        "sdk": "python mcp.server Server list_tools/call_tool",
+        "metadata": {
+          "name": "check_domain_lookalikes",
+          "title": null,
+          "description": "Detect typosquat and lookalike domains impersonating a brand.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "source": "types.Tool inputSchema literal in @app.list_tools result"
+            },
+            "schema_dialect": "json-schema/raw",
+            "parameters": [
+              {
+                "name": "domain",
+                "type": "string",
+                "required": true,
+                "default": null,
+                "description": "Root domain to scan",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              }
+            ]
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/relayshield_mcp/server.py",
+            "line_start": 115,
+            "line_end": null,
+            "function_name": "if name == check_domain_lookalikes dispatch at src/relayshield_mcp/server.py:354",
+            "function_content": null
+          },
+          "handler_resolution": "if name == check_domain_lookalikes dispatch at src/relayshield_mcp/server.py:354"
+        }
+      },
+      {
+        "tool_id": "229::check_oauth_watchlist::src/relayshield_mcp/server.py:139",
+        "sdk": "python mcp.server Server list_tools/call_tool",
+        "metadata": {
+          "name": "check_oauth_watchlist",
+          "title": null,
+          "description": "Check whether any high-risk OAuth-capable SaaS apps connected to an email account have appeared in recent data breaches.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "source": "types.Tool inputSchema literal in @app.list_tools result"
+            },
+            "schema_dialect": "json-schema/raw",
+            "parameters": [
+              {
+                "name": "email",
+                "type": "string",
+                "required": true,
+                "default": null,
+                "description": "Email address whose connected OAuth apps to check",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              }
+            ]
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/relayshield_mcp/server.py",
+            "line_start": 139,
+            "line_end": null,
+            "function_name": "if name == check_oauth_watchlist dispatch at src/relayshield_mcp/server.py:361",
+            "function_content": null
+          },
+          "handler_resolution": "if name == check_oauth_watchlist dispatch at src/relayshield_mcp/server.py:361"
+        }
+      },
+      {
+        "tool_id": "229::check_infostealer::src/relayshield_mcp/server.py:163",
+        "sdk": "python mcp.server Server list_tools/call_tool",
+        "metadata": {
+          "name": "check_infostealer",
+          "title": null,
+          "description": "Check whether an email address appears in infostealer malware logs.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "source": "types.Tool inputSchema literal in @app.list_tools result"
+            },
+            "schema_dialect": "json-schema/raw",
+            "parameters": [
+              {
+                "name": "email",
+                "type": "string",
+                "required": true,
+                "default": null,
+                "description": "Email address to check for infostealer compromise",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              }
+            ]
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/relayshield_mcp/server.py",
+            "line_start": 163,
+            "line_end": null,
+            "function_name": "if name == check_infostealer dispatch at src/relayshield_mcp/server.py:368",
+            "function_content": null
+          },
+          "handler_resolution": "if name == check_infostealer dispatch at src/relayshield_mcp/server.py:368"
+        }
+      },
+      {
+        "tool_id": "229::scan_url::src/relayshield_mcp/server.py:188",
+        "sdk": "python mcp.server Server list_tools/call_tool",
+        "metadata": {
+          "name": "scan_url",
+          "title": null,
+          "description": "Submit a URL for malware and phishing analysis across 70+ security engines.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "source": "types.Tool inputSchema literal in @app.list_tools result"
+            },
+            "schema_dialect": "json-schema/raw",
+            "parameters": [
+              {
+                "name": "url",
+                "type": "string",
+                "required": true,
+                "default": null,
+                "description": "URL to scan",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              }
+            ]
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/relayshield_mcp/server.py",
+            "line_start": 188,
+            "line_end": null,
+            "function_name": "if name == scan_url dispatch at src/relayshield_mcp/server.py:385",
+            "function_content": null
+          },
+          "handler_resolution": "if name == scan_url dispatch at src/relayshield_mcp/server.py:385"
+        }
+      },
+      {
+        "tool_id": "229::scan_file::src/relayshield_mcp/server.py:211",
+        "sdk": "python mcp.server Server list_tools/call_tool",
+        "metadata": {
+          "name": "scan_file",
+          "title": null,
+          "description": "Submit a file for binary malware analysis across 70+ AV engines.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "source": "types.Tool inputSchema literal in @app.list_tools result"
+            },
+            "schema_dialect": "json-schema/raw",
+            "parameters": [
+              {
+                "name": "file_url",
+                "type": "string",
+                "required": true,
+                "default": null,
+                "description": "Publicly accessible URL to download the file from",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "filename",
+                "type": "string",
+                "required": false,
+                "default": null,
+                "description": "Optional filename hint",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              }
+            ]
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/relayshield_mcp/server.py",
+            "line_start": 211,
+            "line_end": null,
+            "function_name": "if name == scan_file dispatch at src/relayshield_mcp/server.py:392",
+            "function_content": null
+          },
+          "handler_resolution": "if name == scan_file dispatch at src/relayshield_mcp/server.py:392"
+        }
+      },
+      {
+        "tool_id": "229::scan_wallet::src/relayshield_mcp/server.py:239",
+        "sdk": "python mcp.server Server list_tools/call_tool",
+        "metadata": {
+          "name": "scan_wallet",
+          "title": null,
+          "description": "Check an EVM wallet address for on-chain risk signals using GoPlus Security.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "source": "types.Tool inputSchema literal in @app.list_tools result"
+            },
+            "schema_dialect": "json-schema/raw",
+            "parameters": [
+              {
+                "name": "address",
+                "type": "string",
+                "required": true,
+                "default": null,
+                "description": "EVM wallet address to scan",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": "^0x[0-9a-fA-F]{40}$",
+                  "additionalProperties": null
+                }
+              },
+              {
+                "name": "chain_id",
+                "type": "string",
+                "required": false,
+                "default": "1",
+                "description": "EVM chain ID",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              }
+            ]
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/relayshield_mcp/server.py",
+            "line_start": 239,
+            "line_end": null,
+            "function_name": "if name == scan_wallet dispatch at src/relayshield_mcp/server.py:375",
+            "function_content": null
+          },
+          "handler_resolution": "if name == scan_wallet dispatch at src/relayshield_mcp/server.py:375"
+        }
+      },
+      {
+        "tool_id": "229::check_scan_result::src/relayshield_mcp/server.py:268",
+        "sdk": "python mcp.server Server list_tools/call_tool",
+        "metadata": {
+          "name": "check_scan_result",
+          "title": null,
+          "description": "Poll for the result of a previously submitted URL or file scan.",
+          "icons": [],
+          "inputSchema": {
+            "raw": {
+              "source": "types.Tool inputSchema literal in @app.list_tools result"
+            },
+            "schema_dialect": "json-schema/raw",
+            "parameters": [
+              {
+                "name": "analysis_id",
+                "type": "string",
+                "required": true,
+                "default": null,
+                "description": "analysis_id returned by scan_url or scan_file",
+                "enum": null,
+                "constraints": {
+                  "minimum": null,
+                  "maximum": null,
+                  "pattern": null,
+                  "additionalProperties": null
+                }
+              }
+            ]
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/relayshield_mcp/server.py",
+            "line_start": 268,
+            "line_end": null,
+            "function_name": "if name == check_scan_result dispatch at src/relayshield_mcp/server.py:402",
+            "function_content": null
+          },
+          "handler_resolution": "if name == check_scan_result dispatch at src/relayshield_mcp/server.py:402"
+        }
+      }
+    ]
+  },
+  {
+    "repo_id": "230",
+    "repo_name": "remoet-labs__remoet-mcp",
+    "source": "github_full_clone",
+    "status": "REMOTE_CATALOG_DOC_ONLY_NOT_EXTRACTED",
+    "notes": "Local stdio entry point advertises snapshotted data/tools.json and proxies every CallToolRequest to hosted REMOET_MCP_URL; hosted server remains source of execution truth. Per instructions, remote catalog/proxy tool surface not extracted as repo-owned handlers.",
+    "tool": []
+  }
+]

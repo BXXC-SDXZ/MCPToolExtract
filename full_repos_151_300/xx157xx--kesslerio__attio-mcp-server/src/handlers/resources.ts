@@ -1,0 +1,235 @@
+/**
+ * Handlers for resource-related requests
+ */
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import {
+  ListResourcesRequestSchema,
+  ReadResourceRequestSchema,
+  ListResourcesResult,
+  ReadResourceResult,
+} from '@modelcontextprotocol/sdk/types.js';
+import { ServerContext } from '../server/createServer.js';
+import { withGlobalContext } from '../api/lazy-client.js';
+import { createErrorResult } from '../utils/error-handler.js';
+import {
+  listCompanies,
+  getCompanyDetails,
+} from '../objects/companies/index.js';
+import { listPeople, getPersonDetails } from '../objects/people/index.js';
+import { getLists, getListDetails } from '../objects/lists.js';
+import { parseResourceUri, formatResourceUri } from '../utils/uri-parser.js';
+import { ResourceType, AttioRecord, AttioList } from '../types/attio.js';
+
+/**
+ * Type for API errors with response data
+ */
+interface ApiError extends Error {
+  response?: {
+    data?: Record<string, unknown>;
+  };
+}
+
+/**
+ * Format a single record for resource response
+ *
+ * @param record - The record to format
+ * @param type - The type of resource
+ * @returns Formatted resource object
+ */
+function formatRecordAsResource(record: AttioRecord, type: ResourceType) {
+  return {
+    uri: formatResourceUri(type, record.id?.record_id || ''),
+    name: (() => {
+      const nameField = (record.values as Record<string, unknown> | undefined)
+        ?.name as unknown;
+      if (
+        Array.isArray(nameField) &&
+        nameField.length > 0 &&
+        nameField[0] &&
+        typeof nameField[0] === 'object' &&
+        'value' in (nameField[0] as Record<string, unknown>)
+      ) {
+        const v = (nameField[0] as Record<string, unknown>).value;
+        return typeof v === 'string' ? v : String(v);
+      }
+      return `Unknown ${type.slice(0, -1)}`;
+    })(),
+    mimeType: 'application/json',
+  };
+}
+
+/**
+ * Format a list for resource response
+ *
+ * @param list - The list to format
+ * @returns Formatted resource object
+ */
+function formatListAsResource(list: AttioList) {
+  return {
+    uri: formatResourceUri(ResourceType.LISTS, list.id?.list_id || ''),
+    name: list.name || 'Unknown list',
+    mimeType: 'application/json',
+  };
+}
+
+/**
+ * Registers resource-related request handlers with the server
+ *
+ * @param server - The MCP server instance
+ */
+export function registerResourceHandlers(
+  server: Server,
+  context?: ServerContext
+): void {
+  // Handler for listing resources (Companies, People, and Lists)
+  server.setRequestHandler(
+    ListResourcesRequestSchema,
+    async (_request): Promise<ListResourcesResult> => {
+      const buildResources = async (): Promise<ListResourcesResult> => {
+        try {
+          const resources = [];
+
+          try {
+            const companies = await listCompanies();
+            resources.push(
+              ...companies.map((company) =>
+                formatRecordAsResource(company, ResourceType.COMPANIES)
+              )
+            );
+          } catch {
+            // Capability scans should still work even if company listing fails.
+          }
+
+          try {
+            const people = await listPeople();
+            resources.push(
+              ...people.map((person) =>
+                formatRecordAsResource(person, ResourceType.PEOPLE)
+              )
+            );
+          } catch {
+            // Capability scans should still work even if people listing fails.
+          }
+
+          try {
+            const lists = await getLists();
+            const safeLists = Array.isArray(lists) ? lists : [];
+            resources.push(
+              ...safeLists.map((list) => formatListAsResource(list))
+            );
+          } catch {
+            // Capability scans should still work even if list listing fails.
+          }
+
+          return { resources };
+        } catch (error: unknown) {
+          return createErrorResult(
+            error instanceof Error ? error : new Error('Unknown error'),
+            'unknown',
+            'unknown',
+            {}
+          ) as ListResourcesResult;
+        }
+      };
+
+      return context
+        ? withGlobalContext(context, buildResources)
+        : buildResources();
+    }
+  );
+
+  // Handler for reading resource details (Companies, People, and Lists)
+  server.setRequestHandler(
+    ReadResourceRequestSchema,
+    async (request): Promise<ReadResourceResult> => {
+      const readResource = async (): Promise<ReadResourceResult> => {
+        try {
+          const uri = request.params.uri;
+          const [resourceType, id] = parseResourceUri(uri);
+
+          switch (resourceType) {
+            case ResourceType.PEOPLE:
+              try {
+                const person = await getPersonDetails(id);
+
+                return {
+                  contents: [
+                    {
+                      uri,
+                      text: JSON.stringify(person, null, 2),
+                      mimeType: 'application/json',
+                    },
+                  ],
+                };
+              } catch (error: unknown) {
+                return createErrorResult(
+                  error instanceof Error ? error : new Error('Unknown error'),
+                  `/objects/people/${id}`,
+                  'GET',
+                  (error as ApiError).response?.data || {}
+                ) as ReadResourceResult;
+              }
+
+            case ResourceType.LISTS:
+              try {
+                const list = await getListDetails(id);
+
+                return {
+                  contents: [
+                    {
+                      uri,
+                      text: JSON.stringify(list, null, 2),
+                      mimeType: 'application/json',
+                    },
+                  ],
+                };
+              } catch (error: unknown) {
+                return createErrorResult(
+                  error instanceof Error ? error : new Error('Unknown error'),
+                  `/lists/${id}`,
+                  'GET',
+                  (error as ApiError).response?.data || {}
+                ) as ReadResourceResult;
+              }
+
+            case ResourceType.COMPANIES:
+              try {
+                const company = await getCompanyDetails(id);
+
+                return {
+                  contents: [
+                    {
+                      uri,
+                      text: JSON.stringify(company, null, 2),
+                      mimeType: 'application/json',
+                    },
+                  ],
+                };
+              } catch (error: unknown) {
+                return createErrorResult(
+                  error instanceof Error ? error : new Error('Unknown error'),
+                  `/objects/companies/${id}`,
+                  'GET',
+                  (error as ApiError).response?.data || {}
+                ) as ReadResourceResult;
+              }
+
+            default:
+              throw new Error(`Unsupported resource type: ${resourceType}`);
+          }
+        } catch (error: unknown) {
+          return createErrorResult(
+            error instanceof Error ? error : new Error('Unknown error'),
+            request.params.uri,
+            'GET',
+            {}
+          ) as ReadResourceResult;
+        }
+      };
+
+      return context
+        ? withGlobalContext(context, readResource)
+        : readResource();
+    }
+  );
+}

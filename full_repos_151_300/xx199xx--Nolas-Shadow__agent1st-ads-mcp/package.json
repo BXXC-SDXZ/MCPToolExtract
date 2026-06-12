@@ -1,0 +1,56 @@
+{
+  "name": "meta-tiktok-ads-from-agent1st",
+  "version": "1.0.1",
+  "description": "MCP server that lets any AI agent autonomously launch and manage ad campaigns on Meta (Facebook/Instagram) and TikTok — no human in the loop.",
+  "keywords": [
+    "mcp",
+    "ads",
+    "meta",
+    "tiktok",
+    "facebook",
+    "instagram",
+    "ai-agent",
+    "agent1st",
+    "advertising",
+    "autonomous",
+    "campaign",
+    "marketing"
+  ],
+  "author": "Agent 1st <Info@Agent1st.io> (https://agent1st.io)",
+  "homepage": "https://agent1st.io/ads/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Nolas-Shadow/agent1st-ads-mcp"
+  },
+  "license": "MIT",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "meta-tiktok-ads-from-agent1st": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "docs",
+    ".env.example",
+    "mcp-icon.png"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "esbuild": "^0.27.4",
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

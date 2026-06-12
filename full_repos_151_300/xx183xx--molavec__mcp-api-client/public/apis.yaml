@@ -1,0 +1,98 @@
+metadata:
+  name: API Examples
+  version: 1.0.0
+  description: This file contains examples of various API endpoints for testing purposes.
+
+apis:
+  # [✅] GET API without parameters
+  - name: getUsers
+    description: Retrieve a list of users.
+    url: http://localhost:3000/users
+    method: GET
+    options:
+      headers:
+        Accept: application/json
+  
+  # [✅] GET API with query parameters
+  - name: getUsersWithQueryParameters
+    description: Retrieve a list of users with pagination.
+    url: http://localhost:3000/users?page={page}&limit={limit}
+    method: GET
+    options:
+      headers:
+        Accept: application/json
+
+  # [✅] GET API with path parameters
+  - name: getUserWithPathParameters
+    description: Retrieve a user by ID.
+    url: http://localhost:3000/users/{id}
+    method: GET
+    options:
+      headers:
+        Accept: application/json
+
+  # [✅] POST API      
+  - name: createUser
+    description: Create a new user.
+    url: http://localhost:3000/users
+    method: POST
+    options:
+      headers:
+        Content-Type: application/json
+      body:
+        - name: name
+          type: string
+          required: true
+          description: The name of the user.
+        - name: email
+          type: string
+          required: true
+          description: The email address of the user.
+
+  # [✅] PATCH API with path parameters
+  - name: updateUser
+    description: Update an existing user.
+    url: http://localhost:3000/users/{id}
+    method: PATCH
+    api-token: ${API_TOKEN}
+    options:
+      headers:
+        Content-Type: application/json
+      body:
+        - name: name
+          type: string
+          required: false
+          description: The name of the user.
+        - name: email
+          type: string
+          required: false
+          description: The email address of the user.
+
+  # [✅] PUT API with
+  - name: replaceUser
+    description: Replace an existing user.
+    url: http://localhost:3000/users/{id}
+    method: PUT
+    api-token: ${API_TOKEN}
+    options:
+      headers:
+        Content-Type: application/json
+      body:
+        - name: name
+          type: string
+          required: true
+          description: The name of the user.
+        - name: email
+          type: string
+          required: true
+          description: The email address of the user.
+
+  # [✅] DELETE API with path parameters
+  - name: deleteUser
+    description: Delete a user by ID.
+    url: http://localhost:3000/users/{id}
+    method: DELETE
+    api-token: ${API_TOKEN}
+    options:
+      headers:
+        Accept: application/json

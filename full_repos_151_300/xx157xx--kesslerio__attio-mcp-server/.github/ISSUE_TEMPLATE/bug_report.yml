@@ -1,0 +1,152 @@
+name: Bug report
+description: Report a defect or unexpected behavior.
+title: 'bug: <symptom> when <condition>'
+labels:
+  - type:bug
+  - status:untriaged
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing this report. Keep it concise, reproducible, and evidence-based.
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: How critical is this issue?
+      options:
+        - P0
+        - P1
+        - P2
+        - P3
+        - P4
+        - P5
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which area is affected?
+      options:
+        - area:core
+        - area:api
+        - area:build
+        - area:dist
+        - area:documentation
+        - area:testing
+        - area:performance
+        - area:refactor
+        - area:api:people
+        - area:api:lists
+        - area:api:notes
+        - area:api:objects
+        - area:api:records
+        - area:api:tasks
+        - area:extension
+        - area:integration
+        - area:security
+        - area:rate-limiting
+        - area:error-handling
+        - area:logging
+    validations:
+      required: true
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: One-sentence statement of what is broken.
+      placeholder: Search returns incomplete results when pagination token is provided.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Provide the shortest deterministic repro path.
+      placeholder: |
+        1. Set ATTIO_API_KEY
+        2. Run bun run test -- -t "..."
+        3. Observe failure in tool output
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What should happen if the bug does not exist.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What happened instead, including user-visible errors.
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version/ref tested
+      description: Exact branch, commit, or tag tested.
+      placeholder: main@<sha>
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      description: OS and shell where this occurs.
+      placeholder: macOS 15.x + zsh / Ubuntu 24.04 + bash
+    validations:
+      required: true
+
+  - type: input
+    id: tooling
+    attributes:
+      label: Related tool versions
+      description: Include bun/node/gh/claude/codex versions when relevant.
+      placeholder: bun --version, node --version, gh --version
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs, screenshots, and evidence
+      description: Include redacted logs/screenshots that prove the behavior.
+      render: shell
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact and severity
+      description: |
+        Explain who is affected, severity, frequency, and practical consequence.
+        Include:
+        - Affected users/workflows
+        - Severity (annoying, blocks workflow, data risk, etc.)
+        - Frequency (always/intermittent/edge case)
+        - Consequence (errors, manual work, delays, etc.)
+
+  - type: textarea
+    id: additional_information
+    attributes:
+      label: Additional information
+      description: Any context that helps triage but does not fit above.
+
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Confirmations
+      options:
+        - label: I reproduced this on the latest main branch.
+          required: true
+        - label: I searched existing issues and did not find a duplicate.
+          required: true

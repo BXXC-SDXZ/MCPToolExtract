@@ -1,0 +1,39 @@
+{
+  "name": "lithtrix-mcp",
+  "version": "0.9.0",
+  "mcpName": "io.github.learningloons-hash/lithtrix",
+  "description": "Memory consolidation for agents—MCP: search, memory write, commons read, blobs, browse.",
+  "type": "module",
+  "main": "index.js",
+  "bin": {
+    "lithtrix-mcp": "index.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.10.0",
+    "zod": "^3.24.0"
+  },
+  "keywords": [
+    "mcp",
+    "lithtrix",
+    "search",
+    "memory",
+    "blob",
+    "storage",
+    "memory-consolidation",
+    "browse",
+    "autonomous-browser",
+    "ai-agent",
+    "model-context-protocol"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lithtrix/lithtrix-mcp.git"
+  }
+}

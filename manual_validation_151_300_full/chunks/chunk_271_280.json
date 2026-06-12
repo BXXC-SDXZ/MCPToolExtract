@@ -1,0 +1,4046 @@
+[
+  {
+    "repo_id": "271",
+    "repo_name": "Tetsuya-Minase__mcp-server-sample",
+    "source": "github_full_clone",
+    "status": "TOOL_SERVER_SOURCE_CONFIRMED",
+    "notes": "src/index.ts creates an McpServer and registers two server.tool handlers before connecting stdio.",
+    "tool": [
+      {
+        "tool_id": "271::get-tminasen-info::src/index.ts:14",
+        "sdk": "@modelcontextprotocol/sdk TypeScript McpServer",
+        "metadata": {
+          "name": "get-tminasen-info",
+          "title": null,
+          "description": "get tminasen infomation",
+          "icons": [],
+          "inputSchema": {
+            "raw": "{}",
+            "schema_dialect": "typescript-sdk server.tool raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/index.ts",
+            "line_start": 14,
+            "line_end": null,
+            "function_name": null,
+            "function_content": null
+          },
+          "handler_resolution": "inline server.tool callback"
+        }
+      },
+      {
+        "tool_id": "271::get-tminasen-skills::src/index.ts:25",
+        "sdk": "@modelcontextprotocol/sdk TypeScript McpServer",
+        "metadata": {
+          "name": "get-tminasen-skills",
+          "title": null,
+          "description": "get tminasen's skill infomation",
+          "icons": [],
+          "inputSchema": {
+            "raw": "{ genre: z.union([z.literal(\"FE\"), z.literal(\"BE\")]).describe(\"skill genre\") }",
+            "schema_dialect": "zod-raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/index.ts",
+            "line_start": 25,
+            "line_end": null,
+            "function_name": null,
+            "function_content": null
+          },
+          "handler_resolution": "inline server.tool callback"
+        }
+      }
+    ]
+  },
+  {
+    "repo_id": "272",
+    "repo_name": "TheDigitalNinja__mcp-fitbit",
+    "source": "github_full_clone",
+    "status": "TOOL_SERVER_SOURCE_CONFIRMED",
+    "notes": "src/index.ts creates an McpServer and calls Fitbit feature registration functions; extracted concrete server.tool/registerTool registrations from src/*.ts, tests ignored.",
+    "tool": [
+      {
+        "tool_id": "272::get_weight::src/weight.ts:33",
+        "sdk": "@modelcontextprotocol/sdk TypeScript McpServer",
+        "metadata": {
+          "name": "get_weight",
+          "title": null,
+          "description": "Get the raw JSON response for weight entries from Fitbit for a specified period ending today. Requires a 'period' parameter such as '1d', '7d', '30d', '3m', '6m', '1y'",
+          "icons": [],
+          "inputSchema": {
+            "raw": "parametersSchema: { period: CommonSchemas.period }",
+            "schema_dialect": "zod-raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/weight.ts",
+            "line_start": 33,
+            "line_end": null,
+            "function_name": "registered get_weight",
+            "function_content": null
+          },
+          "handler_resolution": "registerTool helper delegates to server.tool in src/utils.ts:173"
+        }
+      },
+      {
+        "tool_id": "272::get_sleep_by_date_range::src/sleep.ts:86",
+        "sdk": "@modelcontextprotocol/sdk TypeScript McpServer",
+        "metadata": {
+          "name": "get_sleep_by_date_range",
+          "title": null,
+          "description": "Get the raw JSON response for sleep logs from Fitbit for a specific date range. Requires 'startDate' and 'endDate' parameters in 'YYYY-MM-DD' format.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "parametersSchema: { startDate: CommonSchemas.startDate, endDate: CommonSchemas.endDate }",
+            "schema_dialect": "zod-raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/sleep.ts",
+            "line_start": 86,
+            "line_end": null,
+            "function_name": "registered get_sleep_by_date_range",
+            "function_content": null
+          },
+          "handler_resolution": "registerTool helper delegates to server.tool in src/utils.ts:173"
+        }
+      },
+      {
+        "tool_id": "272::get_profile::src/profile.ts:30",
+        "sdk": "@modelcontextprotocol/sdk TypeScript McpServer",
+        "metadata": {
+          "name": "get_profile",
+          "title": null,
+          "description": "Get the raw JSON response for the user's Fitbit profile.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "parametersSchema: {}",
+            "schema_dialect": "zod-raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/profile.ts",
+            "line_start": 30,
+            "line_end": null,
+            "function_name": "registered get_profile",
+            "function_content": null
+          },
+          "handler_resolution": "registerTool helper delegates to server.tool in src/utils.ts:173"
+        }
+      },
+      {
+        "tool_id": "272::get_exercises::src/activities.ts:76",
+        "sdk": "@modelcontextprotocol/sdk TypeScript McpServer",
+        "metadata": {
+          "name": "get_exercises",
+          "title": null,
+          "description": "Get the raw JSON response for exercise and activity logs from Fitbit after a specific date. Requires 'afterDate' parameter in 'YYYY-MM-DD' format. Retrieves a detailed list of logged exercises and activities.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "parametersSchema: { afterDate: CommonSchemas.afterDate, limit: CommonSchemas.limit }",
+            "schema_dialect": "zod-raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/activities.ts",
+            "line_start": 76,
+            "line_end": null,
+            "function_name": "registered get_exercises",
+            "function_content": null
+          },
+          "handler_resolution": "registerTool helper delegates to server.tool in src/utils.ts:173"
+        }
+      },
+      {
+        "tool_id": "272::get_heart_rate::src/heart-rate.ts:73",
+        "sdk": "@modelcontextprotocol/sdk TypeScript McpServer",
+        "metadata": {
+          "name": "get_heart_rate",
+          "title": null,
+          "description": "Get the raw JSON response for heart rate data from Fitbit for a specified period ending today or on a specific date. Requires a 'period' parameter such as '1d', '7d', '30d', '1w', '1m' and optionally accepts 'date' parameter.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "periodParametersSchemaShape",
+            "schema_dialect": "zod-raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/heart-rate.ts",
+            "line_start": 73,
+            "line_end": null,
+            "function_name": "registered get_heart_rate",
+            "function_content": null
+          },
+          "handler_resolution": "server.tool(periodToolName, periodDescription, periodParametersSchemaShape, handler); name/description constants at src/heart-rate.ts:48-50"
+        }
+      },
+      {
+        "tool_id": "272::get_heart_rate_by_date_range::src/heart-rate.ts:151",
+        "sdk": "@modelcontextprotocol/sdk TypeScript McpServer",
+        "metadata": {
+          "name": "get_heart_rate_by_date_range",
+          "title": null,
+          "description": "Get the raw JSON response for heart rate data from Fitbit for a specific date range. Requires 'startDate' and 'endDate' parameters in 'YYYY-MM-DD' format. Note: The API enforces a maximum range of 1 year.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "rangeParametersSchemaShape",
+            "schema_dialect": "zod-raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/heart-rate.ts",
+            "line_start": 151,
+            "line_end": null,
+            "function_name": "registered get_heart_rate_by_date_range",
+            "function_content": null
+          },
+          "handler_resolution": "server.tool(rangeToolName, rangeDescription, rangeParametersSchemaShape, handler); name/description constants at src/heart-rate.ts:127-129"
+        }
+      },
+      {
+        "tool_id": "272::get_food_log::src/nutrition.ts:98",
+        "sdk": "@modelcontextprotocol/sdk TypeScript McpServer",
+        "metadata": {
+          "name": "get_food_log",
+          "title": null,
+          "description": "Get comprehensive nutrition data (calories, protein, carbs, fat, fiber, sodium) from Fitbit food log for a specific date. Returns daily summary totals and individual food entries with nutritional values.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "foodLogParametersSchemaShape",
+            "schema_dialect": "zod-raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/nutrition.ts",
+            "line_start": 98,
+            "line_end": null,
+            "function_name": "registered get_food_log",
+            "function_content": null
+          },
+          "handler_resolution": "server.tool(foodLogToolName, foodLogDescription, foodLogParametersSchemaShape, handler); name/description constants at src/nutrition.ts:77-79"
+        }
+      },
+      {
+        "tool_id": "272::get_nutrition::src/nutrition.ts:181",
+        "sdk": "@modelcontextprotocol/sdk TypeScript McpServer",
+        "metadata": {
+          "name": "get_nutrition",
+          "title": null,
+          "description": "Get the raw JSON response for nutrition data from Fitbit for a specified resource and period ending today or on a specific date. Requires 'resource' parameter (caloriesIn, water) and 'period' parameter such as '1d', '7d', '30d', '1w', '1m', '3m', '6m', '1y' and optionally accepts 'date' parameter.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "periodParametersSchemaShape",
+            "schema_dialect": "zod-raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/nutrition.ts",
+            "line_start": 181,
+            "line_end": null,
+            "function_name": "registered get_nutrition",
+            "function_content": null
+          },
+          "handler_resolution": "server.tool(periodToolName, periodDescription, periodParametersSchemaShape, handler); name/description constants at src/nutrition.ts:137-139"
+        }
+      },
+      {
+        "tool_id": "272::get_nutrition_by_date_range::src/nutrition.ts:280",
+        "sdk": "@modelcontextprotocol/sdk TypeScript McpServer",
+        "metadata": {
+          "name": "get_nutrition_by_date_range",
+          "title": null,
+          "description": "Get the raw JSON response for nutrition data from Fitbit for a specific resource and date range. Requires 'resource' parameter (caloriesIn, water), 'startDate' and 'endDate' parameters in 'YYYY-MM-DD' format. Note: The API enforces a maximum range of 1,095 days.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "rangeParametersSchemaShape",
+            "schema_dialect": "zod-raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/nutrition.ts",
+            "line_start": 280,
+            "line_end": null,
+            "function_name": "registered get_nutrition_by_date_range",
+            "function_content": null
+          },
+          "handler_resolution": "server.tool(rangeToolName, rangeDescription, rangeParametersSchemaShape, handler); name/description constants at src/nutrition.ts:237-239"
+        }
+      },
+      {
+        "tool_id": "272::get_daily_activity_summary::src/daily-activity.ts:54",
+        "sdk": "@modelcontextprotocol/sdk TypeScript McpServer",
+        "metadata": {
+          "name": "get_daily_activity_summary",
+          "title": null,
+          "description": "Get the raw JSON response for daily activity summary from Fitbit for a specific date. Includes goals, steps, calories, distances, and heart rate zones. Requires a 'date' parameter in YYYY-MM-DD format.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "parametersSchema: { date: CommonSchemas.date }",
+            "schema_dialect": "zod-raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/daily-activity.ts",
+            "line_start": 54,
+            "line_end": null,
+            "function_name": "registered get_daily_activity_summary",
+            "function_content": null
+          },
+          "handler_resolution": "registerTool helper delegates to server.tool in src/utils.ts:173"
+        }
+      },
+      {
+        "tool_id": "272::get_activity_goals::src/activity-goals.ts:32",
+        "sdk": "@modelcontextprotocol/sdk TypeScript McpServer",
+        "metadata": {
+          "name": "get_activity_goals",
+          "title": null,
+          "description": "Get the raw JSON response for user's activity goals from Fitbit. Supports 'daily' and 'weekly' periods. Returns goal values for steps, distance, calories, floors, active minutes, and active zone minutes.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "parametersSchema: { period: z.enum(['daily', 'weekly']) }",
+            "schema_dialect": "zod-raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/activity-goals.ts",
+            "line_start": 32,
+            "line_end": null,
+            "function_name": "registered get_activity_goals",
+            "function_content": null
+          },
+          "handler_resolution": "registerTool helper delegates to server.tool in src/utils.ts:173"
+        }
+      },
+      {
+        "tool_id": "272::get_activity_timeseries::src/activity-timeseries.ts:30",
+        "sdk": "@modelcontextprotocol/sdk TypeScript McpServer",
+        "metadata": {
+          "name": "get_activity_timeseries",
+          "title": null,
+          "description": "Get the raw JSON response for activity time series data from Fitbit over a date range (max 30 days). Supports various resource paths like 'steps', 'distance', 'calories', 'activityCalories', 'caloriesBMR'.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "parametersSchema: { resourcePath: z.enum([...]), startDate: CommonSchemas.startDate, endDate: CommonSchemas.endDate }",
+            "schema_dialect": "zod-raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/activity-timeseries.ts",
+            "line_start": 30,
+            "line_end": null,
+            "function_name": "registered get_activity_timeseries",
+            "function_content": null
+          },
+          "handler_resolution": "registerTool helper delegates to server.tool in src/utils.ts:173"
+        }
+      },
+      {
+        "tool_id": "272::get_azm_timeseries::src/azm-timeseries.ts:36",
+        "sdk": "@modelcontextprotocol/sdk TypeScript McpServer",
+        "metadata": {
+          "name": "get_azm_timeseries",
+          "title": null,
+          "description": "Get the raw JSON response for Active Zone Minutes (AZM) time series data from Fitbit over a date range (max 1095 days). Returns total AZM plus breakdown by fat burn, cardio, and peak zones.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "parametersSchema: { startDate: CommonSchemas.startDate, endDate: CommonSchemas.endDate }",
+            "schema_dialect": "zod-raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/azm-timeseries.ts",
+            "line_start": 36,
+            "line_end": null,
+            "function_name": "registered get_azm_timeseries",
+            "function_content": null
+          },
+          "handler_resolution": "registerTool helper delegates to server.tool in src/utils.ts:173"
+        }
+      }
+    ]
+  },
+  {
+    "repo_id": "273",
+    "repo_name": "ThinkInAIXYZ__mcp-servers",
+    "source": "github_full_clone",
+    "status": "NO_SOURCE_TOOL_REGISTRATION_FOUND",
+    "notes": "Repository is a curated/readme-style list with screenshots; no concrete MCP server source tool registrations found in clone.",
+    "tool": []
+  },
+  {
+    "repo_id": "274",
+    "repo_name": "thinking-bzf__mongo-mcp-go",
+    "source": "github_full_clone",
+    "status": "TOOL_SERVER_SOURCE_CONFIRMED",
+    "notes": "Go mcp-go server calls app.AddTools; app/mcp.go adds collection, document, index, and id generator tools built with mcp.NewTool and paired handlers.",
+    "tool": [
+      {
+        "tool_id": "274::ListCollections::app/tools/collection.go:27",
+        "sdk": "mark3labs/mcp-go",
+        "metadata": {
+          "name": "ListCollections",
+          "title": null,
+          "description": "List all collections in mongodb",
+          "icons": [],
+          "inputSchema": {
+            "raw": "mcp.NewTool(\"ListCollections\", mcp.WithDescription(...))",
+            "schema_dialect": "mcp-go-options",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "app/tools/collection.go",
+            "line_start": 27,
+            "line_end": null,
+            "function_name": "collectionTool.ListCollections handler",
+            "function_content": null
+          },
+          "handler_resolution": "collectionTool.ListCollections handler"
+        }
+      },
+      {
+        "tool_id": "274::Find::app/tools/document.go:39",
+        "sdk": "mark3labs/mcp-go",
+        "metadata": {
+          "name": "Find",
+          "title": null,
+          "description": "Query documents in a collection using MongoDB query syntax",
+          "icons": [],
+          "inputSchema": {
+            "raw": "mcp.NewTool with collection/filter/limit/projection options",
+            "schema_dialect": "mcp-go-options",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "app/tools/document.go",
+            "line_start": 39,
+            "line_end": null,
+            "function_name": "documentTool.Find handler",
+            "function_content": null
+          },
+          "handler_resolution": "documentTool.Find handler"
+        }
+      },
+      {
+        "tool_id": "274::Count::app/tools/document.go:103",
+        "sdk": "mark3labs/mcp-go",
+        "metadata": {
+          "name": "Count",
+          "title": null,
+          "description": "Count documents in a collection using MongoDB query syntax",
+          "icons": [],
+          "inputSchema": {
+            "raw": "mcp.NewTool with collection/filter/projection options",
+            "schema_dialect": "mcp-go-options",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "app/tools/document.go",
+            "line_start": 103,
+            "line_end": null,
+            "function_name": "documentTool.Count handler",
+            "function_content": null
+          },
+          "handler_resolution": "documentTool.Count handler"
+        }
+      },
+      {
+        "tool_id": "274::InertOne::app/tools/document.go:142",
+        "sdk": "mark3labs/mcp-go",
+        "metadata": {
+          "name": "InertOne",
+          "title": null,
+          "description": "Insert a single document into a collection",
+          "icons": [],
+          "inputSchema": {
+            "raw": "mcp.NewTool with collection/document options",
+            "schema_dialect": "mcp-go-options",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "app/tools/document.go",
+            "line_start": 142,
+            "line_end": null,
+            "function_name": "documentTool.InsertOne handler",
+            "function_content": null
+          },
+          "handler_resolution": "documentTool.InsertOne handler"
+        }
+      },
+      {
+        "tool_id": "274::DeleteOne::app/tools/document.go:188",
+        "sdk": "mark3labs/mcp-go",
+        "metadata": {
+          "name": "DeleteOne",
+          "title": null,
+          "description": "Delete a single document into a collection",
+          "icons": [],
+          "inputSchema": {
+            "raw": "mcp.NewTool with collection/filter options",
+            "schema_dialect": "mcp-go-options",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "app/tools/document.go",
+            "line_start": 188,
+            "line_end": null,
+            "function_name": "documentTool.DeleteOne handler",
+            "function_content": null
+          },
+          "handler_resolution": "documentTool.DeleteOne handler"
+        }
+      },
+      {
+        "tool_id": "274::UpdateOne::app/tools/document.go:225",
+        "sdk": "mark3labs/mcp-go",
+        "metadata": {
+          "name": "UpdateOne",
+          "title": null,
+          "description": "update a single document into a collection",
+          "icons": [],
+          "inputSchema": {
+            "raw": "mcp.NewTool with collection/filter/update options",
+            "schema_dialect": "mcp-go-options",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "app/tools/document.go",
+            "line_start": 225,
+            "line_end": null,
+            "function_name": "documentTool.UpdateOne handler",
+            "function_content": null
+          },
+          "handler_resolution": "documentTool.UpdateOne handler"
+        }
+      },
+      {
+        "tool_id": "274::CreateIndex::app/tools/index.go:69",
+        "sdk": "mark3labs/mcp-go",
+        "metadata": {
+          "name": "CreateIndex",
+          "title": null,
+          "description": "create index in mongodb",
+          "icons": [],
+          "inputSchema": {
+            "raw": "mcp.NewTool with collection/index_spec options",
+            "schema_dialect": "mcp-go-options",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "app/tools/index.go",
+            "line_start": 69,
+            "line_end": null,
+            "function_name": "indexTool.CreateIndex handler",
+            "function_content": null
+          },
+          "handler_resolution": "indexTool.CreateIndex handler"
+        }
+      },
+      {
+        "tool_id": "274::ListIndexes::app/tools/index.go:34",
+        "sdk": "mark3labs/mcp-go",
+        "metadata": {
+          "name": "ListIndexes",
+          "title": null,
+          "description": "List all indexes in mongodb",
+          "icons": [],
+          "inputSchema": {
+            "raw": "mcp.NewTool with collection option",
+            "schema_dialect": "mcp-go-options",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "app/tools/index.go",
+            "line_start": 34,
+            "line_end": null,
+            "function_name": "indexTool.ListIndexes handler",
+            "function_content": null
+          },
+          "handler_resolution": "indexTool.ListIndexes handler"
+        }
+      },
+      {
+        "tool_id": "274::DropIndex::app/tools/index.go:106",
+        "sdk": "mark3labs/mcp-go",
+        "metadata": {
+          "name": "DropIndex",
+          "title": null,
+          "description": "drop index in mongodb",
+          "icons": [],
+          "inputSchema": {
+            "raw": "mcp.NewTool with collection/index_name options",
+            "schema_dialect": "mcp-go-options",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "app/tools/index.go",
+            "line_start": 106,
+            "line_end": null,
+            "function_name": "indexTool.DropIndex handler",
+            "function_content": null
+          },
+          "handler_resolution": "indexTool.DropIndex handler"
+        }
+      },
+      {
+        "tool_id": "274::entity_id_generator::app/tools/idgen.go:39",
+        "sdk": "mark3labs/mcp-go",
+        "metadata": {
+          "name": "entity_id_generator",
+          "title": null,
+          "description": "generate id for different type entity",
+          "icons": [],
+          "inputSchema": {
+            "raw": "mcp.NewTool with entity_type option",
+            "schema_dialect": "mcp-go-options",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "app/tools/idgen.go",
+            "line_start": 39,
+            "line_end": null,
+            "function_name": "IdGenerateTool.Generate handler",
+            "function_content": null
+          },
+          "handler_resolution": "IdGenerateTool.Generate handler"
+        }
+      }
+    ]
+  },
+  {
+    "repo_id": "275",
+    "repo_name": "Tiberriver256__azure-devops-mcp",
+    "source": "github_full_clone",
+    "status": "TOOL_SERVER_SOURCE_CONFIRMED",
+    "notes": "Low-level TypeScript SDK server: src/server.ts ListToolsRequestSchema returns feature ToolDefinition arrays and CallToolRequestSchema routes each tool name to feature handlers. Resources/docs/tests ignored.",
+    "tool": [
+      {
+        "tool_id": "275::get_me::src/features/users/tool-definitions.ts:10",
+        "sdk": "@modelcontextprotocol/sdk TypeScript low-level Server",
+        "metadata": {
+          "name": "get_me",
+          "title": null,
+          "description": "Get details of the authenticated user (id, displayName, email)",
+          "icons": [],
+          "inputSchema": {
+            "raw": "zodToJsonSchema(GetMeSchema)",
+            "schema_dialect": "zod-to-json-schema",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/features/users/tool-definitions.ts",
+            "line_start": 10,
+            "line_end": null,
+            "function_name": "get_me ToolDefinition",
+            "function_content": null
+          },
+          "handler_resolution": "src/server.ts ListToolsRequestSchema returns feature tool arrays; CallToolRequestSchema routes to matching feature handler"
+        }
+      },
+      {
+        "tool_id": "275::list_organizations::src/features/organizations/tool-definitions.ts:10",
+        "sdk": "@modelcontextprotocol/sdk TypeScript low-level Server",
+        "metadata": {
+          "name": "list_organizations",
+          "title": null,
+          "description": "List all Azure DevOps organizations accessible to the current authentication",
+          "icons": [],
+          "inputSchema": {
+            "raw": "zodToJsonSchema(ListOrganizationsSchema)",
+            "schema_dialect": "zod-to-json-schema",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/features/organizations/tool-definitions.ts",
+            "line_start": 10,
+            "line_end": null,
+            "function_name": "list_organizations ToolDefinition",
+            "function_content": null
+          },
+          "handler_resolution": "src/server.ts ListToolsRequestSchema returns feature tool arrays; CallToolRequestSchema routes to matching feature handler"
+        }
+      },
+      {
+        "tool_id": "275::list_projects::src/features/projects/tool-definitions.ts:14",
+        "sdk": "@modelcontextprotocol/sdk TypeScript low-level Server",
+        "metadata": {
+          "name": "list_projects",
+          "title": null,
+          "description": "List all projects in an organization",
+          "icons": [],
+          "inputSchema": {
+            "raw": "zodToJsonSchema(ListProjectsSchema)",
+            "schema_dialect": "zod-to-json-schema",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/features/projects/tool-definitions.ts",
+            "line_start": 14,
+            "line_end": null,
+            "function_name": "list_projects ToolDefinition",
+            "function_content": null
+          },
+          "handler_resolution": "src/server.ts ListToolsRequestSchema returns feature tool arrays; CallToolRequestSchema routes to matching feature handler"
+        }
+      },
+      {
+        "tool_id": "275::get_project::src/features/projects/tool-definitions.ts:19",
+        "sdk": "@modelcontextprotocol/sdk TypeScript low-level Server",
+        "metadata": {
+          "name": "get_project",
+          "title": null,
+          "description": "Get details of a specific project",
+          "icons": [],
+          "inputSchema": {
+            "raw": "zodToJsonSchema(GetProjectSchema)",
+            "schema_dialect": "zod-to-json-schema",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/features/projects/tool-definitions.ts",
+            "line_start": 19,
+            "line_end": null,
+            "function_name": "get_project ToolDefinition",
+            "function_content": null
+          },
+          "handler_resolution": "src/server.ts ListToolsRequestSchema returns feature tool arrays; CallToolRequestSchema routes to matching feature handler"
+        }
+      },
+      {
+        "tool_id": "275::get_project_details::src/features/projects/tool-definitions.ts:24",
+        "sdk": "@modelcontextprotocol/sdk TypeScript low-level Server",
+        "metadata": {
+          "name": "get_project_details",
+          "title": null,
+          "description": "Get comprehensive details of a project including process, work item types, and teams",
+          "icons": [],
+          "inputSchema": {
+            "raw": "zodToJsonSchema(GetProjectDetailsSchema)",
+            "schema_dialect": "zod-to-json-schema",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/features/projects/tool-definitions.ts",
+            "line_start": 24,
+            "line_end": null,
+            "function_name": "get_project_details ToolDefinition",
+            "function_content": null
+          },
+          "handler_resolution": "src/server.ts ListToolsRequestSchema returns feature tool arrays; CallToolRequestSchema routes to matching feature handler"
+        }
+      },
+      {
+        "tool_id": "275::get_repository::src/features/repositories/tool-definitions.ts:20",
+        "sdk": "@modelcontextprotocol/sdk TypeScript low-level Server",
+        "metadata": {
+          "name": "get_repository",
+          "title": null,
+          "description": "Get details of a specific repository",
+          "icons": [],
+          "inputSchema": {
+            "raw": "zodToJsonSchema(GetRepositorySchema)",
+            "schema_dialect": "zod-to-json-schema",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/features/repositories/tool-definitions.ts",
+            "line_start": 20,
+            "line_end": null,
+            "function_name": "get_repository ToolDefinition",
+            "function_content": null
+          },
+          "handler_resolution": "src/server.ts ListToolsRequestSchema returns feature tool arrays; CallToolRequestSchema routes to matching feature handler"
+        }
+      },
+      {
+        "tool_id": "275::get_repository_details::src/features/repositories/tool-definitions.ts:25",
+        "sdk": "@modelcontextprotocol/sdk TypeScript low-level Server",
+        "metadata": {
+          "name": "get_repository_details",
+          "title": null,
+          "description": "Get detailed information about a repository including statistics and refs",
+          "icons": [],
+          "inputSchema": {
+            "raw": "zodToJsonSchema(GetRepositoryDetailsSchema)",
+            "schema_dialect": "zod-to-json-schema",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/features/repositories/tool-definitions.ts",
+            "line_start": 25,
+            "line_end": null,
+            "function_name": "get_repository_details ToolDefinition",
+            "function_content": null
+          },
+          "handler_resolution": "src/server.ts ListToolsRequestSchema returns feature tool arrays; CallToolRequestSchema routes to matching feature handler"
+        }
+      },
+      {
+        "tool_id": "275::list_repositories::src/features/repositories/tool-definitions.ts:31",
+        "sdk": "@modelcontextprotocol/sdk TypeScript low-level Server",
+        "metadata": {
+          "name": "list_repositories",
+          "title": null,
+          "description": "List repositories in a project",
+          "icons": [],
+          "inputSchema": {
+            "raw": "zodToJsonSchema(ListRepositoriesSchema)",
+            "schema_dialect": "zod-to-json-schema",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/features/repositories/tool-definitions.ts",
+            "line_start": 31,
+            "line_end": null,
+            "function_name": "list_repositories ToolDefinition",
+            "function_content": null
+          },
+          "handler_resolution": "src/server.ts ListToolsRequestSchema returns feature tool arrays; CallToolRequestSchema routes to matching feature handler"
+        }
+      },
+      {
+        "tool_id": "275::get_file_content::src/features/repositories/tool-definitions.ts:36",
+        "sdk": "@modelcontextprotocol/sdk TypeScript low-level Server",
+        "metadata": {
+          "name": "get_file_content",
+          "title": null,
+          "description": "Get content of a file or directory from a repository",
+          "icons": [],
+          "inputSchema": {
+            "raw": "zodToJsonSchema(GetFileContentSchema)",
+            "schema_dialect": "zod-to-json-schema",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/features/repositories/tool-definitions.ts",
+            "line_start": 36,
+            "line_end": null,
+            "function_name": "get_file_content ToolDefinition",
+            "function_content": null
+          },
+          "handler_resolution": "src/server.ts ListToolsRequestSchema returns feature tool arrays; CallToolRequestSchema routes to matching feature handler"
+        }
+      },
+      {
+        "tool_id": "275::get_all_repositories_tree::src/features/repositories/tool-definitions.ts:41",
+        "sdk": "@modelcontextprotocol/sdk TypeScript low-level Server",
+        "metadata": {
+          "name": "get_all_repositories_tree",
+          "title": null,
+          "description": "Displays a hierarchical tree view of files and directories across multiple Azure DevOps repositories within a project, based on their default branches",
+          "icons": [],
+          "inputSchema": {
+            "raw": "zodToJsonSchema(GetAllRepositoriesTreeSchema)",
+            "schema_dialect": "zod-to-json-schema",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/features/repositories/tool-definitions.ts",
+            "line_start": 41,
+            "line_end": null,
+            "function_name": "get_all_repositories_tree ToolDefinition",
+            "function_content": null
+          },
+          "handler_resolution": "src/server.ts ListToolsRequestSchema returns feature tool arrays; CallToolRequestSchema routes to matching feature handler"
+        }
+      },
+      {
+        "tool_id": "275::get_repository_tree::src/features/repositories/tool-definitions.ts:47",
+        "sdk": "@modelcontextprotocol/sdk TypeScript low-level Server",
+        "metadata": {
+          "name": "get_repository_tree",
+          "title": null,
+          "description": "Displays a hierarchical tree view of files and directories within a single repository starting from an optional path",
+          "icons": [],
+          "inputSchema": {
+            "raw": "zodToJsonSchema(GetRepositoryTreeSchema)",
+            "schema_dialect": "zod-to-json-schema",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/features/repositories/tool-definitions.ts",
+            "line_start": 47,
+            "line_end": null,
+            "function_name": "get_repository_tree ToolDefinition",
+            "function_content": null
+          },
+          "handler_resolution": "src/server.ts ListToolsRequestSchema returns feature tool arrays; CallToolRequestSchema routes to matching feature handler"
+        }
+      },
+      {
+        "tool_id": "275::create_branch::src/features/repositories/tool-definitions.ts:53",
+        "sdk": "@modelcontextprotocol/sdk TypeScript low-level Server",
+        "metadata": {
+          "name": "create_branch",
+          "title": null,
+          "description": "Create a new branch from an existing one",
+          "icons": [],
+          "inputSchema": {
+            "raw": "zodToJsonSchema(CreateBranchSchema)",
+            "schema_dialect": "zod-to-json-schema",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/features/repositories/tool-definitions.ts",
+            "line_start": 53,
+            "line_end": null,
+            "function_name": "create_branch ToolDefinition",
+            "function_content": null
+          },
+          "handler_resolution": "src/server.ts ListToolsRequestSchema returns feature tool arrays; CallToolRequestSchema routes to matching feature handler"
+        }
+      },
+      {
+        "tool_id": "275::create_commit::src/features/repositories/tool-definitions.ts:58",
+        "sdk": "@modelcontextprotocol/sdk TypeScript low-level Server",
+        "metadata": {
+          "name": "create_commit",
+          "title": null,
+          "description": "Create a commit on an existing branch using file changes.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "zodToJsonSchema(CreateCommitSchema)",
+            "schema_dialect": "zod-to-json-schema",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/features/repositories/tool-definitions.ts",
+            "line_start": 58,
+            "line_end": null,
+            "function_name": "create_commit ToolDefinition",
+            "function_content": null
+          },
+          "handler_resolution": "src/server.ts ListToolsRequestSchema returns feature tool arrays; CallToolRequestSchema routes to matching feature handler"
+        }
+      },
+      {
+        "tool_id": "275::list_commits::src/features/repositories/tool-definitions.ts:101",
+        "sdk": "@modelcontextprotocol/sdk TypeScript low-level Server",
+        "metadata": {
+          "name": "list_commits",
+          "title": null,
+          "description": "List recent commits on a branch including file-level diff content for each commit",
+          "icons": [],
+          "inputSchema": {
+            "raw": "zodToJsonSchema(ListCommitsSchema)",
+            "schema_dialect": "zod-to-json-schema",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/features/repositories/tool-definitions.ts",
+            "line_start": 101,
+            "line_end": null,
+            "function_name": "list_commits ToolDefinition",
+            "function_content": null
+          },
+          "handler_resolution": "src/server.ts ListToolsRequestSchema returns feature tool arrays; CallToolRequestSchema routes to matching feature handler"
+        }
+      },
+      {
+        "tool_id": "275::list_work_items::src/features/work-items/tool-definitions.ts:16",
+        "sdk": "@modelcontextprotocol/sdk TypeScript low-level Server",
+        "metadata": {
+          "name": "list_work_items",
+          "title": null,
+          "description": "List work items in a project",
+          "icons": [],
+          "inputSchema": {
+            "raw": "zodToJsonSchema(ListWorkItemsSchema)",
+            "schema_dialect": "zod-to-json-schema",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/features/work-items/tool-definitions.ts",
+            "line_start": 16,
+            "line_end": null,
+            "function_name": "list_work_items ToolDefinition",
+            "function_content": null
+          },
+          "handler_resolution": "src/server.ts ListToolsRequestSchema returns feature tool arrays; CallToolRequestSchema routes to matching feature handler"
+        }
+      },
+      {
+        "tool_id": "275::get_work_item::src/features/work-items/tool-definitions.ts:21",
+        "sdk": "@modelcontextprotocol/sdk TypeScript low-level Server",
+        "metadata": {
+          "name": "get_work_item",
+          "title": null,
+          "description": "Get details of a specific work item",
+          "icons": [],
+          "inputSchema": {
+            "raw": "zodToJsonSchema(GetWorkItemSchema)",
+            "schema_dialect": "zod-to-json-schema",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/features/work-items/tool-definitions.ts",
+            "line_start": 21,
+            "line_end": null,
+            "function_name": "get_work_item ToolDefinition",
+            "function_content": null
+          },
+          "handler_resolution": "src/server.ts ListToolsRequestSchema returns feature tool arrays; CallToolRequestSchema routes to matching feature handler"
+        }
+      },
+      {
+        "tool_id": "275::create_work_item::src/features/work-items/tool-definitions.ts:26",
+        "sdk": "@modelcontextprotocol/sdk TypeScript low-level Server",
+        "metadata": {
+          "name": "create_work_item",
+          "title": null,
+          "description": "Create a new work item",
+          "icons": [],
+          "inputSchema": {
+            "raw": "zodToJsonSchema(CreateWorkItemSchema)",
+            "schema_dialect": "zod-to-json-schema",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/features/work-items/tool-definitions.ts",
+            "line_start": 26,
+            "line_end": null,
+            "function_name": "create_work_item ToolDefinition",
+            "function_content": null
+          },
+          "handler_resolution": "src/server.ts ListToolsRequestSchema returns feature tool arrays; CallToolRequestSchema routes to matching feature handler"
+        }
+      },
+      {
+        "tool_id": "275::update_work_item::src/features/work-items/tool-definitions.ts:31",
+        "sdk": "@modelcontextprotocol/sdk TypeScript low-level Server",
+        "metadata": {
+          "name": "update_work_item",
+          "title": null,
+          "description": "Update an existing work item",
+          "icons": [],
+          "inputSchema": {
+            "raw": "zodToJsonSchema(UpdateWorkItemSchema)",
+            "schema_dialect": "zod-to-json-schema",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/features/work-items/tool-definitions.ts",
+            "line_start": 31,
+            "line_end": null,
+            "function_name": "update_work_item ToolDefinition",
+            "function_content": null
+          },
+          "handler_resolution": "src/server.ts ListToolsRequestSchema returns feature tool arrays; CallToolRequestSchema routes to matching feature handler"
+        }
+      },
+      {
+        "tool_id": "275::manage_work_item_link::src/features/work-items/tool-definitions.ts:36",
+        "sdk": "@modelcontextprotocol/sdk TypeScript low-level Server",
+        "metadata": {
+          "name": "manage_work_item_link",
+          "title": null,
+          "description": "Add or remove links between work items",
+          "icons": [],
+          "inputSchema": {
+            "raw": "zodToJsonSchema(ManageWorkItemLinkSchema)",
+            "schema_dialect": "zod-to-json-schema",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/features/work-items/tool-definitions.ts",
+            "line_start": 36,
+            "line_end": null,
+            "function_name": "manage_work_item_link ToolDefinition",
+            "function_content": null
+          },
+          "handler_resolution": "src/server.ts ListToolsRequestSchema returns feature tool arrays; CallToolRequestSchema routes to matching feature handler"
+        }
+      },
+      {
+        "tool_id": "275::search_code::src/features/search/tool-definitions.ts:14",
+        "sdk": "@modelcontextprotocol/sdk TypeScript low-level Server",
+        "metadata": {
+          "name": "search_code",
+          "title": null,
+          "description": "Search for code across repositories in a project",
+          "icons": [],
+          "inputSchema": {
+            "raw": "zodToJsonSchema(SearchCodeSchema)",
+            "schema_dialect": "zod-to-json-schema",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/features/search/tool-definitions.ts",
+            "line_start": 14,
+            "line_end": null,
+            "function_name": "search_code ToolDefinition",
+            "function_content": null
+          },
+          "handler_resolution": "src/server.ts ListToolsRequestSchema returns feature tool arrays; CallToolRequestSchema routes to matching feature handler"
+        }
+      },
+      {
+        "tool_id": "275::search_wiki::src/features/search/tool-definitions.ts:19",
+        "sdk": "@modelcontextprotocol/sdk TypeScript low-level Server",
+        "metadata": {
+          "name": "search_wiki",
+          "title": null,
+          "description": "Search for content across wiki pages in a project",
+          "icons": [],
+          "inputSchema": {
+            "raw": "zodToJsonSchema(SearchWikiSchema)",
+            "schema_dialect": "zod-to-json-schema",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/features/search/tool-definitions.ts",
+            "line_start": 19,
+            "line_end": null,
+            "function_name": "search_wiki ToolDefinition",
+            "function_content": null
+          },
+          "handler_resolution": "src/server.ts ListToolsRequestSchema returns feature tool arrays; CallToolRequestSchema routes to matching feature handler"
+        }
+      },
+      {
+        "tool_id": "275::search_work_items::src/features/search/tool-definitions.ts:24",
+        "sdk": "@modelcontextprotocol/sdk TypeScript low-level Server",
+        "metadata": {
+          "name": "search_work_items",
+          "title": null,
+          "description": "Search for work items across projects in Azure DevOps",
+          "icons": [],
+          "inputSchema": {
+            "raw": "zodToJsonSchema(SearchWorkItemsSchema)",
+            "schema_dialect": "zod-to-json-schema",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/features/search/tool-definitions.ts",
+            "line_start": 24,
+            "line_end": null,
+            "function_name": "search_work_items ToolDefinition",
+            "function_content": null
+          },
+          "handler_resolution": "src/server.ts ListToolsRequestSchema returns feature tool arrays; CallToolRequestSchema routes to matching feature handler"
+        }
+      },
+      {
+        "tool_id": "275::create_pull_request::src/features/pull-requests/tool-definitions.ts:19",
+        "sdk": "@modelcontextprotocol/sdk TypeScript low-level Server",
+        "metadata": {
+          "name": "create_pull_request",
+          "title": null,
+          "description": "Create a new pull request, including reviewers, linked work items, and optional tags",
+          "icons": [],
+          "inputSchema": {
+            "raw": "zodToJsonSchema(CreatePullRequestSchema)",
+            "schema_dialect": "zod-to-json-schema",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/features/pull-requests/tool-definitions.ts",
+            "line_start": 19,
+            "line_end": null,
+            "function_name": "create_pull_request ToolDefinition",
+            "function_content": null
+          },
+          "handler_resolution": "src/server.ts ListToolsRequestSchema returns feature tool arrays; CallToolRequestSchema routes to matching feature handler"
+        }
+      },
+      {
+        "tool_id": "275::get_pull_request::src/features/pull-requests/tool-definitions.ts:25",
+        "sdk": "@modelcontextprotocol/sdk TypeScript low-level Server",
+        "metadata": {
+          "name": "get_pull_request",
+          "title": null,
+          "description": "Get a pull request by ID (no repositoryId required; best for Azure DevOps Server where PR IDs are project-scoped)",
+          "icons": [],
+          "inputSchema": {
+            "raw": "zodToJsonSchema(GetPullRequestSchema)",
+            "schema_dialect": "zod-to-json-schema",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/features/pull-requests/tool-definitions.ts",
+            "line_start": 25,
+            "line_end": null,
+            "function_name": "get_pull_request ToolDefinition",
+            "function_content": null
+          },
+          "handler_resolution": "src/server.ts ListToolsRequestSchema returns feature tool arrays; CallToolRequestSchema routes to matching feature handler"
+        }
+      },
+      {
+        "tool_id": "275::list_pull_requests::src/features/pull-requests/tool-definitions.ts:31",
+        "sdk": "@modelcontextprotocol/sdk TypeScript low-level Server",
+        "metadata": {
+          "name": "list_pull_requests",
+          "title": null,
+          "description": "List pull requests in a repository",
+          "icons": [],
+          "inputSchema": {
+            "raw": "zodToJsonSchema(ListPullRequestsSchema)",
+            "schema_dialect": "zod-to-json-schema",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/features/pull-requests/tool-definitions.ts",
+            "line_start": 31,
+            "line_end": null,
+            "function_name": "list_pull_requests ToolDefinition",
+            "function_content": null
+          },
+          "handler_resolution": "src/server.ts ListToolsRequestSchema returns feature tool arrays; CallToolRequestSchema routes to matching feature handler"
+        }
+      },
+      {
+        "tool_id": "275::get_pull_request_comments::src/features/pull-requests/tool-definitions.ts:36",
+        "sdk": "@modelcontextprotocol/sdk TypeScript low-level Server",
+        "metadata": {
+          "name": "get_pull_request_comments",
+          "title": null,
+          "description": "Get comments from a specific pull request",
+          "icons": [],
+          "inputSchema": {
+            "raw": "zodToJsonSchema(GetPullRequestCommentsSchema)",
+            "schema_dialect": "zod-to-json-schema",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/features/pull-requests/tool-definitions.ts",
+            "line_start": 36,
+            "line_end": null,
+            "function_name": "get_pull_request_comments ToolDefinition",
+            "function_content": null
+          },
+          "handler_resolution": "src/server.ts ListToolsRequestSchema returns feature tool arrays; CallToolRequestSchema routes to matching feature handler"
+        }
+      },
+      {
+        "tool_id": "275::add_pull_request_comment::src/features/pull-requests/tool-definitions.ts:41",
+        "sdk": "@modelcontextprotocol/sdk TypeScript low-level Server",
+        "metadata": {
+          "name": "add_pull_request_comment",
+          "title": null,
+          "description": "Add a comment to a pull request (repositoryId optional; derived from pullRequestId when omitted)",
+          "icons": [],
+          "inputSchema": {
+            "raw": "zodToJsonSchema(AddPullRequestCommentSchema)",
+            "schema_dialect": "zod-to-json-schema",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/features/pull-requests/tool-definitions.ts",
+            "line_start": 41,
+            "line_end": null,
+            "function_name": "add_pull_request_comment ToolDefinition",
+            "function_content": null
+          },
+          "handler_resolution": "src/server.ts ListToolsRequestSchema returns feature tool arrays; CallToolRequestSchema routes to matching feature handler"
+        }
+      },
+      {
+        "tool_id": "275::update_pull_request::src/features/pull-requests/tool-definitions.ts:47",
+        "sdk": "@modelcontextprotocol/sdk TypeScript low-level Server",
+        "metadata": {
+          "name": "update_pull_request",
+          "title": null,
+          "description": "Update an existing pull request with new properties, manage reviewers and work items, and add or remove tags",
+          "icons": [],
+          "inputSchema": {
+            "raw": "zodToJsonSchema(UpdatePullRequestSchema)",
+            "schema_dialect": "zod-to-json-schema",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/features/pull-requests/tool-definitions.ts",
+            "line_start": 47,
+            "line_end": null,
+            "function_name": "update_pull_request ToolDefinition",
+            "function_content": null
+          },
+          "handler_resolution": "src/server.ts ListToolsRequestSchema returns feature tool arrays; CallToolRequestSchema routes to matching feature handler"
+        }
+      },
+      {
+        "tool_id": "275::get_pull_request_changes::src/features/pull-requests/tool-definitions.ts:53",
+        "sdk": "@modelcontextprotocol/sdk TypeScript low-level Server",
+        "metadata": {
+          "name": "get_pull_request_changes",
+          "title": null,
+          "description": "Get the files changed in a pull request, their unified diffs, source/target branch names, and the status of policy evaluations",
+          "icons": [],
+          "inputSchema": {
+            "raw": "zodToJsonSchema(GetPullRequestChangesSchema)",
+            "schema_dialect": "zod-to-json-schema",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/features/pull-requests/tool-definitions.ts",
+            "line_start": 53,
+            "line_end": null,
+            "function_name": "get_pull_request_changes ToolDefinition",
+            "function_content": null
+          },
+          "handler_resolution": "src/server.ts ListToolsRequestSchema returns feature tool arrays; CallToolRequestSchema routes to matching feature handler"
+        }
+      },
+      {
+        "tool_id": "275::get_pull_request_checks::src/features/pull-requests/tool-definitions.ts:59",
+        "sdk": "@modelcontextprotocol/sdk TypeScript low-level Server",
+        "metadata": {
+          "name": "get_pull_request_checks",
+          "title": null,
+          "description": "Summarize the latest status checks and policy evaluations for a pull request.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "zodToJsonSchema(GetPullRequestChecksSchema)",
+            "schema_dialect": "zod-to-json-schema",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/features/pull-requests/tool-definitions.ts",
+            "line_start": 59,
+            "line_end": null,
+            "function_name": "get_pull_request_checks ToolDefinition",
+            "function_content": null
+          },
+          "handler_resolution": "src/server.ts ListToolsRequestSchema returns feature tool arrays; CallToolRequestSchema routes to matching feature handler"
+        }
+      },
+      {
+        "tool_id": "275::list_pipelines::src/features/pipelines/tool-definitions.ts:17",
+        "sdk": "@modelcontextprotocol/sdk TypeScript low-level Server",
+        "metadata": {
+          "name": "list_pipelines",
+          "title": null,
+          "description": "List pipelines in a project",
+          "icons": [],
+          "inputSchema": {
+            "raw": "zodToJsonSchema(ListPipelinesSchema)",
+            "schema_dialect": "zod-to-json-schema",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/features/pipelines/tool-definitions.ts",
+            "line_start": 17,
+            "line_end": null,
+            "function_name": "list_pipelines ToolDefinition",
+            "function_content": null
+          },
+          "handler_resolution": "src/server.ts ListToolsRequestSchema returns feature tool arrays; CallToolRequestSchema routes to matching feature handler"
+        }
+      },
+      {
+        "tool_id": "275::get_pipeline::src/features/pipelines/tool-definitions.ts:23",
+        "sdk": "@modelcontextprotocol/sdk TypeScript low-level Server",
+        "metadata": {
+          "name": "get_pipeline",
+          "title": null,
+          "description": "Get details of a specific pipeline",
+          "icons": [],
+          "inputSchema": {
+            "raw": "zodToJsonSchema(GetPipelineSchema)",
+            "schema_dialect": "zod-to-json-schema",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/features/pipelines/tool-definitions.ts",
+            "line_start": 23,
+            "line_end": null,
+            "function_name": "get_pipeline ToolDefinition",
+            "function_content": null
+          },
+          "handler_resolution": "src/server.ts ListToolsRequestSchema returns feature tool arrays; CallToolRequestSchema routes to matching feature handler"
+        }
+      },
+      {
+        "tool_id": "275::list_pipeline_runs::src/features/pipelines/tool-definitions.ts:29",
+        "sdk": "@modelcontextprotocol/sdk TypeScript low-level Server",
+        "metadata": {
+          "name": "list_pipeline_runs",
+          "title": null,
+          "description": "List recent runs for a pipeline",
+          "icons": [],
+          "inputSchema": {
+            "raw": "zodToJsonSchema(ListPipelineRunsSchema)",
+            "schema_dialect": "zod-to-json-schema",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/features/pipelines/tool-definitions.ts",
+            "line_start": 29,
+            "line_end": null,
+            "function_name": "list_pipeline_runs ToolDefinition",
+            "function_content": null
+          },
+          "handler_resolution": "src/server.ts ListToolsRequestSchema returns feature tool arrays; CallToolRequestSchema routes to matching feature handler"
+        }
+      },
+      {
+        "tool_id": "275::get_pipeline_run::src/features/pipelines/tool-definitions.ts:35",
+        "sdk": "@modelcontextprotocol/sdk TypeScript low-level Server",
+        "metadata": {
+          "name": "get_pipeline_run",
+          "title": null,
+          "description": "Get details for a specific pipeline run",
+          "icons": [],
+          "inputSchema": {
+            "raw": "zodToJsonSchema(GetPipelineRunSchema)",
+            "schema_dialect": "zod-to-json-schema",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/features/pipelines/tool-definitions.ts",
+            "line_start": 35,
+            "line_end": null,
+            "function_name": "get_pipeline_run ToolDefinition",
+            "function_content": null
+          },
+          "handler_resolution": "src/server.ts ListToolsRequestSchema returns feature tool arrays; CallToolRequestSchema routes to matching feature handler"
+        }
+      },
+      {
+        "tool_id": "275::download_pipeline_artifact::src/features/pipelines/tool-definitions.ts:41",
+        "sdk": "@modelcontextprotocol/sdk TypeScript low-level Server",
+        "metadata": {
+          "name": "download_pipeline_artifact",
+          "title": null,
+          "description": "Download a file from a pipeline run artifact and return its textual content",
+          "icons": [],
+          "inputSchema": {
+            "raw": "zodToJsonSchema(DownloadPipelineArtifactSchema)",
+            "schema_dialect": "zod-to-json-schema",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/features/pipelines/tool-definitions.ts",
+            "line_start": 41,
+            "line_end": null,
+            "function_name": "download_pipeline_artifact ToolDefinition",
+            "function_content": null
+          },
+          "handler_resolution": "src/server.ts ListToolsRequestSchema returns feature tool arrays; CallToolRequestSchema routes to matching feature handler"
+        }
+      },
+      {
+        "tool_id": "275::pipeline_timeline::src/features/pipelines/tool-definitions.ts:48",
+        "sdk": "@modelcontextprotocol/sdk TypeScript low-level Server",
+        "metadata": {
+          "name": "pipeline_timeline",
+          "title": null,
+          "description": "Retrieve the timeline of stages and jobs for a pipeline run, to reduce the amount of data returned, you can filter by state and result",
+          "icons": [],
+          "inputSchema": {
+            "raw": "zodToJsonSchema(GetPipelineTimelineSchema)",
+            "schema_dialect": "zod-to-json-schema",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/features/pipelines/tool-definitions.ts",
+            "line_start": 48,
+            "line_end": null,
+            "function_name": "pipeline_timeline ToolDefinition",
+            "function_content": null
+          },
+          "handler_resolution": "src/server.ts ListToolsRequestSchema returns feature tool arrays; CallToolRequestSchema routes to matching feature handler"
+        }
+      },
+      {
+        "tool_id": "275::get_pipeline_log::src/features/pipelines/tool-definitions.ts:55",
+        "sdk": "@modelcontextprotocol/sdk TypeScript low-level Server",
+        "metadata": {
+          "name": "get_pipeline_log",
+          "title": null,
+          "description": "Retrieve a specific pipeline log using the timeline log identifier",
+          "icons": [],
+          "inputSchema": {
+            "raw": "zodToJsonSchema(GetPipelineLogSchema)",
+            "schema_dialect": "zod-to-json-schema",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/features/pipelines/tool-definitions.ts",
+            "line_start": 55,
+            "line_end": null,
+            "function_name": "get_pipeline_log ToolDefinition",
+            "function_content": null
+          },
+          "handler_resolution": "src/server.ts ListToolsRequestSchema returns feature tool arrays; CallToolRequestSchema routes to matching feature handler"
+        }
+      },
+      {
+        "tool_id": "275::trigger_pipeline::src/features/pipelines/tool-definitions.ts:62",
+        "sdk": "@modelcontextprotocol/sdk TypeScript low-level Server",
+        "metadata": {
+          "name": "trigger_pipeline",
+          "title": null,
+          "description": "Trigger a pipeline run",
+          "icons": [],
+          "inputSchema": {
+            "raw": "zodToJsonSchema(TriggerPipelineSchema)",
+            "schema_dialect": "zod-to-json-schema",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/features/pipelines/tool-definitions.ts",
+            "line_start": 62,
+            "line_end": null,
+            "function_name": "trigger_pipeline ToolDefinition",
+            "function_content": null
+          },
+          "handler_resolution": "src/server.ts ListToolsRequestSchema returns feature tool arrays; CallToolRequestSchema routes to matching feature handler"
+        }
+      },
+      {
+        "tool_id": "275::get_wikis::src/features/wikis/tool-definitions.ts:15",
+        "sdk": "@modelcontextprotocol/sdk TypeScript low-level Server",
+        "metadata": {
+          "name": "get_wikis",
+          "title": null,
+          "description": "Get details of wikis in a project",
+          "icons": [],
+          "inputSchema": {
+            "raw": "zodToJsonSchema(GetWikisSchema)",
+            "schema_dialect": "zod-to-json-schema",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/features/wikis/tool-definitions.ts",
+            "line_start": 15,
+            "line_end": null,
+            "function_name": "get_wikis ToolDefinition",
+            "function_content": null
+          },
+          "handler_resolution": "src/server.ts ListToolsRequestSchema returns feature tool arrays; CallToolRequestSchema routes to matching feature handler"
+        }
+      },
+      {
+        "tool_id": "275::get_wiki_page::src/features/wikis/tool-definitions.ts:20",
+        "sdk": "@modelcontextprotocol/sdk TypeScript low-level Server",
+        "metadata": {
+          "name": "get_wiki_page",
+          "title": null,
+          "description": "Get the content of a wiki page",
+          "icons": [],
+          "inputSchema": {
+            "raw": "zodToJsonSchema(GetWikiPageSchema)",
+            "schema_dialect": "zod-to-json-schema",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/features/wikis/tool-definitions.ts",
+            "line_start": 20,
+            "line_end": null,
+            "function_name": "get_wiki_page ToolDefinition",
+            "function_content": null
+          },
+          "handler_resolution": "src/server.ts ListToolsRequestSchema returns feature tool arrays; CallToolRequestSchema routes to matching feature handler"
+        }
+      },
+      {
+        "tool_id": "275::create_wiki::src/features/wikis/tool-definitions.ts:25",
+        "sdk": "@modelcontextprotocol/sdk TypeScript low-level Server",
+        "metadata": {
+          "name": "create_wiki",
+          "title": null,
+          "description": "Create a new wiki in the project",
+          "icons": [],
+          "inputSchema": {
+            "raw": "zodToJsonSchema(CreateWikiSchema)",
+            "schema_dialect": "zod-to-json-schema",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/features/wikis/tool-definitions.ts",
+            "line_start": 25,
+            "line_end": null,
+            "function_name": "create_wiki ToolDefinition",
+            "function_content": null
+          },
+          "handler_resolution": "src/server.ts ListToolsRequestSchema returns feature tool arrays; CallToolRequestSchema routes to matching feature handler"
+        }
+      },
+      {
+        "tool_id": "275::update_wiki_page::src/features/wikis/tool-definitions.ts:30",
+        "sdk": "@modelcontextprotocol/sdk TypeScript low-level Server",
+        "metadata": {
+          "name": "update_wiki_page",
+          "title": null,
+          "description": "Update content of a wiki page",
+          "icons": [],
+          "inputSchema": {
+            "raw": "zodToJsonSchema(UpdateWikiPageSchema)",
+            "schema_dialect": "zod-to-json-schema",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/features/wikis/tool-definitions.ts",
+            "line_start": 30,
+            "line_end": null,
+            "function_name": "update_wiki_page ToolDefinition",
+            "function_content": null
+          },
+          "handler_resolution": "src/server.ts ListToolsRequestSchema returns feature tool arrays; CallToolRequestSchema routes to matching feature handler"
+        }
+      },
+      {
+        "tool_id": "275::list_wiki_pages::src/features/wikis/tool-definitions.ts:35",
+        "sdk": "@modelcontextprotocol/sdk TypeScript low-level Server",
+        "metadata": {
+          "name": "list_wiki_pages",
+          "title": null,
+          "description": "List pages within an Azure DevOps wiki",
+          "icons": [],
+          "inputSchema": {
+            "raw": "zodToJsonSchema(ListWikiPagesSchema)",
+            "schema_dialect": "zod-to-json-schema",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/features/wikis/tool-definitions.ts",
+            "line_start": 35,
+            "line_end": null,
+            "function_name": "list_wiki_pages ToolDefinition",
+            "function_content": null
+          },
+          "handler_resolution": "src/server.ts ListToolsRequestSchema returns feature tool arrays; CallToolRequestSchema routes to matching feature handler"
+        }
+      },
+      {
+        "tool_id": "275::create_wiki_page::src/features/wikis/tool-definitions.ts:40",
+        "sdk": "@modelcontextprotocol/sdk TypeScript low-level Server",
+        "metadata": {
+          "name": "create_wiki_page",
+          "title": null,
+          "description": "Create a new page in a wiki. If the page already exists at the specified path, it will be updated.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "zodToJsonSchema(CreateWikiPageSchema)",
+            "schema_dialect": "zod-to-json-schema",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/features/wikis/tool-definitions.ts",
+            "line_start": 40,
+            "line_end": null,
+            "function_name": "create_wiki_page ToolDefinition",
+            "function_content": null
+          },
+          "handler_resolution": "src/server.ts ListToolsRequestSchema returns feature tool arrays; CallToolRequestSchema routes to matching feature handler"
+        }
+      }
+    ]
+  },
+  {
+    "repo_id": "276",
+    "repo_name": "tiluckdave__hound-mcp",
+    "source": "github_full_clone",
+    "status": "TOOL_SERVER_SOURCE_CONFIRMED",
+    "notes": "src/server.ts creates an McpServer and calls register functions in src/tools/*.ts; extracted 12 server.registerTool handlers. Prompts and docs ignored.",
+    "tool": [
+      {
+        "tool_id": "276::hound_vulns::src/tools/vulns.ts:16",
+        "sdk": "@modelcontextprotocol/sdk TypeScript McpServer",
+        "metadata": {
+          "name": "hound_vulns",
+          "title": null,
+          "description": "List all known vulnerabilities for a specific package version, grouped by severity with fix versions and advisory links.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "inline zod/v4 inputSchema object in registerTool options",
+            "schema_dialect": "zod-raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/tools/vulns.ts",
+            "line_start": 16,
+            "line_end": null,
+            "function_name": null,
+            "function_content": null
+          },
+          "handler_resolution": "register(server) calls server.registerTool for hound_vulns"
+        }
+      },
+      {
+        "tool_id": "276::hound_inspect::src/tools/inspect.ts:9",
+        "sdk": "@modelcontextprotocol/sdk TypeScript McpServer",
+        "metadata": {
+          "name": "hound_inspect",
+          "title": null,
+          "description": "Get a comprehensive profile of a package version: licenses, vulnerabilities, OpenSSF scorecard, GitHub stats, and dependency count — all in one call.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "inline zod/v4 inputSchema object in registerTool options",
+            "schema_dialect": "zod-raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/tools/inspect.ts",
+            "line_start": 9,
+            "line_end": null,
+            "function_name": null,
+            "function_content": null
+          },
+          "handler_resolution": "register(server) calls server.registerTool for hound_inspect"
+        }
+      },
+      {
+        "tool_id": "276::hound_tree::src/tools/tree.ts:8",
+        "sdk": "@modelcontextprotocol/sdk TypeScript McpServer",
+        "metadata": {
+          "name": "hound_tree",
+          "title": null,
+          "description": "Show the full resolved dependency tree for a package version, including all transitive dependencies with their depth and relation type.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "inline zod/v4 inputSchema object in registerTool options",
+            "schema_dialect": "zod-raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/tools/tree.ts",
+            "line_start": 8,
+            "line_end": null,
+            "function_name": null,
+            "function_content": null
+          },
+          "handler_resolution": "register(server) calls server.registerTool for hound_tree"
+        }
+      },
+      {
+        "tool_id": "276::hound_typosquat::src/tools/typosquat.ts:54",
+        "sdk": "@modelcontextprotocol/sdk TypeScript McpServer",
+        "metadata": {
+          "name": "hound_typosquat",
+          "title": null,
+          "description": "Check if a package name looks like a typosquat of a popular package. Generates likely typo variants and checks which ones exist in the registry.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "inline zod/v4 inputSchema object in registerTool options",
+            "schema_dialect": "zod-raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/tools/typosquat.ts",
+            "line_start": 54,
+            "line_end": null,
+            "function_name": null,
+            "function_content": null
+          },
+          "handler_resolution": "register(server) calls server.registerTool for hound_typosquat"
+        }
+      },
+      {
+        "tool_id": "276::hound_advisories::src/tools/advisories.ts:7",
+        "sdk": "@modelcontextprotocol/sdk TypeScript McpServer",
+        "metadata": {
+          "name": "hound_advisories",
+          "title": null,
+          "description": "Get full details for a security advisory by ID (GHSA, CVE, or OSV ID). Returns title, severity, affected versions, fix versions, and references.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "inline zod/v4 inputSchema object in registerTool options",
+            "schema_dialect": "zod-raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/tools/advisories.ts",
+            "line_start": 7,
+            "line_end": null,
+            "function_name": null,
+            "function_content": null
+          },
+          "handler_resolution": "register(server) calls server.registerTool for hound_advisories"
+        }
+      },
+      {
+        "tool_id": "276::hound_popular::src/tools/popular.ts:64",
+        "sdk": "@modelcontextprotocol/sdk TypeScript McpServer",
+        "metadata": {
+          "name": "hound_popular",
+          "title": null,
+          "description": "Scan a list of popular (or user-specified) packages for known vulnerabilities. Quickly surface which widely-used packages in an ecosystem have open security issues.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "inline zod/v4 inputSchema object in registerTool options",
+            "schema_dialect": "zod-raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/tools/popular.ts",
+            "line_start": 64,
+            "line_end": null,
+            "function_name": null,
+            "function_content": null
+          },
+          "handler_resolution": "register(server) calls server.registerTool for hound_popular"
+        }
+      },
+      {
+        "tool_id": "276::hound_audit::src/tools/audit.ts:20",
+        "sdk": "@modelcontextprotocol/sdk TypeScript McpServer",
+        "metadata": {
+          "name": "hound_audit",
+          "title": null,
+          "description": "Scan a project's lockfile for dependency risks. Parses package-lock.json, yarn.lock, pnpm-lock.yaml, requirements.txt, Cargo.lock, go.sum, or Gemfile.lock and batch-queries OSV for vulnerabilities across all dependencies.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "inline zod/v4 inputSchema object in registerTool options",
+            "schema_dialect": "zod-raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/tools/audit.ts",
+            "line_start": 20,
+            "line_end": null,
+            "function_name": null,
+            "function_content": null
+          },
+          "handler_resolution": "register(server) calls server.registerTool for hound_audit"
+        }
+      },
+      {
+        "tool_id": "276::hound_compare::src/tools/compare.ts:87",
+        "sdk": "@modelcontextprotocol/sdk TypeScript McpServer",
+        "metadata": {
+          "name": "hound_compare",
+          "title": null,
+          "description": "Side-by-side comparison of two packages: vulnerabilities, OpenSSF Scorecard, GitHub stars, release recency, and license. Returns a recommendation.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "inline zod/v4 inputSchema object in registerTool options",
+            "schema_dialect": "zod-raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/tools/compare.ts",
+            "line_start": 87,
+            "line_end": null,
+            "function_name": null,
+            "function_content": null
+          },
+          "handler_resolution": "register(server) calls server.registerTool for hound_compare"
+        }
+      },
+      {
+        "tool_id": "276::hound_license_check::src/tools/license-check.ts:73",
+        "sdk": "@modelcontextprotocol/sdk TypeScript McpServer",
+        "metadata": {
+          "name": "hound_license_check",
+          "title": null,
+          "description": "Scan a lockfile for license compliance. Resolves licenses for every dependency and flags packages that violate the chosen policy (permissive, copyleft, or none).",
+          "icons": [],
+          "inputSchema": {
+            "raw": "inline zod/v4 inputSchema object in registerTool options",
+            "schema_dialect": "zod-raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/tools/license-check.ts",
+            "line_start": 73,
+            "line_end": null,
+            "function_name": null,
+            "function_content": null
+          },
+          "handler_resolution": "register(server) calls server.registerTool for hound_license_check"
+        }
+      },
+      {
+        "tool_id": "276::hound_preinstall::src/tools/preinstall.ts:11",
+        "sdk": "@modelcontextprotocol/sdk TypeScript McpServer",
+        "metadata": {
+          "name": "hound_preinstall",
+          "title": null,
+          "description": "Safety check before installing a package. Checks known vulnerabilities, typosquatting risk, abandonment, and license concerns. Returns a go/no-go verdict.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "inline zod/v4 inputSchema object in registerTool options",
+            "schema_dialect": "zod-raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/tools/preinstall.ts",
+            "line_start": 11,
+            "line_end": null,
+            "function_name": null,
+            "function_content": null
+          },
+          "handler_resolution": "register(server) calls server.registerTool for hound_preinstall"
+        }
+      },
+      {
+        "tool_id": "276::hound_score::src/tools/score.ts:33",
+        "sdk": "@modelcontextprotocol/sdk TypeScript McpServer",
+        "metadata": {
+          "name": "hound_score",
+          "title": null,
+          "description": "Compute a 0-100 Hound Score for a package version combining vulnerability severity, OpenSSF Scorecard, release recency, and license risk. Returns a letter grade (A-F) with a breakdown.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "inline zod/v4 inputSchema object in registerTool options",
+            "schema_dialect": "zod-raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/tools/score.ts",
+            "line_start": 33,
+            "line_end": null,
+            "function_name": null,
+            "function_content": null
+          },
+          "handler_resolution": "register(server) calls server.registerTool for hound_score"
+        }
+      },
+      {
+        "tool_id": "276::hound_upgrade::src/tools/upgrade.ts:23",
+        "sdk": "@modelcontextprotocol/sdk TypeScript McpServer",
+        "metadata": {
+          "name": "hound_upgrade",
+          "title": null,
+          "description": "Find the minimum version upgrade that resolves all known vulnerabilities for a package. Checks every published version and returns the nearest safe one.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "inline zod/v4 inputSchema object in registerTool options",
+            "schema_dialect": "zod-raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/tools/upgrade.ts",
+            "line_start": 23,
+            "line_end": null,
+            "function_name": null,
+            "function_content": null
+          },
+          "handler_resolution": "register(server) calls server.registerTool for hound_upgrade"
+        }
+      }
+    ]
+  },
+  {
+    "repo_id": "277",
+    "repo_name": "toolstem__toolstem-mcp-server",
+    "source": "github_full_clone",
+    "status": "TOOL_SERVER_SOURCE_CONFIRMED",
+    "notes": "src/index.ts createServer registers three active financial tools with server.registerTool. screen_stocks source exists but is not registered and is explicitly disabled.",
+    "tool": [
+      {
+        "tool_id": "277::get_stock_snapshot::src/index.ts:232",
+        "sdk": "@modelcontextprotocol/sdk TypeScript McpServer",
+        "metadata": {
+          "name": "get_stock_snapshot",
+          "title": "Stock Snapshot",
+          "description": "Get a comprehensive stock snapshot including real-time price, valuation metrics, DCF analysis, and analyst ratings for any publicly traded company.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "inline zod inputSchema object in registerTool options",
+            "schema_dialect": "zod-raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": "StockSnapshotShape",
+            "schema_dialect": "zod-raw"
+          },
+          "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": true
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/index.ts",
+            "line_start": 232,
+            "line_end": null,
+            "function_name": null,
+            "function_content": null
+          },
+          "handler_resolution": "server.registerTool(get_stock_snapshot, ..., async handler)"
+        }
+      },
+      {
+        "tool_id": "277::get_company_metrics::src/index.ts:266",
+        "sdk": "@modelcontextprotocol/sdk TypeScript McpServer",
+        "metadata": {
+          "name": "get_company_metrics",
+          "title": "Company Metrics",
+          "description": "Deep financial analysis including profitability, financial health, cash flow, growth (3-year CAGR), and per-share metrics.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "inline zod inputSchema object in registerTool options",
+            "schema_dialect": "zod-raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": "CompanyMetricsShape",
+            "schema_dialect": "zod-raw"
+          },
+          "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": true
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/index.ts",
+            "line_start": 266,
+            "line_end": null,
+            "function_name": null,
+            "function_content": null
+          },
+          "handler_resolution": "server.registerTool(get_company_metrics, ..., async handler)"
+        }
+      },
+      {
+        "tool_id": "277::compare_companies::src/index.ts:309",
+        "sdk": "@modelcontextprotocol/sdk TypeScript McpServer",
+        "metadata": {
+          "name": "compare_companies",
+          "title": "Company Comparison",
+          "description": "Side-by-side comparison of 2-5 companies across price, valuation, profitability, financial health, growth, dividends, and analyst ratings.",
+          "icons": [],
+          "inputSchema": {
+            "raw": "inline zod inputSchema object in registerTool options",
+            "schema_dialect": "zod-raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": "CompareCompaniesOutputShape",
+            "schema_dialect": "zod-raw"
+          },
+          "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": true
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/index.ts",
+            "line_start": 309,
+            "line_end": null,
+            "function_name": null,
+            "function_content": null
+          },
+          "handler_resolution": "server.registerTool(compare_companies, ..., async handler)"
+        }
+      }
+    ]
+  },
+  {
+    "repo_id": "278",
+    "repo_name": "TypingMind__typingmind-mcp",
+    "source": "github_full_clone",
+    "status": "NO_SOURCE_TOOL_REGISTRATION_FOUND",
+    "notes": "This repo implements an HTTP bridge/runner for external MCP servers and clients; lib/server.js creates MCP clients and forwards calls but defines no concrete server-side tools.",
+    "tool": []
+  },
+  {
+    "repo_id": "279",
+    "repo_name": "UniFuncs__ufn-mcp-server",
+    "source": "github_full_clone",
+    "status": "TOOL_SERVER_SOURCE_CONFIRMED",
+    "notes": "index.ts creates an McpServer and registers seven UniFuncs tools with server.tool; supports stdio/SSE transports.",
+    "tool": [
+      {
+        "tool_id": "279::web-search::index.ts:203",
+        "sdk": "@modelcontextprotocol/sdk TypeScript McpServer",
+        "metadata": {
+          "name": "web-search",
+          "title": null,
+          "description": "通过关键词检索互联网上的信息列表",
+          "icons": [],
+          "inputSchema": {
+            "raw": "inline zod schema: query, freshness, page, count, format",
+            "schema_dialect": "zod-raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "index.ts",
+            "line_start": 203,
+            "line_end": null,
+            "function_name": null,
+            "function_content": null
+          },
+          "handler_resolution": "handleWebSearch"
+        }
+      },
+      {
+        "tool_id": "279::web-reader::index.ts:217",
+        "sdk": "@modelcontextprotocol/sdk TypeScript McpServer",
+        "metadata": {
+          "name": "web-reader",
+          "title": null,
+          "description": "抓取指定页面URL的详细内容",
+          "icons": [],
+          "inputSchema": {
+            "raw": "inline zod schema: url, format, includeImages, linkSummary",
+            "schema_dialect": "zod-raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "index.ts",
+            "line_start": 217,
+            "line_end": null,
+            "function_name": null,
+            "function_content": null
+          },
+          "handler_resolution": "handleWebReader"
+        }
+      },
+      {
+        "tool_id": "279::deep-search-sync::index.ts:230",
+        "sdk": "@modelcontextprotocol/sdk TypeScript McpServer",
+        "metadata": {
+          "name": "deep-search-sync",
+          "title": null,
+          "description": "深度搜索同步接口，实时返回搜索结果",
+          "icons": [],
+          "inputSchema": {
+            "raw": "inline zod schema: model, messages, stream",
+            "schema_dialect": "zod-raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "index.ts",
+            "line_start": 230,
+            "line_end": null,
+            "function_name": null,
+            "function_content": null
+          },
+          "handler_resolution": "handleDeepSearchSync"
+        }
+      },
+      {
+        "tool_id": "279::deep-search-create-task::index.ts:245",
+        "sdk": "@modelcontextprotocol/sdk TypeScript McpServer",
+        "metadata": {
+          "name": "deep-search-create-task",
+          "title": null,
+          "description": "创建深度搜索异步任务，立即返回task_id",
+          "icons": [],
+          "inputSchema": {
+            "raw": "inline zod schema: model, messages",
+            "schema_dialect": "zod-raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "index.ts",
+            "line_start": 245,
+            "line_end": null,
+            "function_name": null,
+            "function_content": null
+          },
+          "handler_resolution": "handleDeepSearchCreateTask"
+        }
+      },
+      {
+        "tool_id": "279::deep-search-query-task::index.ts:259",
+        "sdk": "@modelcontextprotocol/sdk TypeScript McpServer",
+        "metadata": {
+          "name": "deep-search-query-task",
+          "title": null,
+          "description": "查询深度搜索异步任务状态和结果",
+          "icons": [],
+          "inputSchema": {
+            "raw": "inline zod schema: task_id",
+            "schema_dialect": "zod-raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "index.ts",
+            "line_start": 259,
+            "line_end": null,
+            "function_name": null,
+            "function_content": null
+          },
+          "handler_resolution": "handleDeepSearchQueryTask"
+        }
+      },
+      {
+        "tool_id": "279::deep-research-create-task::index.ts:269",
+        "sdk": "@modelcontextprotocol/sdk TypeScript McpServer",
+        "metadata": {
+          "name": "deep-research-create-task",
+          "title": null,
+          "description": "创建深度研究任务，进行深度的网络信息研究和分析",
+          "icons": [],
+          "inputSchema": {
+            "raw": "inline zod schema: model, content, introduction, reference_style, generate_summary, max_depth, domain_scope, domain_blacklist, output_prompt, important_urls, important_keywords, important_prompt, push_to_share, set_public",
+            "schema_dialect": "zod-raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "index.ts",
+            "line_start": 269,
+            "line_end": null,
+            "function_name": null,
+            "function_content": null
+          },
+          "handler_resolution": "handleDeepResearchCreateTask"
+        }
+      },
+      {
+        "tool_id": "279::deep-research-query-task::index.ts:292",
+        "sdk": "@modelcontextprotocol/sdk TypeScript McpServer",
+        "metadata": {
+          "name": "deep-research-query-task",
+          "title": null,
+          "description": "查询深度研究任务状态和结果",
+          "icons": [],
+          "inputSchema": {
+            "raw": "inline zod schema: task_id",
+            "schema_dialect": "zod-raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "index.ts",
+            "line_start": 292,
+            "line_end": null,
+            "function_name": null,
+            "function_content": null
+          },
+          "handler_resolution": "handleDeepResearchQueryTask"
+        }
+      }
+    ]
+  },
+  {
+    "repo_id": "280",
+    "repo_name": "UnitaryLabs__dryai-mcp-server",
+    "source": "github_full_clone",
+    "status": "TOOL_SERVER_SOURCE_CONFIRMED_DYNAMIC",
+    "notes": "src/index.ts fetches tool definitions from Dry.AI at runtime and registers each smartspace via server.tool inside loadToolsFromJson(); concrete names/descriptions are not present statically in source.",
+    "tool": [
+      {
+        "tool_id": "280::tool.name::src/index.ts:77",
+        "sdk": "@modelcontextprotocol/sdk TypeScript McpServer",
+        "metadata": {
+          "name": "tool.name",
+          "title": null,
+          "description": null,
+          "icons": [],
+          "inputSchema": {
+            "raw": "{ query: z.string().describe(tool.schemaDescription) } with tool.name/tool.description from runtime Dry.AI gettools response",
+            "schema_dialect": "dynamic-zod-raw",
+            "parameters": []
+          },
+          "outputSchema": {
+            "raw": null,
+            "schema_dialect": "absent"
+          },
+          "annotations": {
+            "readOnlyHint": null,
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null
+          },
+          "execution": {
+            "taskSupport": "absent",
+            "extra_fields": {}
+          },
+          "_meta": {
+            "raw": null,
+            "extra_fields": {}
+          }
+        },
+        "code": {
+          "entry_point": {
+            "file": "src/index.ts",
+            "line_start": 77,
+            "line_end": null,
+            "function_name": "loadToolsFromJson dynamic smartspace registration",
+            "function_content": null
+          },
+          "handler_resolution": "dynamic server.tool callback inside dryTools.smartspaces.forEach; calls makeDryRequest with tool.smartspace/tool.type"
+        }
+      }
+    ]
+  }
+]

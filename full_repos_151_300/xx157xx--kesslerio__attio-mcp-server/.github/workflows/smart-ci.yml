@@ -1,0 +1,472 @@
+name: Smart CI Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+# Prevent concurrent runs for the same branch/PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+env:
+  NODE_VERSION_MATRIX: '["20.x", "22.x"]'
+
+jobs:
+  # Job 1: Analyze Changes for Smart Execution
+  change-analysis:
+    name: Analyze Changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      docs-only: ${{ steps.changes.outputs.docs-only }}
+      tests-only: ${{ steps.changes.outputs.tests-only }}
+      needs-integration: ${{ steps.changes.outputs.needs-integration }}
+      test-strategy: ${{ steps.changes.outputs.test-strategy }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Analyze changed files
+        id: changes
+        run: |
+          # Get changed files
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            changed_files=$(gh api repos/${{ github.repository }}/pulls/${{ github.event.number }}/files --jq '.[].filename')
+          else
+            changed_files=$(git diff --name-only HEAD~1 HEAD)
+          fi
+
+          echo "Changed files:"
+          echo "$changed_files"
+
+          # Analyze file types
+          docs_only=true
+          tests_only=true
+          needs_integration=false
+
+          while IFS= read -r file; do
+            case "$file" in
+              *.md|docs/*|README*|CHANGELOG*|LICENSE)
+                # Documentation files don't affect other flags
+                ;;
+              test/*|*.test.*)
+                docs_only=false
+                ;;
+              src/api/*|src/services/*|src/handlers/*)
+                docs_only=false
+                tests_only=false
+                needs_integration=true
+                ;;
+              src/*)
+                docs_only=false
+                tests_only=false
+                ;;
+              *)
+                docs_only=false
+                tests_only=false
+                ;;
+            esac
+          done <<< "$changed_files"
+
+          # Determine test strategy
+          if [ "$docs_only" = "true" ]; then
+            test_strategy="smoke"
+          elif [ "$tests_only" = "true" ]; then
+            test_strategy="affected"
+          else
+            test_strategy="core"
+          fi
+
+          echo "docs-only=$docs_only" >> $GITHUB_OUTPUT
+          echo "tests-only=$tests_only" >> $GITHUB_OUTPUT
+          echo "needs-integration=$needs_integration" >> $GITHUB_OUTPUT
+          echo "test-strategy=$test_strategy" >> $GITHUB_OUTPUT
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Job 2: Lint and Type Check (always runs)
+  lint-and-typecheck:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: change-analysis
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run linter (src only)
+        run: bun run lint:src
+
+      - name: Enforce no new src warnings
+        run: bun run lint:guard
+
+      - name: Run type checker
+        run: bun run typecheck
+
+      - name: Check format
+        run: bun run check:format
+
+  # Optional: Lint tests (non-blocking)
+  lint-tests:
+    name: Lint Tests (non-blocking)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: change-analysis
+    if: always()
+    continue-on-error: true
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run linter (tests)
+        run: bun run lint:test
+
+  # Job 3: Smart Test Execution
+  smart-tests:
+    name: Smart Tests (${{ matrix.node-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [change-analysis, lint-and-typecheck]
+    strategy:
+      matrix:
+        node-version: [20.x, 22.x]
+      fail-fast: false
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build project
+        run: bun run build
+
+      - name: Execute smart test strategy
+        run: |
+          strategy="${{ needs.change-analysis.outputs.test-strategy }}"
+          echo "🧪 Executing test strategy: $strategy"
+
+          case "$strategy" in
+            smoke)
+              echo "📚 Documentation changes detected - running smoke tests"
+              bun run test:smoke
+              ;;
+            affected)
+              echo "🎯 Test-only changes detected - running affected tests"
+              bun run test:affected
+              ;;
+            core)
+              echo "🔧 Source changes detected - running core tests"
+              bun run test:core
+              ;;
+            full)
+              echo "🚀 API/Service changes detected - running extended tests"
+              bun run test:extended
+              ;;
+          esac
+        env:
+          SKIP_INTEGRATION_TESTS: true
+
+      - name: Performance budget check
+        if: matrix.node-version == '22.x'
+        run: |
+          strategy="${{ needs.change-analysis.outputs.test-strategy }}"
+          if [ "$strategy" != "smoke" ]; then
+            bun run perf:budgets -- --tests-only
+          fi
+
+  # Job 4: Integration Tests (conditional)
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [change-analysis]
+    if: |
+      needs.change-analysis.outputs.needs-integration == 'true' ||
+      contains(github.event.pull_request.labels.*.name, 'run-integration-tests')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build project
+        run: bun run build
+
+      - name: Run integration tests
+        env:
+          ATTIO_API_KEY: ${{ secrets.ATTIO_TEST_API_KEY }}
+          ATTIO_WORKSPACE_ID: ${{ secrets.ATTIO_TEST_WORKSPACE_ID }}
+        run: |
+          if [ -z "$ATTIO_API_KEY" ]; then
+            echo "⚠️ Integration tests skipped: ATTIO_TEST_API_KEY not available"
+            exit 0
+          fi
+          bun run test:integration
+
+  # Job 5: Build Verification (skip for docs-only changes)
+  build:
+    name: Build Verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [change-analysis]
+    if: needs.change-analysis.outputs.docs-only != 'true'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build project
+        run: bun run build
+
+      - name: Verify build artifacts
+        run: |
+          test -d dist/
+          test -f dist/index.js
+          test -f dist/cli/discover.js
+
+      - name: Test CLI execution
+        run: |
+          chmod +x dist/index.js
+          chmod +x dist/cli/discover.js
+          node dist/index.js --help || echo "CLI help test completed"
+
+  # Job 5b: Build Verification Status Reporter (always runs to satisfy branch protection)
+  build-verification-status:
+    name: Build Verification
+    runs-on: ubuntu-latest
+    needs: [change-analysis, build]
+    if: always()
+    steps:
+      - name: Report Build Verification Status
+        run: |
+          docs_only="${{ needs.change-analysis.outputs.docs-only }}"
+          build_result="${{ needs.build.result }}"
+
+          echo "Docs only: $docs_only"
+          echo "Build result: $build_result"
+
+          if [ "$docs_only" = "true" ]; then
+            echo "✅ Docs-only changes - Build Verification passed (skipped)"
+            exit 0
+          elif [ "$build_result" = "success" ]; then
+            echo "✅ Build Verification passed"
+            exit 0
+          else
+            echo "❌ Build Verification failed"
+            exit 1
+          fi
+
+  # Job 6: Performance Tests (main branch only)
+  performance:
+    name: Performance Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [change-analysis]
+    if: |
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      contains(github.event.pull_request.labels.*.name, 'run-performance-tests')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build project
+        run: bun run build
+
+      - name: Run performance budget checks
+        run: bun run perf:budgets -- --report --regression
+
+      - name: Upload performance results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-results
+          retention-days: 30
+          path: performance-results/
+
+  # Job 7: Smart Summary
+  smart-summary:
+    name: Smart CI Summary
+    runs-on: ubuntu-latest
+    needs:
+      [
+        change-analysis,
+        lint-and-typecheck,
+        smart-tests,
+        build-verification-status,
+      ]
+    if: |
+      always() &&
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+
+    steps:
+      - name: Create smart summary
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const strategy = '${{ needs.change-analysis.outputs.test-strategy }}';
+            const docsOnly = '${{ needs.change-analysis.outputs.docs-only }}' === 'true';
+
+            let summary = '# 🧠 Smart CI Results\n\n';
+            summary += `**Strategy**: ${strategy.toUpperCase()}\n`;
+            summary += `**Docs Only**: ${docsOnly ? '✅' : '❌'}\n\n`;
+
+            // Strategy explanation
+            summary += '## 📋 Execution Strategy\n\n';
+            switch(strategy) {
+              case 'smoke':
+                summary += '📚 **Documentation Changes**: Only smoke tests executed for safety\n';
+                break;
+              case 'affected':
+                summary += '🎯 **Test Changes**: Affected tests executed based on impact analysis\n';
+                break;
+              case 'core':
+                summary += '🔧 **Source Changes**: Core test suite executed\n';
+                break;
+              case 'full':
+                summary += '🚀 **API/Service Changes**: Extended test suite executed\n';
+                break;
+            }
+
+            // Job results
+            const jobs = {
+              'Lint & Type Check': '${{ needs.lint-and-typecheck.result }}',
+              'Smart Tests': '${{ needs.smart-tests.result }}',
+              'Build Verification': '${{ needs.build-verification-status.result }}'
+            };
+
+            summary += '\n## 🔍 Job Results\n\n';
+            for (const [job, result] of Object.entries(jobs)) {
+              const emoji = result === 'success' ? '✅' : result === 'failure' ? '❌' : result === 'skipped' ? '⏭️' : '⚠️';
+              summary += `${emoji} **${job}**: ${result}\n`;
+            }
+
+            // Time savings
+            summary += '\n## ⚡ Efficiency Gains\n\n';
+            if (docsOnly) {
+              summary += '🚀 **Major time savings**: Skipped unnecessary builds and extended tests\n';
+            } else if (strategy === 'affected') {
+              summary += '🎯 **Targeted execution**: Only affected tests run based on changes\n';
+            } else {
+              summary += '⚖️ **Balanced approach**: Full validation for significant changes\n';
+            }
+
+            // Post comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number
+            });
+
+            const botComment = comments.find(comment => 
+              comment.user.type === 'Bot' && 
+              comment.body.includes('# 🧠 Smart CI Results')
+            );
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: summary
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: summary
+              });
+            }

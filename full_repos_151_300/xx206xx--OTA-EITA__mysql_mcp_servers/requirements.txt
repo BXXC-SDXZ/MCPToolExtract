@@ -1,0 +1,7 @@
+mcp==1.6.0
+mysql-connector-python==9.1.0
+aiomysql==0.1.0
+
+pydantic
+typing-extensions
+python-dotenv>=0.20.0

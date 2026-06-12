@@ -1,0 +1,482 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { clearClientCache } from '@/api/lazy-client.js';
+import { expectLogCallsToExclude } from '../utils/log-assertions.js';
+
+const originalApiKey = process.env.ATTIO_API_KEY;
+const originalAccessToken = process.env.ATTIO_ACCESS_TOKEN;
+const originalLogLevel = process.env.MCP_LOG_LEVEL;
+const { mockScopedDebug, mockScopedInfo, mockScopedWarn, mockScopedError } =
+  vi.hoisted(() => ({
+    mockScopedDebug: vi.fn(),
+    mockScopedInfo: vi.fn(),
+    mockScopedWarn: vi.fn(),
+    mockScopedError: vi.fn(),
+  }));
+
+// Mock the logger to avoid noise in tests
+vi.mock('@/utils/logger.js', () => ({
+  debug: vi.fn(),
+  error: vi.fn(),
+  createScopedLogger: vi.fn(() => ({
+    debug: mockScopedDebug,
+    info: mockScopedInfo,
+    warn: mockScopedWarn,
+    error: mockScopedError,
+  })),
+  OperationType: {
+    API_CALL: 'API_CALL',
+    SYSTEM: 'SYSTEM',
+  },
+}));
+
+describe('Attio client context fallback', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.restoreAllMocks();
+    mockScopedDebug.mockReset();
+    mockScopedInfo.mockReset();
+    mockScopedWarn.mockReset();
+    mockScopedError.mockReset();
+    delete process.env.ATTIO_API_KEY;
+    delete process.env.ATTIO_ACCESS_TOKEN;
+    process.env.MCP_LOG_LEVEL = 'ERROR';
+    vi.doMock('@/api/attio-client.js', async () => {
+      const actual = await vi.importActual<
+        typeof import('@/api/attio-client.js')
+      >('@/api/attio-client.js');
+      return actual;
+    });
+  });
+
+  afterEach(() => {
+    vi.resetModules();
+    vi.restoreAllMocks();
+
+    if (originalApiKey) {
+      process.env.ATTIO_API_KEY = originalApiKey;
+    } else {
+      delete process.env.ATTIO_API_KEY;
+    }
+
+    if (originalAccessToken) {
+      process.env.ATTIO_ACCESS_TOKEN = originalAccessToken;
+    } else {
+      delete process.env.ATTIO_ACCESS_TOKEN;
+    }
+
+    if (originalLogLevel) {
+      process.env.MCP_LOG_LEVEL = originalLogLevel;
+    } else {
+      delete process.env.MCP_LOG_LEVEL;
+    }
+
+    // Clear client cache (imported at module scope to avoid dynamic import hang)
+    clearClientCache();
+  });
+
+  it('uses context getApiKey when environment variable is missing', async () => {
+    const { setGlobalContext } = await import('@/api/lazy-client.js');
+    setGlobalContext({
+      getApiKey: () => 'context-key-12345',
+    });
+
+    const { getAttioClient } = await import('@/api/attio-client.js');
+    const client = getAttioClient();
+
+    expect(client.defaults.headers.Authorization).toBe(
+      'Bearer context-key-12345'
+    );
+  });
+
+  it('falls back to ATTIO_API_KEY property in context when getter absent', async () => {
+    const { setGlobalContext } = await import('@/api/lazy-client.js');
+    setGlobalContext({
+      ATTIO_API_KEY: 'context-prop-key-12345',
+    });
+
+    const { getAttioClient } = await import('@/api/attio-client.js');
+    const client = getAttioClient();
+
+    expect(client.defaults.headers.Authorization).toBe(
+      'Bearer context-prop-key-12345'
+    );
+  });
+
+  it('invalidates cached client when global context changes', async () => {
+    const { setGlobalContext } = await import('@/api/lazy-client.js');
+    const { getLazyAttioClient } = await import('@/api/lazy-client.js');
+
+    setGlobalContext({
+      getApiKey: () => 'tenant-a-key-12345',
+    });
+    const firstClient = getLazyAttioClient();
+
+    setGlobalContext({
+      getApiKey: () => 'tenant-b-key-67890',
+    });
+    const secondClient = getLazyAttioClient();
+
+    expect(secondClient).not.toBe(firstClient);
+    expect(secondClient.defaults.headers.Authorization).toBe(
+      'Bearer tenant-b-key-67890'
+    );
+  });
+
+  it('prefers context credential over environment variable when both are provided', async () => {
+    process.env.ATTIO_API_KEY = 'env-key-12345';
+
+    const { setGlobalContext } = await import('@/api/lazy-client.js');
+    setGlobalContext({
+      getApiKey: () => 'context-key-12345',
+    });
+
+    const { getAttioClient } = await import('@/api/attio-client.js');
+    const client = getAttioClient();
+
+    expect(client.defaults.headers.Authorization).toBe(
+      'Bearer context-key-12345'
+    );
+  });
+
+  it('rebuilds cached clients when the context API key changes', async () => {
+    const { setGlobalContext } = await import('@/api/lazy-client.js');
+    const { getAttioClient } = await import('@/api/attio-client.js');
+
+    setGlobalContext({
+      getApiKey: () => 'tenant-a-key-12345',
+    });
+    const tenantAClient = getAttioClient();
+
+    setGlobalContext({
+      getApiKey: () => 'tenant-b-key-12345',
+    });
+    const tenantBClient = getAttioClient();
+
+    expect(tenantAClient.defaults.headers.Authorization).toBe(
+      'Bearer tenant-a-key-12345'
+    );
+    expect(tenantBClient.defaults.headers.Authorization).toBe(
+      'Bearer tenant-b-key-12345'
+    );
+    expect(tenantBClient).not.toBe(tenantAClient);
+  });
+
+  it('rebuilds cached clients when the environment access token changes', async () => {
+    const { getAttioClient } = await import('@/api/attio-client.js');
+
+    process.env.ATTIO_ACCESS_TOKEN = 'tenant-a-token-12345';
+    const tenantAClient = getAttioClient();
+
+    process.env.ATTIO_ACCESS_TOKEN = 'tenant-b-token-12345';
+    const tenantBClient = getAttioClient();
+
+    expect(tenantAClient.defaults.headers.Authorization).toBe(
+      'Bearer tenant-a-token-12345'
+    );
+    expect(tenantBClient.defaults.headers.Authorization).toBe(
+      'Bearer tenant-b-token-12345'
+    );
+    expect(tenantBClient).not.toBe(tenantAClient);
+  });
+
+  describe('Context getter exception handling', () => {
+    it('should handle context getter exceptions gracefully', async () => {
+      const { setGlobalContext } = await import('@/api/lazy-client.js');
+      setGlobalContext({
+        getApiKey: () => {
+          throw new Error('Context getter failed');
+        },
+        ATTIO_API_KEY: 'fallback-key-12345',
+      });
+
+      const { getAttioClient } = await import('@/api/attio-client.js');
+      const client = getAttioClient();
+
+      // Should fall back to direct property access
+      expect(client.defaults.headers.Authorization).toBe(
+        'Bearer fallback-key-12345'
+      );
+    });
+
+    it('should cache failed context getter attempts', async () => {
+      const mockGetApiKey = vi.fn().mockImplementation(() => {
+        throw new Error('Persistent failure');
+      });
+
+      const { setGlobalContext } = await import('@/api/lazy-client.js');
+      setGlobalContext({
+        getApiKey: mockGetApiKey,
+        ATTIO_API_KEY: 'fallback-key-12345',
+      });
+
+      const { getContextApiKey } =
+        await import('../../src/api/client-context.js');
+
+      // First call should attempt getApiKey
+      getContextApiKey();
+      expect(mockGetApiKey).toHaveBeenCalledTimes(1);
+
+      // Second call should be cached and not call getApiKey again immediately
+      getContextApiKey();
+      expect(mockGetApiKey).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('Enhanced context functionality', () => {
+    it('isolates overlapping request contexts', async () => {
+      const { setGlobalContext, withGlobalContext } =
+        await import('@/api/lazy-client.js');
+      const { getContextApiKey } =
+        await import('../../src/api/client-context.js');
+
+      setGlobalContext({
+        ATTIO_API_KEY: 'global-key-12345',
+      });
+
+      const tenantA = withGlobalContext(
+        { ATTIO_API_KEY: 'tenant-a-key-12345' },
+        async () => {
+          expect(getContextApiKey()).toBe('tenant-a-key-12345');
+          await new Promise((resolve) => setTimeout(resolve, 0));
+          expect(getContextApiKey()).toBe('tenant-a-key-12345');
+          return getContextApiKey();
+        }
+      );
+
+      const tenantB = withGlobalContext(
+        { ATTIO_API_KEY: 'tenant-b-key-12345' },
+        async () => {
+          expect(getContextApiKey()).toBe('tenant-b-key-12345');
+          await new Promise((resolve) => setTimeout(resolve, 0));
+          expect(getContextApiKey()).toBe('tenant-b-key-12345');
+          return getContextApiKey();
+        }
+      );
+
+      await expect(Promise.all([tenantA, tenantB])).resolves.toEqual([
+        'tenant-a-key-12345',
+        'tenant-b-key-12345',
+      ]);
+      expect(getContextApiKey()).toBe('global-key-12345');
+    });
+
+    it('should provide context statistics for debugging', async () => {
+      const { setGlobalContext } = await import('@/api/lazy-client.js');
+      const { getContextStats } =
+        await import('../../src/api/client-context.js');
+
+      setGlobalContext({
+        getApiKey: () => 'test-key-12345',
+        ATTIO_API_KEY: 'direct-key-12345',
+      });
+
+      const stats = getContextStats();
+
+      expect(stats.hasContext).toBe(true);
+      expect(stats.hasWeakMapStorage).toBe(true);
+      expect(stats.hasFallbackStorage).toBe(true);
+      expect(stats.hasApiKeyGetter).toBe(true);
+      expect(stats.hasDirectApiKey).toBe(true);
+      expect(stats.failedContextCacheSize).toBe(0);
+    });
+
+    it('should validate API keys properly', async () => {
+      const { validateApiKey } =
+        await import('../../src/api/client-context.js');
+
+      expect(validateApiKey('valid-api-key-123')).toBe(true);
+      expect(validateApiKey('')).toBe(false);
+      expect(validateApiKey('   ')).toBe(false);
+      expect(validateApiKey('invalid key with spaces')).toBe(false);
+      expect(validateApiKey(' leading-space')).toBe(false);
+      expect(validateApiKey('trailing-space ')).toBe(false);
+    });
+
+    it('should clear all context storage properly', async () => {
+      const { setGlobalContext, clearClientCache } =
+        await import('@/api/lazy-client.js');
+      const { getContextStats } =
+        await import('../../src/api/client-context.js');
+
+      // Set context
+      setGlobalContext({
+        getApiKey: () => 'test-key-12345',
+      });
+
+      let stats = getContextStats();
+      expect(stats.hasContext).toBe(true);
+
+      // Clear context
+      clearClientCache();
+
+      stats = getContextStats();
+      expect(stats.hasContext).toBe(false);
+      expect(stats.hasWeakMapStorage).toBe(false);
+      expect(stats.hasFallbackStorage).toBe(false);
+    });
+  });
+
+  describe('debug log hardening', () => {
+    it('logs only coarse metadata when storing context', async () => {
+      const { setGlobalContext } = await import('@/api/lazy-client.js');
+
+      setGlobalContext({
+        getApiKey: () => 'test-key-12345',
+        ATTIO_API_KEY: 'direct-key-12345',
+      });
+
+      expect(mockScopedDebug).toHaveBeenCalledWith(
+        'Storing context',
+        expect.objectContaining({
+          hasContext: true,
+          contextKeyCount: 2,
+          timestamp: expect.any(String),
+        })
+      );
+
+      const serializedCalls = JSON.stringify(mockScopedDebug.mock.calls);
+      expect(serializedCalls).not.toContain('contextKeys');
+      expect(serializedCalls).not.toContain('hasGetApiKeyFunction');
+      expect(serializedCalls).not.toContain('hasDirectApiKey');
+      expect(serializedCalls).not.toContain('test-key-12345');
+      expect(serializedCalls).not.toContain('direct-key-12345');
+    });
+
+    it('avoids source and length metadata when getter fails and fallback succeeds', async () => {
+      process.env.MCP_LOG_LEVEL = 'DEBUG';
+
+      const { setGlobalContext } = await import('@/api/lazy-client.js');
+      const { getContextApiKey } =
+        await import('../../src/api/client-context.js');
+
+      setGlobalContext({
+        getApiKey: () => {
+          throw new Error('Context getter failed');
+        },
+        ATTIO_ACCESS_TOKEN: 'fallback-token-12345',
+      });
+
+      expect(getContextApiKey()).toBe('fallback-token-12345');
+
+      expect(mockScopedDebug).toHaveBeenCalledWith(
+        'Attempting API key/token resolution',
+        {
+          hasContext: true,
+          shouldSkipGetter: false,
+        }
+      );
+      expect(mockScopedDebug).toHaveBeenCalledWith(
+        'Calling context credential getter'
+      );
+      expect(mockScopedDebug).toHaveBeenCalledWith(
+        'Context credential getter failed'
+      );
+      expect(mockScopedDebug).toHaveBeenCalledWith(
+        'Using direct context credential property'
+      );
+
+      expectLogCallsToExclude(mockScopedDebug.mock.calls, [
+        'hasGetApiKeyFunction',
+        'hasDirectApiKey',
+        'hasDirectAccessToken',
+        'directKeyLength',
+        'directTokenLength',
+        'keyLength',
+        'ATTIO_API_KEY',
+        'ATTIO_ACCESS_TOKEN',
+        'fallback-token-12345',
+      ]);
+    });
+
+    it('avoids source and length metadata on the direct api key path', async () => {
+      process.env.MCP_LOG_LEVEL = 'DEBUG';
+
+      const { setGlobalContext } = await import('@/api/lazy-client.js');
+      const { getContextApiKey } =
+        await import('../../src/api/client-context.js');
+
+      setGlobalContext({
+        ATTIO_API_KEY: 'direct-key-12345',
+      });
+
+      expect(getContextApiKey()).toBe('direct-key-12345');
+
+      expect(mockScopedDebug).toHaveBeenCalledWith(
+        'Attempting API key/token resolution',
+        {
+          hasContext: true,
+          shouldSkipGetter: false,
+        }
+      );
+      expect(mockScopedDebug).toHaveBeenCalledWith(
+        'Using direct context credential property'
+      );
+
+      expectLogCallsToExclude(mockScopedDebug.mock.calls, [
+        'hasGetApiKeyFunction',
+        'hasDirectApiKey',
+        'hasDirectAccessToken',
+        'directKeyLength',
+        'directTokenLength',
+        'keyLength',
+        'ATTIO_API_KEY',
+        'ATTIO_ACCESS_TOKEN',
+        'direct-key-12345',
+      ]);
+    });
+  });
+
+  describe('Edge cases and error scenarios', () => {
+    it('should handle malformed context objects', async () => {
+      const { setGlobalContext } = await import('@/api/lazy-client.js');
+      const { getContextApiKey } =
+        await import('../../src/api/client-context.js');
+
+      // Set malformed context
+      setGlobalContext({
+        getApiKey: 'not-a-function',
+        ATTIO_API_KEY: 123 as any, // Wrong type
+      });
+
+      const apiKey = getContextApiKey();
+      expect(apiKey).toBeUndefined();
+    });
+
+    it('should handle context with empty string API key', async () => {
+      const { setGlobalContext } = await import('@/api/lazy-client.js');
+      const { getContextApiKey } =
+        await import('../../src/api/client-context.js');
+
+      setGlobalContext({
+        ATTIO_API_KEY: '',
+      });
+
+      const apiKey = getContextApiKey();
+      expect(apiKey).toBeUndefined();
+    });
+
+    it('should handle context with whitespace-only API key', async () => {
+      const { setGlobalContext } = await import('@/api/lazy-client.js');
+      const { getContextApiKey } =
+        await import('../../src/api/client-context.js');
+
+      setGlobalContext({
+        ATTIO_API_KEY: '   \n\t   ',
+      });
+
+      const apiKey = getContextApiKey();
+      expect(apiKey).toBeUndefined();
+    });
+
+    it('should handle null context gracefully', async () => {
+      const { clearClientCache } = await import('@/api/lazy-client.js');
+      const { getContextApiKey } =
+        await import('../../src/api/client-context.js');
+
+      clearClientCache();
+
+      const apiKey = getContextApiKey();
+      expect(apiKey).toBeUndefined();
+    });
+  });
+});

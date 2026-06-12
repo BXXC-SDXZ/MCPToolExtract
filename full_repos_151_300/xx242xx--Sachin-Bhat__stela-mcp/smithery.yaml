@@ -1,0 +1,29 @@
+# Smithery configuration file: https://smithery.ai/docs/config#smitheryyaml
+
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    properties:
+      allowed_dir:
+        type: string
+        description: "Primary directory for command execution context"
+        default: "/app"
+      allowed_dirs:
+        type: string
+        description: "Comma-separated list of allowed directories"
+        default: "/app"
+  commandFunction:
+    # A JS function that produces the CLI command based on the given config to start the MCP on stdio.
+    |-
+    (config) => ({
+      command: 'python',
+      args: ['-m', 'src.stela_mcp.server'],
+      env: {
+        ALLOWED_DIR: config.allowed_dir || '/app',
+        ALLOWED_DIRS: config.allowed_dirs || '/app'
+      }
+    })
+  exampleConfig:
+    allowed_dir: "/app"
+    allowed_dirs: "/app"

@@ -1,0 +1,28 @@
+{
+  "name": "msa-nanobanana-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "MCP server for Nano Banana Pro AI — canonical website knowledge for AI clients.",
+  "homepage": "https://nanobanana-ai.online",
+  "keywords": [
+    "mcp",
+    "modelcontextprotocol",
+    "claude",
+    "cursor",
+    "windsurf",
+    "nanobanana",
+    "image-gen",
+    "video-gen",
+    "pricing",
+    "image-inspiration",
+    "video-inspiration"
+  ],
+  "license": "MIT",
+  "scripts": {
+    "start": "node src/index.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  }
+}

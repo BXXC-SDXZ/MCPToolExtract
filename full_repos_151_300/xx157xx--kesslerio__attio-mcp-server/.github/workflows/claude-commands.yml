@@ -1,0 +1,140 @@
+name: Claude Commands (Issues Only)
+
+# This workflow handles @claude mentions on ISSUES only.
+# PR reviews are handled by separate workflows (claude-pr-review-labeled.yml, etc.)
+
+on:
+  issue_comment:
+    types: [created]
+  issues:
+    types: [opened, edited, assigned]
+
+concurrency:
+  group: claude-commands-${{ github.event.issue.number || github.run_id }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: write
+  actions: read
+
+jobs:
+  handle:
+    # Only run on issues (not PRs) with @claude mention
+    # Note: issue_comment fires for both issues AND PRs, so we filter PRs out
+    if: |
+      (
+        github.event_name == 'issue_comment' &&
+        !github.event.issue.pull_request &&
+        contains(github.event.comment.body, '@claude')
+      ) || (
+        github.event_name == 'issues' &&
+        !github.event.issue.pull_request && (
+          contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')
+        )
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Classify command
+        id: classify
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const trigger = '@claude';
+            const event = context.payload;
+            const eventName = context.eventName;
+            const body = eventName === 'issue_comment'
+              ? (event.comment?.body || '')
+              : `${event.issue?.title || ''}\n${event.issue?.body || ''}`;
+
+            const shouldRun = body.includes(trigger);
+            const tokens = (body.toLowerCase().match(/@claude\s*:?[\s]+([^\n]*)/)?.[1] || '')
+              .trim()
+              .split(/\s+/)
+              .filter(Boolean);
+            const commandType = tokens.includes('review') ? 'review' : 'command';
+
+            const association = eventName === 'issue_comment'
+              ? (event.comment?.author_association || 'NONE')
+              : (event.issue?.author_association || 'NONE');
+            const isMaintainer = ['OWNER', 'MEMBER', 'COLLABORATOR'].includes(association);
+
+            core.setOutput('should_run', String(shouldRun));
+            core.setOutput('command_type', commandType);
+            core.setOutput('is_maintainer', String(isMaintainer));
+            core.setOutput('issue', String(event.issue?.number || ''));
+            core.setOutput('actor', context.actor || '');
+            core.setOutput('association', association);
+
+      - name: Skip non-command events
+        if: steps.classify.outputs.should_run != 'true'
+        run: echo 'No @claude command detected.'
+
+      - name: Skip review commands (handled by PR review workflows)
+        if: steps.classify.outputs.should_run == 'true' && steps.classify.outputs.command_type == 'review'
+        run: echo 'Review command on issue - skipping (use on PRs for review).'
+
+      - name: Enforce maintainer access
+        if: steps.classify.outputs.should_run == 'true' && steps.classify.outputs.command_type != 'review'
+        run: |
+          if [ "${{ steps.classify.outputs.is_maintainer }}" != "true" ]; then
+            echo '::notice::Only maintainers may trigger Claude automation.'
+            exit 1
+          fi
+
+      - name: Full checkout for command execution
+        if: steps.classify.outputs.should_run == 'true' && steps.classify.outputs.is_maintainer == 'true' && steps.classify.outputs.command_type != 'review'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Use default Claude Code Action behavior - it handles commenting automatically with track_progress
+      - name: Claude Code Action (Default Behavior)
+        if: steps.classify.outputs.should_run == 'true' && steps.classify.outputs.is_maintainer == 'true' && steps.classify.outputs.command_type != 'review'
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ github.token }}
+          track_progress: true
+          # No --max-turns = runs until completion (default action behavior)
+          # Local edit/read access only; no repository mutation shell commands.
+          claude_args: >-
+            --model claude-sonnet-4-5
+            --allowedTools "Read,Edit,Write,Bash(rg:*),Bash(cat:*),Bash(ls:*),Bash(head:*),Bash(tail:*),Bash(wc:*)"
+          prompt: |
+            You are Claude acting via GitHub Actions for the Attio MCP Server repository.
+
+            ## Context
+            - **Issue**: #${{ steps.classify.outputs.issue }}
+            - **User Request**: ${{ github.event.comment.body || github.event.issue.body || github.event.issue.title }}
+
+            ## Your Task
+            Follow the user's request above. If they ask you to implement something:
+
+            1. **Read AGENTS.md first** - it contains project conventions and standards
+            2. **Implement the changes locally** following project standards
+            3. **Run quality gates**:
+               - `bun run test:offline` (fast unit tests)
+               - `bun run fix:all` (lint/format)
+               - `bun run typecheck` (TypeScript check)
+            4. **Provide a clear patch summary** in your response
+
+            If they ask for analysis/advice, provide helpful guidance without implementing.
+
+            ## Project Standards (from AGENTS.md)
+            - Commit format: `Type: Description #issue-number` where Type = Feature|Fix|Docs|Refactor|Test|Chore
+            - Use `@/` path aliases instead of relative imports
+            - Run `bun run test:offline` for fast validation
+            - ESLint warnings threshold: ≤1030
+
+            ## Constraints
+            - Never expose secrets or tokens
+            - Ask for clarification if the request is ambiguous
+            - Report any issues or blockers you encounter
+
+      - name: Summarize skip
+        if: steps.classify.outputs.should_run != 'true'
+        run: echo 'Workflow exited without invoking Claude.'

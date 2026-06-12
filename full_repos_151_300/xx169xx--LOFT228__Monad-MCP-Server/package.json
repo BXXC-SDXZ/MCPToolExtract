@@ -1,0 +1,30 @@
+{
+  "name": "mcp-monad",
+  "version": "1.0.0",
+  "description": "MCP сервер для надання інформації про Monad гаманці в тестнет мережі",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "monad",
+    "blockchain",
+    "testnet",
+    "wallet",
+    "mcp"
+  ],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.3",
+    "ethers": "^6.0.0",
+    "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.22"
+  }
+}
