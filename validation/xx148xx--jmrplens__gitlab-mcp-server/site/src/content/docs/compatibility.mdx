@@ -1,0 +1,72 @@
+---
+title: Compatibility
+description: Platform, GitLab edition, and MCP client compatibility for GitLab MCP Server
+---
+
+import { Tabs, TabItem } from "@astrojs/starlight/components";
+
+## GitLab edition compatibility
+
+GitLab MCP Server works with both Community Edition (CE) and Enterprise Edition (EE). The Enterprise/Premium catalog unlocks 16 additional enterprise-only meta-tools: use `GITLAB_ENTERPRISE=true` in stdio mode, or `--enterprise`/HTTP edition auto-detection in HTTP mode.
+
+| Feature                                 | Community (CE) | Enterprise (EE) |
+| --------------------------------------- | :------------: | :-------------: |
+| Projects, Issues, MRs, Pipelines, CI/CD |       ✅       |       ✅        |
+| Wikis, Labels, Milestones, Releases     |       ✅       |       ✅        |
+| Users, Groups, Members, Search          |       ✅       |       ✅        |
+| Deployments, Environments, Packages     |       ✅       |       ✅        |
+| 33 base meta-tools                      |       ✅       |       ✅        |
+| 46 resources, 37 prompts                |       ✅       |       ✅        |
+| Merge Trains                            |       ❌       |       ✅        |
+| DORA Metrics                            |       ❌       |       ✅        |
+| Vulnerability Management                |       ❌       |       ✅        |
+| Audit Events                            |       ❌       |       ✅        |
+| Compliance Policies                     |       ❌       |       ✅        |
+| +16 enterprise meta-tools               |       ❌       |       ✅        |
+
+To enable enterprise features in stdio mode, set `GITLAB_ENTERPRISE=true`. In HTTP mode, set `--enterprise` to force the Enterprise/Premium catalog, or omit it to let the server auto-detect CE/EE per token+URL entry when GitLab reports edition.
+
+## Platform support
+
+Pre-built binaries are available for all major platforms:
+
+| OS      | Architecture          | Binary                                |
+| ------- | --------------------- | ------------------------------------- |
+| Linux   | amd64                 | `gitlab-mcp-server-linux-amd64`       |
+| Linux   | arm64                 | `gitlab-mcp-server-linux-arm64`       |
+| macOS   | amd64 (Intel)         | `gitlab-mcp-server-darwin-amd64`      |
+| macOS   | arm64 (Apple Silicon) | `gitlab-mcp-server-darwin-arm64`      |
+| Windows | amd64                 | `gitlab-mcp-server-windows-amd64.exe` |
+| Windows | arm64                 | `gitlab-mcp-server-windows-arm64.exe` |
+
+## MCP client compatibility
+
+Any client supporting the Model Context Protocol stdio transport can use this server. Tested clients:
+
+| Client                     | Transport | Status |
+| -------------------------- | --------- | :----: |
+| VS Code + GitHub Copilot   | stdio     |   ✅   |
+| Claude Desktop             | stdio     |   ✅   |
+| Cursor                     | stdio     |   ✅   |
+| Claude Code (CLI)          | stdio     |   ✅   |
+| Windsurf                   | stdio     |   ✅   |
+| JetBrains IDEs             | stdio     |   ✅   |
+| Zed                        | stdio     |   ✅   |
+| Kiro                       | stdio     |   ✅   |
+| Any Streamable HTTP client | HTTP      |   ✅   |
+
+## MCP protocol features
+
+| Capability  |                                 Supported                                 |
+| ----------- | :-----------------------------------------------------------------------: |
+| Tools       | ✅ (up to 1033 individual / 33 base, 49 self-managed, 50 GitLab.com meta) |
+| Resources   |                                  ✅ (46)                                  |
+| Prompts     |                                  ✅ (37)                                  |
+| Completions |                          ✅ (17 argument types)                           |
+| Sampling    |                                    ✅                                     |
+| Elicitation |                                    ✅                                     |
+| Roots       |                                    ✅                                     |
+| Logging     |                                    ✅                                     |
+| Progress    |                                    ✅                                     |
+
+The 1033 individual figure is the expanded set of distinct tool instances. The 33 base, 49 self-managed, and 50 GitLab.com counts are meta-tool catalog sizes whose actions expand to that larger individual tool surface.

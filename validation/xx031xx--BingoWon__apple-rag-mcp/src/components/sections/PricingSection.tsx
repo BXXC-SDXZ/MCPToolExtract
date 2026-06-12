@@ -1,0 +1,175 @@
+import { IconBrandAlipay, IconCheck, IconCreditCard } from "@tabler/icons-react";
+import { useEffect } from "react";
+import { useTranslation } from "react-i18next";
+import { Link, useNavigate } from "react-router-dom";
+import { Modal, ModalTrigger } from "@/components/ui/animated-modal";
+import { Button } from "@/components/ui/Button";
+import { EvervaultCard, Icon } from "@/components/ui/evervault-card";
+import { activateFabContact } from "@/components/ui/FabButton";
+import { useAuth } from "@/hooks/useAuth";
+import { trackEvent } from "@/lib/analytics";
+import { getPricingTiers } from "@/lib/plans";
+import { cn } from "@/lib/utils";
+import { useDashboardStore } from "@/stores/dashboard";
+import { PricingModal } from "./PricingModal";
+
+export function PricingSection() {
+	const { t } = useTranslation();
+	const navigate = useNavigate();
+	const { isAuthenticated } = useAuth();
+	const subscription = useDashboardStore((s) => s.subscription);
+	const fetchSubscription = useDashboardStore((s) => s.fetchSubscription);
+	const tiers = getPricingTiers();
+
+	const hasActivePaidPlan =
+		isAuthenticated &&
+		subscription &&
+		subscription.plan_id !== "hobby" &&
+		subscription.status === "active";
+
+	useEffect(() => {
+		if (isAuthenticated && !subscription) {
+			fetchSubscription();
+		}
+	}, [isAuthenticated, subscription, fetchSubscription]);
+
+	// Track pricing section view
+	useEffect(() => {
+		const observer = new IntersectionObserver(
+			(entries) => {
+				entries.forEach((entry) => {
+					if (entry.isIntersecting) {
+						trackEvent("PRICING_VIEW", {
+							section: "pricing_section",
+						});
+						observer.disconnect(); // Only track once per session
+					}
+				});
+			},
+			{ threshold: 0.5 },
+		);
+
+		const pricingElement = document.getElementById("pricing");
+		if (pricingElement) {
+			observer.observe(pricingElement);
+		}
+
+		return () => observer.disconnect();
+	}, []);
+
+	return (
+		<div
+			className="mx-auto max-w-7xl px-6 lg:px-8 bg-secondary rounded-xl py-4 sm:py-8"
+			id="pricing"
+		>
+			<div className="text-center">
+				<h2 className="text-base font-semibold leading-7 text-brand">{t("pricing.eyebrow")}</h2>
+				<p className="mt-2 text-3xl font-bold tracking-tight text-light sm:text-4xl">
+					{t("pricing.title")}
+				</p>
+				<p className="mt-4 sm:mt-6 text-lg leading-8 text-muted">{t("pricing.subtitle")}</p>
+			</div>
+			<div className="mx-auto mt-4 sm:mt-10 grid max-w-md grid-cols-1 gap-y-6 lg:mx-0 lg:max-w-none lg:grid-cols-3 lg:gap-x-8 lg:gap-y-0 lg:items-start">
+				{tiers.map((tier) => (
+					<div key={tier.id} className="border border-default flex flex-col w-full relative">
+						{/* Corner Icons */}
+						<Icon className="absolute h-6 w-6 -top-3 -left-3 text-light" />
+						<Icon className="absolute h-6 w-6 -bottom-3 -left-3 text-light" />
+						<Icon className="absolute h-6 w-6 -top-3 -right-3 text-light" />
+						<Icon className="absolute h-6 w-6 -bottom-3 -right-3 text-light" />
+
+						{/* EvervaultCard with all pricing content */}
+						<EvervaultCard
+							className="w-full h-full"
+							gradientFrom={tier.gradientFrom}
+							gradientTo={tier.gradientTo}
+						>
+							<div className="flex flex-col justify-between h-full">
+								<div>
+									<div className="flex items-center justify-between gap-x-4">
+										<h3
+											id={tier.id}
+											className={`text-lg font-semibold leading-8 ${
+												tier.popular ? "text-brand" : "text-light"
+											}`}
+										>
+											{tier.name}
+										</h3>
+										{tier.popular ? (
+											<div className="flex items-center gap-1.5">
+												<span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold text-white bg-[#635BFF]">
+													<IconCreditCard className="w-3 h-3" />
+													{t("pricing.badge_card")}
+												</span>
+												<span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold text-white bg-[#1677FF]">
+													<IconBrandAlipay className="w-3 h-3" />
+													{t("pricing.badge_alipay")}
+												</span>
+											</div>
+										) : null}
+									</div>
+									<p className="mt-3 sm:mt-4 text-sm leading-6 text-muted">{tier.description}</p>
+									<p className="mt-4 sm:mt-6 flex items-baseline gap-x-1">
+										<span className="text-4xl font-bold tracking-widest text-light">
+											{tier.displayPrice}
+										</span>
+									</p>
+									<ul className="mt-6 sm:mt-8 space-y-2 sm:space-y-3 text-sm leading-6 text-muted">
+										{tier.features.map((feature) => (
+											<li key={feature} className="flex gap-x-3">
+												<IconCheck className="h-6 w-5 flex-none text-brand" aria-hidden="true" />
+												{feature}
+											</li>
+										))}
+									</ul>
+								</div>
+								{tier.action === "contact" ? (
+									<Button
+										variant={tier.popular ? "primary" : "outline"}
+										className="mt-6 sm:mt-8 w-full"
+										onClick={activateFabContact}
+									>
+										{t("common.contact_us")}
+									</Button>
+								) : tier.action === "register" ? (
+									<Link to={tier.href}>
+										<Button
+											variant={tier.popular ? "primary" : "outline"}
+											className="mt-6 sm:mt-8 w-full"
+										>
+											{t("common.get_started")}
+										</Button>
+									</Link>
+								) : hasActivePaidPlan ? (
+									<Button
+										variant={tier.popular ? "primary" : "outline"}
+										className="mt-6 sm:mt-8 w-full"
+										onClick={() => navigate("/billing/")}
+									>
+										{subscription?.payment_type === "one_time"
+											? t("pricing.view_plan")
+											: t("pricing.manage_subscription")}
+									</Button>
+								) : (
+									<Modal>
+										<ModalTrigger
+											className={cn(
+												"mt-6 sm:mt-8 w-full px-4 py-2 rounded-lg text-center relative overflow-hidden transition-all duration-200",
+												tier.popular
+													? "bg-brand text-white hover:bg-brand/90 shadow-lg hover:shadow-xl"
+													: "border border-default bg-transparent text-light hover:bg-secondary hover:border-border-light",
+											)}
+										>
+											{t("common.get_started")}
+										</ModalTrigger>
+										<PricingModal planName={tier.name} />
+									</Modal>
+								)}
+							</div>
+						</EvervaultCard>
+					</div>
+				))}
+			</div>
+		</div>
+	);
+}

@@ -1,0 +1,317 @@
+---
+title: Seguridad
+description: Modelo de seguridad, gestión de tokens y mejores prácticas
+---
+
+:::note[Documentación para desarrolladores]
+Para la referencia técnica completa, consulta [`docs/security.md`](https://github.com/jmrplens/gitlab-mcp-server/blob/main/docs/security.md) en el repositorio.
+:::
+
+GitLab MCP Server está diseñado con una arquitectura que prioriza la seguridad. Esta página cubre el modelo de seguridad, el manejo de credenciales y las mejores prácticas para un despliegue seguro.
+
+## Descripción general del modelo de seguridad
+
+```mermaid
+flowchart TB
+    subgraph Local["Máquina Local"]
+        Token["Token de GitLab<br/>(variable de entorno / archivo .env)"]
+        Server["Proceso del Servidor MCP"]
+        Client["Cliente MCP<br/>(VS Code, etc.)"]
+    end
+    subgraph Remote["Red"]
+        GitLab["Instancia de GitLab"]
+    end
+
+    Token --> Server
+    Client <-->|"stdio (stdin/stdout)"| Server
+    Server <-->|"HTTPS"| GitLab
+```
+
+### Principios clave
+
+- **Aislamiento del token**: En modo stdio, el token de GitLab nunca sale del proceso local del servidor. Se carga desde el entorno y se utiliza exclusivamente para llamadas a la API de GitLab.
+- **Sin reenvío de tokens**: El token nunca se envía al cliente MCP, nunca se incluye en las salidas de herramientas y nunca se pasa a través de solicitudes de sampling MCP.
+- **Aislamiento a nivel de proceso**: El servidor se ejecuta como un proceso local comunicándose a través de stdin/stdout. No se abren puertos de red en modo stdio.
+- **Mínimo privilegio**: El servidor solo necesita un token de GitLab con los scopes requeridos para las operaciones que deseas utilizar.
+
+## Gestión de tokens
+
+### Recomendado: Archivo de entorno
+
+Almacena tu token en un archivo `.env` con permisos restringidos:
+
+```bash
+# Crear archivo .env
+echo 'GITLAB_TOKEN=glpat-xxxxxxxxxxxxxxxxxxxx' > .env
+# Añade GITLAB_URL aquí solo para instancias autogestionadas.
+
+# Restringir permisos (solo lectura/escritura del propietario)
+chmod 600 .env
+```
+
+:::danger
+Nunca hagas commit de archivos `.env` en el control de versiones. Añade `.env` a tu archivo `.gitignore`.
+:::
+
+### Variables de entrada en VS Code
+
+Para usuarios de VS Code, puedes usar variables de entrada para evitar almacenar tokens en texto plano:
+
+```json
+{
+	"servers": {
+		"gitlab": {
+			"type": "stdio",
+			"command": "gitlab-mcp-server",
+			"env": {
+				"GITLAB_TOKEN": "${input:gitlabToken}"
+			}
+		}
+	}
+}
+```
+
+El token se solicita al inicio y se mantiene solo en memoria.
+
+### Scopes del token
+
+Usa los scopes mínimos requeridos para tu flujo de trabajo:
+
+| Scope              | Requerido Para                                        |
+| ------------------ | ----------------------------------------------------- |
+| `read_api`         | Operaciones de solo lectura (listar, obtener, buscar) |
+| `api`              | Operaciones completas (crear, actualizar, eliminar)   |
+| `read_repository`  | Acceso a archivos del repositorio                     |
+| `write_repository` | Modificación de archivos del repositorio              |
+
+:::tip
+Si solo necesitas operaciones de lectura, usa el scope `read_api` y habilita `GITLAB_READ_ONLY=true` como defensa en profundidad.
+:::
+
+### Filtrado de herramientas por scopes
+
+Al iniciar, el servidor detecta los scopes de tu token mediante la API de GitLab y desactiva automáticamente las herramientas que requieren scopes que tu token no posee. Por ejemplo, un token sin el scope `admin_mode` no mostrará las herramientas `gitlab_admin`.
+
+Esto evita que la IA intente operaciones que fallarían con errores de permisos y mantiene la lista de herramientas enfocada en lo que tu token puede hacer realmente.
+
+Para desactivar la detección de scopes y registrar todas las herramientas independientemente de los permisos del token:
+
+```bash
+GITLAB_IGNORE_SCOPES=true
+```
+
+O en modo HTTP:
+
+```bash
+./gitlab-mcp-server --http --ignore-scopes
+```
+
+:::note
+Cuando la detección de scopes está desactivada, las herramientas se registran igualmente pero las llamadas a la API pueden fallar con `403 Forbidden` si el token no tiene los permisos necesarios.
+:::
+
+## Eliminación de credenciales en sampling
+
+Cuando las herramientas de análisis usan sampling MCP para enviar datos al LLM del cliente, el servidor aplica **eliminación automática de credenciales** antes de que cualquier dato salga del proceso. Esta es una medida crítica de defensa en profundidad que previene la fuga accidental de tokens a través del contexto del LLM.
+
+### Patrones eliminados
+
+El motor de eliminación de credenciales usa patrones regex para detectar y eliminar:
+
+| Patrón                      | Ejemplo                           | Reemplazo                  |
+| --------------------------- | --------------------------------- | -------------------------- |
+| PAT de GitLab               | `glpat-aBcDeFgH12345678`          | `[REDACTED:GITLAB_TOKEN]`  |
+| Token de Pipeline de GitLab | `glptt-aBcDeFgH12345678`          | `[REDACTED:GITLAB_TOKEN]`  |
+| Clave de Acceso AWS         | `AKIAIOSFODNN7EXAMPLE`            | `[REDACTED:AWS_KEY]`       |
+| Clave Secreta AWS           | `wJalrXUtnFEMI/K7MDENG/...`       | `[REDACTED:AWS_SECRET]`    |
+| Token de Slack              | `xoxb-...` / `xoxp-...`           | `[REDACTED:SLACK_TOKEN]`   |
+| Webhook de Slack            | `hooks.slack.com/services/...`    | `[REDACTED:SLACK_WEBHOOK]` |
+| JWT                         | `eyJhbGciOi...`                   | `[REDACTED:JWT]`           |
+| Clave API genérica          | `api_key=...`, `apikey: ...`      | `[REDACTED:API_KEY]`       |
+| Clave SSH privada           | `-----BEGIN RSA PRIVATE KEY-----` | `[REDACTED:PRIVATE_KEY]`   |
+
+:::note
+La eliminación de credenciales se aplica a todos los datos enviados a través de sampling MCP, incluyendo logs de jobs, contenido de archivos, descripciones de issues y diffs de MR.
+:::
+
+## Verificación TLS
+
+Por defecto, el servidor verifica los certificados TLS al conectarse a GitLab. Para certificados autofirmados:
+
+```bash
+GITLAB_SKIP_TLS_VERIFY=true
+```
+
+:::caution
+Desactivar la verificación TLS elimina la protección contra ataques de intermediario (man-in-the-middle). Usa esto solo en entornos de desarrollo con certificados autofirmados. Nunca desactives la verificación TLS en producción.
+:::
+
+## Modo de solo lectura
+
+Habilita el modo de solo lectura para prevenir cualquier operación de escritura:
+
+```bash
+GITLAB_READ_ONLY=true
+```
+
+En modo de solo lectura:
+
+- Todas las herramientas de escritura **no se registran** (crear, actualizar, eliminar, fusionar, etc.)
+- Solo las operaciones de lectura están disponibles (listar, obtener, buscar)
+- Esto proporciona una garantía firme a nivel de servidor — el LLM no puede modificar datos accidentalmente
+
+Esto es útil para:
+
+- Flujos de trabajo de exploración y descubrimiento
+- Entornos de demostración
+- Entornos donde el token tiene acceso de escritura pero deseas restringir el servidor
+
+## Modo seguro
+
+Habilita el modo seguro para previsualizar operaciones de escritura sin ejecutarlas:
+
+```bash
+GITLAB_SAFE_MODE=true
+```
+
+En modo seguro:
+
+- Las herramientas de escritura devuelven una **vista previa JSON estructurada** mostrando nombre de herramienta, parámetros y anotaciones
+- Las herramientas de solo lectura se ejecutan normalmente
+- Si `GITLAB_READ_ONLY=true` también está configurado, tiene precedencia (las herramientas de escritura se desactivan completamente)
+
+Esto es útil para flujos de trabajo dry-run, entornos de formación y depuración de parámetros de herramientas.
+
+## Seguridad en modo HTTP
+
+Al ejecutar en modo HTTP (`--http`), aplican consideraciones de seguridad adicionales:
+
+### Autenticación por solicitud
+
+En modo HTTP, los tokens de GitLab se proporcionan por solicitud a través de cabeceras, no de variables de entorno. Cada sesión de usuario usa su propio token:
+
+```http
+Authorization: Bearer <gitlab-personal-access-token>
+```
+
+### Aislamiento de sesiones
+
+El servidor mantiene un **pool LRU limitado** de sesiones de cliente:
+
+- Cada token obtiene su propia instancia aislada del servidor MCP
+- Las sesiones son independientes — un usuario no puede acceder al contexto de otro
+- Las sesiones inactivas expiran después de `--session-timeout` (por defecto: 30 minutos)
+- El máximo de sesiones concurrentes se controla con `--max-http-clients` (por defecto: 100)
+
+### Recomendaciones para modo HTTP
+
+- Despliega detrás de un proxy inverso con terminación TLS
+- Configura `--trusted-proxy-header` con la cabecera que tu proxy establece (ej. `Fly-Client-IP`, `X-Real-IP`, `X-Forwarded-For`) para que el rate limiter integrado vea las IPs reales de los clientes. **Habílita esto solo cuando el servidor sea accesible únicamente a través de un proxy de confianza** que sobrescriba (o elimine las copias entrantes de) la cabecera configurada; de lo contrario los clientes pueden falsificarla y evadir el rate limiting por IP. Para `X-Forwarded-For`, el servidor usa la entrada más a la derecha — el último salto añadido por el proxy de confianza — para no confiar en valores suministrados por el cliente.
+- Habilita limitación de velocidad a nivel del proxy
+- Restringe el acceso a redes de confianza
+- Monitoriza las métricas de sesiones para detectar patrones inusuales
+
+### Modo OAuth
+
+Para despliegues HTTP en producción, considera usar el modo OAuth (`--auth-mode=oauth`). Habilita autenticación OAuth 2.1 compatible con RFC 9728:
+
+- Los usuarios autorizan a través del navegador — no es necesario distribuir tokens manualmente
+- OAuth 2.1 con PKCE protege contra la interceptación del código de autorización
+- La identidad del token se cachea durante `--oauth-cache-ttl` (por defecto: 15 minutos, rango: 1m–2h)
+- La cabecera `PRIVATE-TOKEN` sigue siendo compatible para retrocompatibilidad
+
+Consulta [`docs/oauth-app-setup.md`](https://github.com/jmrplens/gitlab-mcp-server/blob/main/docs/oauth-app-setup.md) para crear la Aplicación OAuth de GitLab requerida, y [Modo Servidor HTTP](/gitlab-mcp-server/es/operations/http-server/) para los detalles completos de configuración.
+
+## Verificación de la integridad del release
+
+Cada GitHub Release incluye dos artefactos de integridad:
+
+- `checksums.txt` — hashes SHA-256 de todos los binarios del release
+- `checksums.txt.sigstore.json` — bundle de firma keyless [Cosign](https://docs.sigstore.dev/cosign/installation/) / Sigstore (GitHub OIDC, sin distribución de claves)
+
+El mecanismo de auto-actualización verifica los binarios contra `checksums.txt` automáticamente antes de reemplazar el proceso en ejecución. Para instalaciones manuales, verifica tanto la firma como el checksum antes de ejecutar el binario.
+
+### 1. Instalar Cosign
+
+Sigue la [guía oficial de instalación](https://docs.sigstore.dev/cosign/installation/). Instalación rápida:
+
+```bash
+# macOS
+brew install cosign
+
+# Linux (binario de release)
+curl -L https://github.com/sigstore/cosign/releases/latest/download/cosign-linux-amd64 -o cosign
+chmod +x cosign && sudo mv cosign /usr/local/bin/
+```
+
+### 2. Descargar los artefactos del release
+
+Desde la [página de Releases](https://github.com/jmrplens/gitlab-mcp-server/releases), descarga:
+
+- El binario para tu plataforma (ej. `gitlab-mcp-server-linux-amd64`)
+- `checksums.txt`
+- `checksums.txt.sigstore.json`
+
+### 3. Verificar la firma
+
+```bash
+cosign verify-blob \
+  --bundle checksums.txt.sigstore.json \
+  --certificate-identity-regexp "^https://github.com/jmrplens/gitlab-mcp-server/" \
+  --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+  checksums.txt
+```
+
+Una verificación exitosa imprime `Verified OK`. La restricción `--certificate-identity-regexp` garantiza que la firma fue producida por un workflow de GitHub Actions ejecutado en este repositorio, y `--certificate-oidc-issuer` ancla la identidad al emisor OIDC oficial de GitHub.
+
+:::caution
+Si la verificación falla, **no ejecutes el binario**. Un fallo indica que el archivo de checksums fue manipulado o no se originó en el pipeline de release de este repositorio.
+:::
+
+### 4. Verificar el checksum del binario
+
+Después de verificar la firma, valida que tu binario coincida con el checksum firmado:
+
+```bash
+# Linux
+sha256sum --check --ignore-missing checksums.txt
+
+# macOS (shasum no tiene --ignore-missing; filtra la línea relevante primero)
+grep "$(ls gitlab-mcp-server-*)" checksums.txt | shasum -a 256 -c
+```
+
+Salida esperada: `gitlab-mcp-server-linux-amd64: OK` (o el nombre de archivo correspondiente para tu plataforma).
+
+## Lista de verificación de mejores prácticas
+
+### Seguridad del token
+
+- ☐ Usa un token de GitLab dedicado con los scopes mínimos requeridos
+- ☐ Almacena tokens en archivos `.env` con permisos `chmod 600`
+- ☐ Añade `.env` al `.gitignore`
+- ☐ Rota los tokens periódicamente
+- ☐ Usa el scope `read_api` cuando no se necesita acceso de escritura
+
+### Configuración del servidor
+
+- ☐ Habilita `GITLAB_READ_ONLY=true` para flujos de trabajo de solo lectura
+- ☐ Mantén la verificación TLS habilitada (`GITLAB_SKIP_TLS_VERIFY` sin establecer o `false`)
+- ☐ Usa transporte stdio cuando sea posible (sin exposición de red)
+- ☐ Mantén el binario del servidor actualizado (`AUTO_UPDATE=true`)
+- ☐ Verifica la firma Cosign/Sigstore en la primera instalación manual ([instrucciones arriba](#verificación-de-la-integridad-del-release))
+- ☐ Bloqueo de esquema: todos los esquemas de entrada de herramientas aplican `additionalProperties: false` para rechazar campos inesperados
+
+### Modo HTTP
+
+- ☐ Despliega detrás de un proxy inverso con terminación TLS
+- ☐ Configura `--trusted-proxy-header` para un rate limiting preciso
+- ☐ Configura apropiadamente `--session-timeout` y `--max-http-clients`
+- ☐ Habilita limitación de velocidad
+- ☐ Restringe el acceso de red a clientes de confianza
+
+### Monitorización
+
+- ☐ Revisa los logs del servidor regularmente
+- ☐ Monitoriza patrones inusuales de llamadas a la API
+- ☐ Verifica la expiración del token o cambios de permisos
+- ☐ Habilita `LOG_LEVEL=info` para registros de auditoría en producción

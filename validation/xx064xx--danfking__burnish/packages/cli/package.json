@@ -1,0 +1,67 @@
+{
+  "name": "burnish",
+  "version": "0.4.1",
+  "description": "Swagger UI for MCP servers — explore, test, and visualize any MCP server",
+  "type": "module",
+  "bin": {
+    "burnish": "./dist/cli.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "import": "./dist/server.js"
+    },
+    "./middleware": {
+      "types": "./dist/middleware.d.ts",
+      "import": "./dist/middleware.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc && node scripts/bundle-assets.js",
+    "clean": "rm -rf dist assets"
+  },
+  "dependencies": {
+    "@burnishdev/server": "workspace:*",
+    "@hono/node-server": "^1.19.13",
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "hono": "^4.12.14",
+    "open": "^10.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "files": [
+    "dist",
+    "assets"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "AGPL-3.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/danfking/burnish.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://github.com/danfking/burnish",
+  "author": "danfking",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "swagger",
+    "ui",
+    "explorer",
+    "cli",
+    "burnish"
+  ]
+}

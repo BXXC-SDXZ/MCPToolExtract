@@ -1,0 +1,86 @@
+/**
+ * Deterministic enforcement guards for MCP tool execution.
+ * These run as CODE, not prompts — they cannot be ignored by the LLM.
+ */
+
+import { resolve, normalize } from 'node:path';
+
+const WRITE_PATTERNS = /^(create|update|delete|remove|push|write|edit|move|fork|merge|add|set|close|lock|assign)/i;
+
+/**
+ * Resolve a user-supplied path against a base directory and verify
+ * it does not escape outside the base (prevents path traversal).
+ *
+ * Leading slashes on userPath are stripped so it is treated as relative
+ * to baseDir — otherwise Node's path.resolve() interprets a URL-style
+ * path like "/style.css" as absolute and discards baseDir entirely,
+ * causing every static file request in the CLI to fail validation and
+ * return 404. Regression shipped in v0.2.0, fixed in v0.2.1.
+ */
+export function safePath(baseDir: string, userPath: string): string | null {
+    const relative = userPath.replace(/^[/\\]+/, '');
+    const resolved = normalize(resolve(baseDir, relative));
+    const base = normalize(baseDir);
+    return resolved.startsWith(base + '\\') || resolved.startsWith(base + '/') || resolved === base
+        ? resolved
+        : null;
+}
+
+/**
+ * Classify a tool as read-only or write/mutate based on its name.
+ */
+export function isWriteTool(toolName: string): boolean {
+    // Extract the tool name from fully qualified name (mcp__server__toolname)
+    const parts = toolName.split('__');
+    const baseName = parts[parts.length - 1] || toolName;
+    return WRITE_PATTERNS.test(baseName);
+}
+
+export interface GuardResult {
+    allowed: boolean;
+    reason?: string;
+}
+
+// Track which tool calls have been explicitly authorized by user form submission
+const authorizedCalls = new Set<string>();
+
+/**
+ * Authorize a tool call — called when a user submits a form.
+ * Returns a one-time authorization token.
+ */
+export function authorizeToolCall(toolName: string): string {
+    const token = `${toolName}:${Date.now()}:${crypto.randomUUID()}`;
+    authorizedCalls.add(token);
+    // Auto-expire after 60 seconds
+    setTimeout(() => authorizedCalls.delete(token), 60_000);
+    return token;
+}
+
+/**
+ * Check if a tool call is authorized.
+ * Consumes the token (one-time use).
+ */
+export function consumeAuthorization(token: string): boolean {
+    if (authorizedCalls.has(token)) {
+        authorizedCalls.delete(token);
+        return true;
+    }
+    return false;
+}
+
+/**
+ * Pre-execution guard — runs before every tool call.
+ * Returns whether the call should proceed.
+ */
+export function guardToolExecution(
+    toolName: string,
+    _args: Record<string, unknown>,
+): GuardResult {
+    if (isWriteTool(toolName)) {
+        return {
+            allowed: false,
+            reason: `Blocked: "${toolName}" is a write operation and requires explicit user authorization via form submission.`,
+        };
+    }
+    return { allowed: true };
+}

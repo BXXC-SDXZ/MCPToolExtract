@@ -1,0 +1,366 @@
+package groupmembers
+
+import (
+	"context"
+	"errors"
+	"net/http"
+	"time"
+
+	gl "gitlab.com/gitlab-org/api/client-go/v2"
+
+	gitlabclient "github.com/jmrplens/gitlab-mcp-server/v2/internal/gitlab"
+	"github.com/jmrplens/gitlab-mcp-server/v2/internal/toolutil"
+)
+
+// ──────────────────────────────────────────────
+// Output types
+// ──────────────────────────────────────────────.
+
+// Output represents a single group member.
+type Output struct {
+	toolutil.HintableOutput
+	ID                     int64  `json:"id"`
+	Username               string `json:"username"`
+	Name                   string `json:"name"`
+	State                  string `json:"state"`
+	AvatarURL              string `json:"avatar_url,omitempty"`
+	WebURL                 string `json:"web_url"`
+	AccessLevel            int    `json:"access_level"`
+	AccessLevelDescription string `json:"access_level_description"`
+	CreatedAt              string `json:"created_at,omitempty"`
+	ExpiresAt              string `json:"expires_at,omitempty"`
+	Email                  string `json:"email,omitempty"`
+	MemberRoleName         string `json:"member_role_name,omitempty"`
+	IsUsingSeat            bool   `json:"is_using_seat,omitempty"`
+}
+
+// ShareOutput represents the result of sharing with a group.
+type ShareOutput struct {
+	toolutil.HintableOutput
+	ID          int64  `json:"id"`
+	Name        string `json:"name"`
+	Path        string `json:"path"`
+	Description string `json:"description,omitempty"`
+	WebURL      string `json:"web_url"`
+}
+
+// ──────────────────────────────────────────────
+// Input types
+// ──────────────────────────────────────────────.
+
+// GetInput contains parameters for getting a group member.
+type GetInput struct {
+	GroupID toolutil.StringOrInt `json:"group_id" jsonschema:"Group ID or URL-encoded path,required"`
+	UserID  int64                `json:"user_id" jsonschema:"User ID,required"`
+}
+
+// AddInput contains parameters for adding a group member.
+type AddInput struct {
+	GroupID     toolutil.StringOrInt `json:"group_id" jsonschema:"Group ID or URL-encoded path,required"`
+	UserID      int64                `json:"user_id,omitempty" jsonschema:"User ID to add,required"`
+	Username    string               `json:"username,omitempty" jsonschema:"Username to add (alternative to user_id)"`
+	AccessLevel int                  `json:"access_level" jsonschema:"Access level (10=Guest, 20=Reporter, 30=Developer, 40=Maintainer, 50=Owner)"`
+	ExpiresAt   string               `json:"expires_at,omitempty" jsonschema:"Membership expiration date (YYYY-MM-DD)"`
+}
+
+// EditInput contains parameters for editing a group member.
+type EditInput struct {
+	GroupID     toolutil.StringOrInt `json:"group_id" jsonschema:"Group ID or URL-encoded path,required"`
+	UserID      int64                `json:"user_id" jsonschema:"User ID,required"`
+	AccessLevel int                  `json:"access_level,omitempty" jsonschema:"New access level (10=Guest, 20=Reporter, 30=Developer, 40=Maintainer, 50=Owner)"`
+	ExpiresAt   string               `json:"expires_at,omitempty" jsonschema:"New membership expiration date (YYYY-MM-DD)"`
+}
+
+// RemoveInput contains parameters for removing a group member.
+type RemoveInput struct {
+	GroupID           toolutil.StringOrInt `json:"group_id" jsonschema:"Group ID or URL-encoded path,required"`
+	UserID            int64                `json:"user_id" jsonschema:"User ID to remove,required"`
+	SkipSubresources  bool                 `json:"skip_subresources,omitempty" jsonschema:"Skip removal from subresources"`
+	UnassignIssuables bool                 `json:"unassign_issuables,omitempty" jsonschema:"Unassign issues and merge requests"`
+}
+
+// ShareInput contains parameters for sharing a group with another group.
+type ShareInput struct {
+	GroupID      toolutil.StringOrInt `json:"group_id" jsonschema:"Group ID or URL-encoded path to share,required"`
+	ShareGroupID int64                `json:"share_group_id" jsonschema:"Group ID to share with,required"`
+	GroupAccess  int                  `json:"group_access" jsonschema:"Access level for the shared group (10=Guest, 20=Reporter, 30=Developer, 40=Maintainer)"`
+	ExpiresAt    string               `json:"expires_at,omitempty" jsonschema:"Share expiration date (YYYY-MM-DD)"`
+}
+
+// UnshareInput contains parameters for unsharing a group.
+type UnshareInput struct {
+	GroupID      toolutil.StringOrInt `json:"group_id" jsonschema:"Group ID or URL-encoded path,required"`
+	ShareGroupID int64                `json:"share_group_id" jsonschema:"Group ID to stop sharing with,required"`
+}
+
+// ──────────────────────────────────────────────
+// Handlers
+// ──────────────────────────────────────────────.
+
+// GetMember gets a single group member.
+func GetMember(ctx context.Context, client *gitlabclient.Client, input GetInput) (Output, error) {
+	if input.GroupID == "" {
+		return Output{}, toolutil.WrapErrWithMessage("group_member_get", toolutil.ErrFieldRequired("group_id"))
+	}
+	if input.UserID == 0 {
+		return Output{}, toolutil.WrapErrWithMessage("group_member_get", toolutil.ErrFieldRequired("user_id"))
+	}
+	m, _, err := client.GL().GroupMembers.GetGroupMember(
+		string(input.GroupID), input.UserID, gl.WithContext(ctx),
+	)
+	if err != nil {
+		return Output{}, toolutil.WrapErrWithStatusHint("group_member_get", err, http.StatusNotFound,
+			"verify group_id with gitlab_group_get and user_id with gitlab_list_users \u2014 inherited members are not returned, use gitlab_group_member_get_inherited for those")
+	}
+	return convertMember(m), nil
+}
+
+// GetInheritedMember gets a single inherited group member.
+func GetInheritedMember(ctx context.Context, client *gitlabclient.Client, input GetInput) (Output, error) {
+	if input.GroupID == "" {
+		return Output{}, toolutil.WrapErrWithMessage("group_member_get_inherited", toolutil.ErrFieldRequired("group_id"))
+	}
+	if input.UserID == 0 {
+		return Output{}, toolutil.WrapErrWithMessage("group_member_get_inherited", toolutil.ErrFieldRequired("user_id"))
+	}
+	m, _, err := client.GL().GroupMembers.GetInheritedGroupMember(
+		string(input.GroupID), input.UserID, gl.WithContext(ctx),
+	)
+	if err != nil {
+		return Output{}, toolutil.WrapErrWithStatusHint("group_member_get_inherited", err, http.StatusNotFound,
+			"the user is not a member of this group or any ancestor group; verify with gitlab_group_members_list (include_inherited=true)")
+	}
+	return convertMember(m), nil
+}
+
+// AddMember adds a member to a group.
+func AddMember(ctx context.Context, client *gitlabclient.Client, input AddInput) (Output, error) {
+	if input.GroupID == "" {
+		return Output{}, toolutil.WrapErrWithMessage("group_member_add", toolutil.ErrFieldRequired("group_id"))
+	}
+	if input.UserID == 0 && input.Username == "" {
+		return Output{}, toolutil.WrapErrWithMessage("group_member_add", errors.New("user_id or username is required"))
+	}
+	if input.AccessLevel == 0 {
+		return Output{}, toolutil.WrapErrWithMessage("group_member_add", toolutil.ErrFieldRequired("access_level"))
+	}
+	opts := &gl.AddGroupMemberOptions{
+		AccessLevel: new(gl.AccessLevelValue(input.AccessLevel)),
+	}
+	if input.UserID != 0 {
+		opts.UserID = new(input.UserID)
+	}
+	if input.Username != "" {
+		opts.Username = new(input.Username)
+	}
+	if input.ExpiresAt != "" {
+		opts.ExpiresAt = new(input.ExpiresAt)
+	}
+	m, _, err := client.GL().GroupMembers.AddGroupMember(
+		string(input.GroupID), opts, gl.WithContext(ctx),
+	)
+	if err != nil {
+		if toolutil.IsHTTPStatus(err, http.StatusConflict) {
+			return Output{}, toolutil.WrapErrWithHint("group_member_add", err,
+				"the user is already a direct member of this group \u2014 use gitlab_group_member_edit to change their access level instead")
+		}
+		if toolutil.IsHTTPStatus(err, http.StatusForbidden) {
+			return Output{}, toolutil.WrapErrWithHint("group_member_add", err,
+				"adding members requires Owner role on the group; cannot grant access higher than your own role")
+		}
+		if toolutil.IsHTTPStatus(err, http.StatusBadRequest) {
+			return Output{}, toolutil.WrapErrWithHint("group_member_add", err,
+				"access_level must be one of 10/20/30/40/50 (Guest/Reporter/Developer/Maintainer/Owner); expires_at must be YYYY-MM-DD")
+		}
+		return Output{}, toolutil.WrapErrWithStatusHint("group_member_add", err, http.StatusNotFound,
+			"verify group_id with gitlab_group_get and user_id/username with gitlab_list_users")
+	}
+	return convertMember(m), nil
+}
+
+// EditMember edits a group member.
+func EditMember(ctx context.Context, client *gitlabclient.Client, input EditInput) (Output, error) {
+	if input.GroupID == "" {
+		return Output{}, toolutil.WrapErrWithMessage("group_member_edit", toolutil.ErrFieldRequired("group_id"))
+	}
+	if input.UserID == 0 {
+		return Output{}, toolutil.WrapErrWithMessage("group_member_edit", toolutil.ErrFieldRequired("user_id"))
+	}
+	opts := &gl.EditGroupMemberOptions{}
+	if input.AccessLevel != 0 {
+		opts.AccessLevel = new(gl.AccessLevelValue(input.AccessLevel))
+	}
+	if input.ExpiresAt != "" {
+		opts.ExpiresAt = new(input.ExpiresAt)
+	}
+	m, _, err := client.GL().GroupMembers.EditGroupMember(
+		string(input.GroupID), input.UserID, opts, gl.WithContext(ctx),
+	)
+	if err != nil {
+		if toolutil.IsHTTPStatus(err, http.StatusForbidden) {
+			return Output{}, toolutil.WrapErrWithHint("group_member_edit", err,
+				"editing members requires Owner role; cannot edit inherited members (only direct members) and cannot grant access higher than your own role")
+		}
+		return Output{}, toolutil.WrapErrWithStatusHint("group_member_edit", err, http.StatusNotFound,
+			"the user is not a direct member of this group \u2014 use gitlab_group_members_list to confirm direct membership before editing")
+	}
+	return convertMember(m), nil
+}
+
+// RemoveMember removes a member from a group.
+func RemoveMember(ctx context.Context, client *gitlabclient.Client, input RemoveInput) error {
+	if input.GroupID == "" {
+		return toolutil.WrapErrWithMessage("group_member_remove", toolutil.ErrFieldRequired("group_id"))
+	}
+	if input.UserID == 0 {
+		return toolutil.WrapErrWithMessage("group_member_remove", toolutil.ErrFieldRequired("user_id"))
+	}
+	opts := &gl.RemoveGroupMemberOptions{}
+	if input.SkipSubresources {
+		opts.SkipSubresources = new(true)
+	}
+	if input.UnassignIssuables {
+		opts.UnassignIssuables = new(true)
+	}
+	_, err := client.GL().GroupMembers.RemoveGroupMember(
+		string(input.GroupID), input.UserID, opts, gl.WithContext(ctx),
+	)
+	if err != nil {
+		if toolutil.IsHTTPStatus(err, http.StatusForbidden) {
+			return toolutil.WrapErrWithHint("group_member_remove", err,
+				"inherited members cannot be removed from this group \u2014 they must be removed from the ancestor group where they were added directly. Removing direct members requires Owner role")
+		}
+		return toolutil.WrapErrWithStatusHint("group_member_remove", err, http.StatusNotFound,
+			"the user is not a direct member of this group; use gitlab_group_members_list to confirm direct membership")
+	}
+	return nil
+}
+
+// removeMemberOutput removes member output and returns [toolutil.DeleteOutput].
+func removeMemberOutput(ctx context.Context, client *gitlabclient.Client, input RemoveInput) (toolutil.DeleteOutput, error) {
+	if err := RemoveMember(ctx, client, input); err != nil {
+		return toolutil.DeleteOutput{}, err
+	}
+	return toolutil.DeleteOutput{Status: "success", Message: "Successfully deleted group member."}, nil
+}
+
+// ShareGroup shares a group with another group.
+func ShareGroup(ctx context.Context, client *gitlabclient.Client, input ShareInput) (ShareOutput, error) {
+	if input.GroupID == "" {
+		return ShareOutput{}, toolutil.WrapErrWithMessage("group_share", toolutil.ErrFieldRequired("group_id"))
+	}
+	if input.ShareGroupID == 0 {
+		return ShareOutput{}, toolutil.WrapErrWithMessage("group_share", toolutil.ErrFieldRequired("share_group_id"))
+	}
+	if input.GroupAccess == 0 {
+		return ShareOutput{}, toolutil.WrapErrWithMessage("group_share", toolutil.ErrFieldRequired("group_access"))
+	}
+	opts := &gl.ShareWithGroupOptions{
+		GroupID:     new(input.ShareGroupID),
+		GroupAccess: new(gl.AccessLevelValue(input.GroupAccess)),
+	}
+	if input.ExpiresAt != "" {
+		opts.ExpiresAt = new(input.ExpiresAt)
+	}
+	g, _, err := client.GL().GroupMembers.ShareWithGroup(
+		string(input.GroupID), opts, gl.WithContext(ctx),
+	)
+	if err != nil {
+		if toolutil.IsHTTPStatus(err, http.StatusConflict) {
+			return ShareOutput{}, toolutil.WrapErrWithHint("group_share", err,
+				"this group is already shared with the target group \u2014 use gitlab_group_unshare first to change the access level")
+		}
+		if toolutil.IsHTTPStatus(err, http.StatusForbidden) {
+			return ShareOutput{}, toolutil.WrapErrWithHint("group_share", err,
+				"sharing requires Owner role on this group AND Maintainer+ on the target group; cross-hierarchy sharing may be disabled in group/instance settings")
+		}
+		return ShareOutput{}, toolutil.WrapErrWithStatusHint("group_share", err, http.StatusNotFound,
+			"verify group_id and share_group_id with gitlab_group_get \u2014 share_group_id must be a numeric group ID, not a path")
+	}
+	return ShareOutput{
+		ID:          g.ID,
+		Name:        g.Name,
+		Path:        g.Path,
+		Description: g.Description,
+		WebURL:      g.WebURL,
+	}, nil
+}
+
+// UnshareGroup removes a group share.
+func UnshareGroup(ctx context.Context, client *gitlabclient.Client, input UnshareInput) error {
+	if input.GroupID == "" {
+		return toolutil.WrapErrWithMessage("group_unshare", toolutil.ErrFieldRequired("group_id"))
+	}
+	if input.ShareGroupID == 0 {
+		return toolutil.WrapErrWithMessage("group_unshare", toolutil.ErrFieldRequired("share_group_id"))
+	}
+	_, err := client.GL().GroupMembers.DeleteShareWithGroup(
+		string(input.GroupID), input.ShareGroupID, gl.WithContext(ctx),
+	)
+	if err != nil {
+		return toolutil.WrapErrWithStatusHint("group_unshare", err, http.StatusNotFound,
+			"the share does not exist \u2014 use gitlab_group_get to inspect shared_with_groups for the current shares")
+	}
+	return nil
+}
+
+// unshareGroupOutput unshares group output and returns [toolutil.DeleteOutput].
+func unshareGroupOutput(ctx context.Context, client *gitlabclient.Client, input UnshareInput) (toolutil.DeleteOutput, error) {
+	if err := UnshareGroup(ctx, client, input); err != nil {
+		return toolutil.DeleteOutput{}, err
+	}
+	return toolutil.DeleteOutput{Status: "success", Message: "Successfully deleted group share."}, nil
+}
+
+// ──────────────────────────────────────────────
+// Converters
+// ──────────────────────────────────────────────.
+
+// groupAccessLevelNames maps GitLab access level values to human-readable labels.
+var groupAccessLevelNames = map[gl.AccessLevelValue]string{
+	gl.NoPermissions:            "No access",
+	gl.MinimalAccessPermissions: "Minimal access",
+	gl.GuestPermissions:         "Guest",
+	gl.ReporterPermissions:      "Reporter",
+	gl.DeveloperPermissions:     "Developer",
+	gl.MaintainerPermissions:    "Maintainer",
+	gl.OwnerPermissions:         "Owner",
+}
+
+// accessLevelDescription returns the GitLab role label for an access level.
+func accessLevelDescription(level gl.AccessLevelValue) string {
+	if name, ok := groupAccessLevelNames[level]; ok {
+		return name
+	}
+	return "Unknown"
+}
+
+// convertMember maps a GitLab group member into the MCP output shape.
+func convertMember(m *gl.GroupMember) Output {
+	out := Output{
+		ID:                     m.ID,
+		Username:               m.Username,
+		Name:                   m.Name,
+		State:                  m.State,
+		AvatarURL:              m.AvatarURL,
+		WebURL:                 m.WebURL,
+		AccessLevel:            int(m.AccessLevel),
+		AccessLevelDescription: accessLevelDescription(m.AccessLevel),
+		Email:                  m.Email,
+	}
+	if m.CreatedAt != nil {
+		out.CreatedAt = m.CreatedAt.Format(time.RFC3339)
+	}
+	if m.ExpiresAt != nil {
+		out.ExpiresAt = m.ExpiresAt.String()
+	}
+	if m.MemberRole != nil {
+		out.MemberRoleName = m.MemberRole.Name
+	}
+	out.IsUsingSeat = m.IsUsingSeat
+	return out
+}
+
+// ──────────────────────────────────────────────
+// Markdown formatters
+// ──────────────────────────────────────────────.

@@ -1,0 +1,56 @@
+{
+  "name": "lionscraper",
+  "version": "1.0.6",
+  "description": "LionScraper bridge daemon, thin MCP stdio, and CLI — local HTTP + WebSocket to Chrome extension",
+  "homepage": "https://www.lionscraper.com/",
+  "mcpName": "io.github.dowant/lionscraper-node",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dowant/lionscraper-mcp.git",
+    "directory": "packages/node"
+  },
+  "type": "module",
+  "files": [
+    "dist",
+    "README.md",
+    "README_cn.md"
+  ],
+  "main": "dist/mcp.js",
+  "bin": {
+    "lionscraper": "dist/lionscraper.js",
+    "lionscraper-mcp": "dist/mcp.js"
+  },
+  "scripts": {
+    "prepublishOnly": "node ../../scripts/sync-version.mjs",
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/lionscraper.js daemon",
+    "stop": "node dist/lionscraper.js stop",
+    "restart": "npm run stop && npm run start",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "keywords": [
+    "lionscraper",
+    "scrape",
+    "web-scraping",
+    "mcp",
+    "cli",
+    "chrome-extension"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "ws": "^8.18.1",
+    "zod": "^3.24.4"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "@types/ws": "^8.18.1",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.1"
+  }
+}

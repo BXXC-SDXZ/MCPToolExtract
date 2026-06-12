@@ -1,0 +1,50 @@
+{
+  "server": {
+    "port": 3000,
+    "host": "0.0.0.0",
+    "cors": {
+      "origin": "*",
+      "methods": ["GET", "POST", "PUT", "DELETE"],
+      "allowedHeaders": ["Content-Type", "Authorization"]
+    }
+  },
+  "database": {
+    "uri": "mongodb://localhost:27017/mcp",
+    "options": {
+      "useNewUrlParser": true,
+      "useUnifiedTopology": true
+    }
+  },
+  "auth": {
+    "secret": "CHANGE_THIS_TO_A_SECURE_SECRET",
+    "tokenExpiration": "24h",
+    "saltRounds": 10
+  },
+  "logging": {
+    "level": "info",
+    "file": {
+      "enabled": true,
+      "path": "logs/mcp-server.log"
+    },
+    "console": {
+      "enabled": true,
+      "colorize": true
+    }
+  },
+  "redis": {
+    "enabled": false,
+    "host": "localhost",
+    "port": 6379,
+    "password": ""
+  },
+  "services": {
+    "discovery": {
+      "enabled": true,
+      "refreshInterval": 60000
+    },
+    "healthCheck": {
+      "enabled": true,
+      "interval": 30000
+    }
+  }
+}

@@ -1,0 +1,27 @@
+.navbar {
+  background-color: #1a202c;
+  padding: 0.8rem 1.5rem;
+  border-bottom: 1px solid #2d3748;
+}
+
+.navbar-brand {
+  color: #4299e1;
+  font-weight: 600;
+  font-size: 1.3rem;
+  display: flex;
+  align-items: center;
+  
+  .brand-text {
+    color: #f7fafc;
+  }
+}
+
+.ready-indicator {
+  color: #4299e1;
+  font-size: 0.9rem;
+}
+
+.btn-primary {
+  background-color: #4299e1;
+  border-color: #4299e1;
+}

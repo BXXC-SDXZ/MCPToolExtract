@@ -1,0 +1,29 @@
+---
+description: githubのissue, pull request, projectsの情報を取得して個別情報の取得や全体状況のまとめを行う
+globs: 
+alwaysApply: false
+---
+
+# GitHub上の情報を取得・調査する
+
+- MCP Tool `github-cli` を使って、GitHubのissues, pull requests, projectsの情報を取得することができます
+  - GraphQL API を使う方法がサポートされています
+- 目的に沿ってクエリを組み立ててください
+- 毎回、注意事項を必ず確認してから実行してください
+
+## 前提情報、対象範囲
+
+- Owner は <Everforth> です
+- 対象となる repository は下記のどれかです
+  - <Everforth/repo-1>
+  - <Everforth/repo-2>
+  - <Everforth/repo-3>
+  - <Everforth/repo-4>
+- projectV2（カンバン）を利用しています
+
+## 注意事項
+
+- レスポンスのデータ容量を小さくするため、取得する必要がある情報のみに絞ってください
+- 部分的なデータ量でデータ取得を完了したと誤認しないでください
+  - 必ずページネーション情報を取得して、条件に合致するすべてのデータを取得するまでクエリ実行を繰り返してください
+

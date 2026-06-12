@@ -1,0 +1,491 @@
+---
+title: HTTP Server Mode
+description: Multi-user deployment with per-request authentication
+---
+
+import { Tabs, TabItem } from "@astrojs/starlight/components";
+
+:::note[Developer Documentation]
+For the complete technical reference, see [`docs/http-server-mode.md`](https://github.com/jmrplens/gitlab-mcp-server/blob/main/docs/http-server-mode.md) in the repository.
+:::
+
+By default, GitLab MCP Server runs in **stdio mode** — each AI client spawns its own server process. **HTTP mode** is an alternative where a single server process serves multiple clients over the network, each authenticating with their own GitLab token.
+
+## When to use HTTP mode
+
+| Scenario                          | Recommended Mode |
+| --------------------------------- | ---------------- |
+| Single developer, local AI client | stdio            |
+| Team sharing one server instance  | **HTTP**         |
+| Remote/headless server deployment | **HTTP**         |
+| CI/CD integration with MCP        | **HTTP**         |
+| Testing with curl or HTTP clients | **HTTP**         |
+
+## Starting the server
+
+```bash
+# Single GitLab.com instance (fixed URL for all clients; replace for self-managed GitLab)
+gitlab-mcp-server --http --gitlab-url=https://gitlab.com
+
+# Multi-instance (each client specifies their GitLab URL via GITLAB-URL header)
+gitlab-mcp-server --http --http-addr=:8080
+```
+
+The server starts listening on port 8080 by default. The MCP endpoint is available at `/mcp`.
+
+## CLI flags
+
+| Flag                     | Default                      | Description                                                                                                      |
+| ------------------------ | ---------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `--http`                 | _(off)_                      | Enable HTTP transport mode                                                                                       |
+| `--http-addr`            | `:8080`                      | HTTP listen address (`host:port`)                                                                                |
+| `--gitlab-url`           | _(optional)_                 | Fixed GitLab instance URL. Omit to require `GITLAB-URL` per request                                              |
+| `--skip-tls-verify`      | `false`                      | Skip TLS certificate verification for self-signed certs                                                          |
+| `--tool-surface`         | `dynamic`                    | Canonical tool catalog selector; see [Tool and capability surface options](#tool-and-capability-surface-options) |
+| `--meta-tools`           | _(unset)_                    | Deprecated compatibility flag. Use `--tool-surface=individual` instead of `--meta-tools=false`                   |
+| `--capability-surface`   | `full`                       | Resource and prompt selector; see [Tool and capability surface options](#tool-and-capability-surface-options)    |
+| `--meta-param-schema`    | `opaque`                     | Meta-tool input schema mode: `opaque`, `compact`, or `full`; applies to meta-tool schemas only                   |
+| `--enterprise`           | `false`                      | Force Enterprise/Premium tools; omit to auto-detect CE/EE per token+URL entry                                    |
+| `--read-only`            | `false`                      | Read-only mode: disable all mutating tools                                                                       |
+| `--safe-mode`            | `false`                      | Intercept mutating tools and return a JSON preview instead of executing them                                     |
+| `--embedded-resources`   | `true`                       | Embed canonical MCP resource URIs in get\_\* tool results                                                        |
+| `--max-http-clients`     | `100`                        | Maximum unique token+URL entries in the server pool                                                              |
+| `--session-timeout`      | `30m`                        | Idle MCP session timeout                                                                                         |
+| `--auto-update`          | `true`                       | Auto-update mode: `true`, `check`, or `false`                                                                    |
+| `--auto-update-repo`     | `jmrplens/gitlab-mcp-server` | GitHub repository for release assets                                                                             |
+| `--auto-update-interval` | `1h`                         | Periodic update check interval                                                                                   |
+| `--auth-mode`            | `legacy`                     | Authentication mode: `legacy` or `oauth` (RFC 9728)                                                              |
+| `--oauth-cache-ttl`      | `15m`                        | OAuth token identity cache TTL (range: 1m–2h)                                                                    |
+| `--revalidate-interval`  | `15m`                        | Token re-validation interval; `0` to disable (upper bound: 24h)                                                  |
+| `--rate-limit-rps`       | `0`                          | Per-server `tools/call` rate limit in req/s (`0` = disabled)                                                     |
+| `--rate-limit-burst`     | `40`                         | Token-bucket burst size when `--rate-limit-rps > 0`                                                              |
+| `--trusted-proxy-header` | —                            | HTTP header with real client IP for rate limiting behind proxies (e.g. `Fly-Client-IP`, `X-Forwarded-For`)       |
+
+:::note
+`--gitlab-url` is optional. When omitted, each client must provide the `GITLAB-URL` header. When set, it is authoritative: any client-provided `GITLAB-URL` header is ignored, the configured URL is used, and the request logs `ignored_options` for that client.
+:::
+
+### Tool and capability surface options
+
+`--tool-surface` selects the visible MCP tool catalog for every HTTP server-pool entry:
+
+- `meta`: domain-level meta-tools, the consolidated catalog.
+- `individual`: every GitLab operation is exposed as its own tool.
+- `dynamic`: the current low-token two-tool surface with `gitlab_find_action` and `gitlab_execute_action`.
+
+`--capability-surface` controls resources and prompts independently of tools: `full` registers all resources, workflow guides, prompts, and the surface-aware `gitlab://tools` manifest, while `minimal` keeps `gitlab://workspace/roots` plus `gitlab://tools` and omits prompts, workflow guides, and optional GitLab data resources. Dynamic schema discovery still works with `minimal` because find returns schemas inline.
+
+`--meta-param-schema` affects visible domain meta-tool schemas only. Keep `opaque` unless a client needs `compact` or `full` in `tools/list`; exact call shapes remain available through `gitlab://tools/{id}`.
+
+### Configuration precedence
+
+HTTP clients control only their GitLab token and, in multi-instance mode, the `GITLAB-URL` selector. Server policy options such as `--tool-surface`, `--capability-surface`, `--meta-param-schema`, `--rate-limit-rps`, `--read-only`, `--safe-mode`, `--auth-mode`, and `--trusted-proxy-header` are fixed by the MCP server process and cannot be changed per user, session, or JSON-RPC request.
+
+If a client sends config-like headers such as `TOOL-SURFACE`, `META-TOOLS`, `CAPABILITY-SURFACE`, `META-PARAM-SCHEMA`, `RATE-LIMIT-RPS`, or `GITLAB-SAFE-MODE`, the server ignores them and logs their option names in `ignored_options` without logging their values. Deprecated `META-TOOLS` headers are also identified in `deprecated_options`.
+
+## Authentication
+
+Clients must provide their GitLab Personal Access Token on every HTTP request using one of two headers.
+
+When the server starts without `--gitlab-url`, clients must specify which GitLab instance to target using the `GITLAB-URL` header:
+
+```http
+GITLAB-URL: https://gitlab.example.com
+```
+
+If `--gitlab-url` was set at startup, this header is ignored and logged. If `--gitlab-url` was not set and the header is omitted, the request is rejected.
+
+### Private-token header (recommended)
+
+```http
+PRIVATE-TOKEN: glpat-xxxxxxxxxxxxxxxxxxxx
+```
+
+### Authorization Bearer header
+
+```http
+Authorization: Bearer glpat-xxxxxxxxxxxxxxxxxxxx
+```
+
+If both headers are present, `PRIVATE-TOKEN` takes precedence. Requests without a valid token are rejected.
+
+### OAuth mode
+
+OAuth mode (`--auth-mode=oauth`) enables RFC 9728–compliant OAuth 2.1 authentication. Instead of managing tokens manually, MCP clients discover the authorization server automatically and handle the OAuth flow:
+
+```bash
+gitlab-mcp-server --http --gitlab-url=https://gitlab.com --auth-mode=oauth
+```
+
+**How it works:**
+
+1. The server exposes `/.well-known/oauth-protected-resource` with metadata pointing to your GitLab instance as the authorization server
+2. MCP clients (VS Code, Claude Code) discover this endpoint and initiate the OAuth 2.1 PKCE flow
+3. Users authorize in the browser — no token copying required
+4. The server validates Bearer tokens against the GitLab API and caches the identity for `--oauth-cache-ttl` (default: 15 minutes)
+
+**Client configuration in OAuth mode:**
+
+<Tabs>
+<TabItem label="VS Code / Copilot">
+
+```json
+{
+	"servers": {
+		"gitlab": {
+			"type": "http",
+			"url": "http://your-server:8080/mcp",
+			"oauth": {
+				"clientId": "YOUR_GITLAB_APPLICATION_ID",
+				"scopes": ["api"]
+			}
+		}
+	}
+}
+```
+
+- **`clientId`**: The Application ID from your GitLab OAuth Application (see [`docs/oauth-app-setup.md`](https://github.com/jmrplens/gitlab-mcp-server/blob/main/docs/oauth-app-setup.md))
+- **`scopes`**: Must include `api` for full tool functionality
+
+VS Code handles OAuth discovery and authorization automatically.
+
+:::caution
+Without `clientId`, VS Code falls back to Dynamic Client Registration (DCR). GitLab's DCR assigns the `mcp` scope instead of `api`, causing most operations to fail.
+:::
+
+</TabItem>
+<TabItem label="Claude Code">
+
+```bash
+claude mcp add gitlab \
+  --transport http \
+  --client-id YOUR_GITLAB_APPLICATION_ID \
+  --callback-port 8090 \
+  http://your-server:8080/mcp
+```
+
+Claude Code discovers the OAuth metadata and opens the browser for authorization.
+
+</TabItem>
+</Tabs>
+
+:::tip
+OAuth mode requires a GitLab OAuth Application. See the [`docs/oauth-app-setup.md`](https://github.com/jmrplens/gitlab-mcp-server/blob/main/docs/oauth-app-setup.md) guide for setup instructions.
+:::
+
+:::note
+The `PRIVATE-TOKEN` header still works in OAuth mode — the middleware normalizes it to a Bearer token. This enables backward compatibility with clients that don't support OAuth yet.
+:::
+
+## Session management
+
+### Server pool architecture
+
+The core of HTTP mode is a **bounded LRU pool** of MCP server instances, keyed by the SHA-256 hash of each client's token **and** GitLab URL.
+
+```mermaid
+graph TD
+    subgraph "HTTP Mode Architecture"
+        REQ1["Client A<br/>Token: glpat-aaa<br/>URL: gitlab.com"] --> HANDLER[StreamableHTTPHandler]
+        REQ2["Client B<br/>Token: glpat-bbb<br/>URL: gitlab.com"] --> HANDLER
+        REQ3["Client C<br/>Token: glpat-aaa<br/>URL: self-hosted.example.com"] --> HANDLER
+
+        HANDLER --> POOL[Server Pool]
+
+        POOL --> ENTRY1["hash(glpat-aaa + gitlab.com)<br/>MCP Server + GitLab Client"]
+        POOL --> ENTRY2["hash(glpat-bbb + gitlab.com)<br/>MCP Server + GitLab Client"]
+        POOL --> ENTRY3["hash(glpat-aaa + self-hosted)<br/>MCP Server + GitLab Client"]
+    end
+
+    ENTRY1 --> GL1["GitLab API<br/>as user A @ gitlab.com"]
+    ENTRY2 --> GL2["GitLab API<br/>as user B @ gitlab.com"]
+    ENTRY3 --> GL3["GitLab API<br/>as user A @ self-hosted"]
+```
+
+**Key properties:**
+
+- Clients with the **same token and same GitLab URL** share the same MCP server instance
+- Clients with **different tokens** or **different GitLab URLs** get completely isolated instances
+- Raw tokens are **never stored** — only SHA-256 hashes of token+URL are kept in memory
+- When the pool reaches `--max-http-clients`, the least recently used entry is evicted
+
+### Session lifecycle
+
+1. **First request**: Token and GitLab URL are extracted, combined and hashed, and a new MCP server + GitLab client is created
+2. **Subsequent requests**: The existing entry is found and promoted in the LRU list
+3. **Idle timeout**: After `--session-timeout` of inactivity, the MCP session is closed (but the pool entry remains)
+4. **Pool eviction**: When capacity is reached, the oldest entry is removed entirely
+
+## Rate limiting
+
+HTTP mode includes an optional **per-server token-bucket rate limiter** that throttles `tools/call` requests. The limiter is **disabled by default** (`--rate-limit-rps=0`) and applies to each pool entry independently — that is, the scope is the same `(token + GitLab URL)` key used by the server pool.
+
+### Configuration
+
+| Flag                 | Default | Meaning                                                                 |
+| -------------------- | ------- | ----------------------------------------------------------------------- |
+| `--rate-limit-rps`   | `0`     | Sustained refill rate, in requests per second. `0` disables the limiter |
+| `--rate-limit-burst` | `40`    | Maximum bucket capacity (peak burst over 1s)                            |
+
+When `--rate-limit-rps > 0`, each pool entry gets its own token bucket sized at `--rate-limit-burst` tokens, refilled at `--rate-limit-rps` per second. Only `tools/call` requests consume tokens; `tools/list`, `resources/*`, `prompts/*`, `initialize`, and other low-cost RPCs are not rate-limited.
+
+### Behaviour on exhaustion
+
+When a request would deplete the bucket, the server returns a `CallToolResult` with `IsError: true` and a text message such as `rate limit exceeded for <tool>; retry after a short backoff`. Clients should back off (exponentially or by detecting that message) and retry. The limiter does not return HTTP 429 because the limit is enforced **after** JSON-RPC routing, inside the MCP layer.
+
+### Sizing guidance
+
+- **Single-user deployment** (typical local dev): leave disabled (`--rate-limit-rps=0`)
+- **Shared instance behind a proxy** (Fly.io, Kubernetes): start with `--rate-limit-rps=10 --rate-limit-burst=40`. Each token+URL pair gets its own quota, so this protects against a single noisy client without affecting others
+- **Large multi-tenant deployment**: combine with infra-level rate limiting (Cloudflare, Caddy, nginx). The MCP-level limiter is a safety net, not a replacement for edge enforcement
+
+:::caution
+Because the limiter scopes by token+URL, a client that rotates tokens frequently can bypass it. Use infrastructure-level rate limiting on top for hard quotas. The `--trusted-proxy-header` flag is required for accurate per-IP enforcement at the proxy layer.
+:::
+
+## Client configuration
+
+<Tabs>
+<TabItem label="VS Code / Copilot">
+
+Add to `.vscode/mcp.json`:
+
+```json
+{
+	"servers": {
+		"gitlab": {
+			"type": "http",
+			"url": "http://your-server:8080/mcp",
+			"headers": {
+				"PRIVATE-TOKEN": "glpat-your-token"
+			}
+		}
+	}
+}
+```
+
+</TabItem>
+<TabItem label="OpenCode">
+
+```json
+{
+	"mcpServers": {
+		"gitlab": {
+			"url": "http://your-server:8080/mcp",
+			"headers": {
+				"PRIVATE-TOKEN": "glpat-your-token"
+			}
+		}
+	}
+}
+```
+
+</TabItem>
+<TabItem label="curl (Testing)">
+
+```bash
+curl -X POST http://localhost:8080/mcp \
+  -H "Content-Type: application/json" \
+  -H "PRIVATE-TOKEN: glpat-your-token" \
+  -d '{"jsonrpc":"2.0","method":"tools/list","id":1}'
+```
+
+</TabItem>
+</Tabs>
+
+## Docker deployment
+
+The project publishes a multi-arch Docker image at [`ghcr.io/jmrplens/gitlab-mcp-server`](https://github.com/jmrplens/gitlab-mcp-server/pkgs/container/gitlab-mcp-server) for `linux/amd64` and `linux/arm64`. The image runs as a non-root user (UID 10001), exposes port 8080, ships a built-in `/health` endpoint for orchestrators, and starts in HTTP mode by default.
+
+:::note
+If an IDE launches the Docker image as a stdio MCP process, pass `--http=false` after the image name instead of publishing port 8080. HTTP and stdio are separate transports.
+:::
+
+### Quick start with `docker run`
+
+<Tabs>
+<TabItem label="Single instance">
+
+```bash
+docker run -d \
+  --name gitlab-mcp \
+  --read-only \
+  --tmpfs /tmp:rw,size=64m \
+  --cap-drop=ALL \
+  --security-opt=no-new-privileges:true \
+  -p 8080:8080 \
+  ghcr.io/jmrplens/gitlab-mcp-server:latest \
+  --http \
+  --http-addr=0.0.0.0:8080 \
+  --gitlab-url=https://gitlab.com
+```
+
+</TabItem>
+<TabItem label="Multi-instance">
+
+```bash
+# Omit --gitlab-url; clients send the GITLAB-URL header per request
+docker run -d \
+  --name gitlab-mcp \
+  --read-only \
+  --tmpfs /tmp:rw,size=64m \
+  --cap-drop=ALL \
+  --security-opt=no-new-privileges:true \
+  -p 8080:8080 \
+  ghcr.io/jmrplens/gitlab-mcp-server:latest \
+  --http \
+  --http-addr=0.0.0.0:8080
+```
+
+</TabItem>
+</Tabs>
+
+:::tip
+Pin the image to a specific release tag (for example `ghcr.io/jmrplens/gitlab-mcp-server:<version>`) in production. The `latest` tag tracks the newest release and may shift unexpectedly.
+:::
+
+### Docker Compose
+
+```yaml
+services:
+  gitlab-mcp:
+    image: ghcr.io/jmrplens/gitlab-mcp-server:latest
+    ports:
+      - "8080:8080"
+    command:
+      # Single instance mode (fixed GitLab.com URL for all clients; replace for self-managed GitLab):
+      - "--http"
+      - "--gitlab-url=https://gitlab.com"
+      - "--http-addr=:8080"
+      - "--max-http-clients=200"
+      - "--session-timeout=1h"
+      # Or multi-instance mode (remove --gitlab-url, clients send GITLAB-URL header)
+    # Security hardening (least privilege, OWASP Docker security)
+    read_only: true
+    tmpfs:
+      - /tmp:rw,size=64m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+```
+
+Start the service:
+
+```bash
+docker compose up -d
+```
+
+:::note
+A reference [`docker-compose.yml`](https://github.com/jmrplens/gitlab-mcp-server/blob/main/docker-compose.yml) is shipped at the repository root. It reads configuration from a `.env` file and applies the same hardening shown above.
+:::
+
+### Image security model
+
+The image follows OWASP Docker Top 10 guidance:
+
+| Property             | Value                                                                    |
+| -------------------- | ------------------------------------------------------------------------ |
+| Base image           | `alpine:3.23` (minimal, regularly patched)                               |
+| User                 | `appuser` (UID 10001, non-root)                                          |
+| Filesystem           | Read-only with writable `tmpfs` for `/tmp`                               |
+| Capabilities         | All dropped (`--cap-drop=ALL`)                                           |
+| Privilege escalation | Disabled (`no-new-privileges:true`)                                      |
+| Build flags          | `-trimpath -buildmode=pie` (PIE binary, no source paths in stack traces) |
+| OCI labels           | `org.opencontainers.image.*` populated with version, commit, source URL  |
+
+### Auto-update inside containers
+
+Auto-update is **disabled by default** when using the reference `docker-compose.yml` (which sets `--auto-update=false`). Container immutability is the recommended pattern: pull a newer image tag and restart the container. If you need in-place updates (e.g. on a single-host deployment without an image registry mirror), set `--auto-update=true` and mount the binary path as a writable volume.
+
+## Fly.io deployment
+
+[Fly.io](https://fly.io/) is a managed platform that runs Docker images globally with built-in TLS, anycast routing, and per-region machine scaling. The repository ships a reference [`fly.toml`](https://github.com/jmrplens/gitlab-mcp-server/blob/main/fly.toml) configured for **multi-instance mode** — each client supplies its own GitLab token and `GITLAB-URL` header per request, so a single Fly app can serve users connecting to different GitLab instances.
+
+### Prerequisites
+
+- A [Fly.io account](https://fly.io/app/sign-up) and the [`flyctl`](https://fly.io/docs/hands-on/install-flyctl/) CLI installed
+- A clone of the repository (or a fork with your own `fly.toml`)
+
+### Initial deploy
+
+```bash
+# 1. Sign in
+flyctl auth login
+
+# 2. Create the app (use a unique name; the default in fly.toml is gitlab-mcp-server)
+flyctl launch --no-deploy --copy-config --name your-mcp-app-name
+
+# 3. Deploy
+flyctl deploy
+```
+
+The shipped `fly.toml` uses the multi-stage `Dockerfile` at the repository root and overrides the container `CMD` with HTTP-mode flags:
+
+```toml
+[experimental]
+  cmd = [
+    "--http",
+    "--http-addr", "0.0.0.0:8080",
+    "--tool-surface=meta",
+    "--auto-update=false",
+    "--trusted-proxy-header", "Fly-Client-IP"
+  ]
+```
+
+:::tip
+`--trusted-proxy-header=Fly-Client-IP` is critical on Fly.io: the platform's edge proxy sets this header with the real client IP, and the built-in rate limiter reads it instead of the load-balancer IP. Do not enable this header on deployments that are reachable directly without a trusted proxy.
+:::
+
+### Operational commands
+
+```bash
+flyctl status              # Machine state and recent deploys
+flyctl logs                # Live tail of structured logs
+flyctl scale count 2       # Run two machines (e.g. for HA)
+flyctl scale memory 512    # Bump memory to 512 MB (default in fly.toml: 256 MB)
+```
+
+### Health and TLS
+
+- The Fly proxy probes `GET /health` every 30s with a 5s timeout (configured under `[[http_service.checks]]`)
+- TLS is terminated at the Fly edge with `force_https = true` — internal traffic to the machine on port 8080 is HTTP
+- `auto_stop_machines = "stop"` and `min_machines_running = 0` let idle deployments scale to zero between requests
+
+### Auto-update on Fly
+
+Auto-update is **disabled** in the shipped configuration (`--auto-update=false`). On Fly.io, the recommended upgrade flow is to redeploy with a new image:
+
+```bash
+flyctl deploy --image ghcr.io/jmrplens/gitlab-mcp-server:<version>
+```
+
+This replaces the running machines with the new version atomically and preserves your secrets and configuration.
+
+### OAuth on Fly.io
+
+The shipped `fly.toml` runs in **legacy auth mode** (PAT per request). OAuth mode is also supported but requires a stable public URL known at startup so the OAuth discovery endpoints (`/.well-known/oauth-protected-resource`) advertise the right metadata. To enable OAuth, set `--auth-mode=oauth` and `--gitlab-url=<your-default>` in the `cmd` array, then redeploy. See [`docs/oauth-app-setup.md`](https://github.com/jmrplens/gitlab-mcp-server/blob/main/docs/oauth-app-setup.md) for the GitLab OAuth Application setup.
+
+## Health check
+
+You can verify the server is running by sending a `tools/list` request:
+
+```bash
+curl -s -X POST http://localhost:8080/mcp \
+  -H "Content-Type: application/json" \
+  -H "PRIVATE-TOKEN: glpat-your-token" \
+  -d '{"jsonrpc":"2.0","method":"tools/list","id":1}' | head -c 200
+```
+
+A successful response returns a JSON-RPC result with the list of available tools.
+
+:::tip
+For production deployments, place the server behind a reverse proxy (nginx, Caddy) that handles TLS termination. The MCP endpoint at `/mcp` supports standard HTTP load balancing.
+:::

@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Authorization Code</title>
+    <script>
+        function displayCode() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const code = urlParams.get('code');
+            const state = urlParams.get('state');
+            
+            if (!code || !state) {
+                document.getElementById('result').textContent = 'Error: Missing authorization code or state';
+                return;
+            }
+            
+            const result = {
+                authorization_code: code,
+                state: state,
+                redirect_uri: window.location.origin + '/display-code',
+                token_endpoint: window.location.origin + '/oauth2/token'
+            };
+
+            document.getElementById('result').textContent = JSON.stringify(result, null, 2);
+            
+            // Create curl command for manual token exchange
+            const curlCommand = `curl -X POST '${window.location.origin}/oauth2/token' \\
+    -H 'Content-Type: application/x-www-form-urlencoded' \\
+    --data-urlencode 'grant_type=authorization_code' \\
+    --data-urlencode 'code=${code}' \\
+    --data-urlencode 'redirect_uri=${window.location.origin}/display-code' \\
+    --data-urlencode 'client_id=mcp-client' \\
+    --data-urlencode 'client_secret=secret' \\
+    --data-urlencode 'code_verifier=<code-verifier>'`;
+
+            document.getElementById('curl-command').textContent = curlCommand;
+
+            // Add refresh token command template
+            const refreshTokenCommand = `curl -X POST '${window.location.origin}/oauth2/token' \\
+    -H 'Content-Type: application/x-www-form-urlencoded' \\
+    --data-urlencode 'grant_type=refresh_token' \\
+    --data-urlencode 'refresh_token=<your-refresh-token>' \\
+    --data-urlencode 'client_id=mcp-client' \\
+    --data-urlencode 'client_secret=secret'`;
+
+            document.getElementById('refresh-token-command').textContent = refreshTokenCommand;
+
+            // Clean up stored code verifier after displaying
+            localStorage.removeItem(`cv_${state}`);
+            localStorage.removeItem(`cv_${state}_timestamp`);
+        }
+
+        // Display code when page loads
+        window.onload = displayCode;
+    </script>
+    <style>
+        pre {
+            background-color: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        .section {
+            margin-bottom: 20px;
+        }
+        .note {
+            background-color: #fff3cd;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Authorization Response</h1>
+    <pre id="result"></pre>
+    
+    <h2>Curl Command for Token Exchange</h2>
+    <pre id="curl-command"></pre>
+
+    <div class="section">
+        <h2>Refresh Token Usage</h2>
+        <div class="note">
+            <p>After receiving your initial token response, you can use the refresh token to get a new access token when it expires.
+               The refresh token is valid for 30 days and can only be used once (non-reusable).</p>
+        </div>
+        <h3>Curl Command for Refresh Token</h3>
+        <pre id="refresh-token-command"></pre>
+    </div>
+</body>
+</html> 

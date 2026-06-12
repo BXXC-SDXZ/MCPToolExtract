@@ -1,0 +1,42 @@
+{
+  "title": "Paramètres",
+  "sections": {
+    "aiVoice": "Votre voix IA",
+    "profileIdentity": "Identité du profil",
+    "provinceTax": "Province et impôts",
+    "localMarketBoard": "Chambre immobilière locale",
+    "businessStructure": "Structure d'entreprise",
+    "commissionStructure": "Structure de commission",
+    "postCapSplit": "Partage post-plafond",
+    "postCapSplitOptional": "(optionnel)",
+    "brokerageFees": "Frais d'agence",
+    "runwayInputs": "Données d'autonomie",
+    "annualGoal": "Objectif annuel",
+    "growthPlan": "Plan de croissance sur 5 ans",
+    "claimingDeductions": "Réclamations et déductions",
+    "planBilling": "Forfait et facturation"
+  },
+  "fields": {
+    "displayName": "Nom d'affichage",
+    "email": "Courriel",
+    "province": "Province",
+    "goalGCI": "Objectif annuel de RCB",
+    "cashReserve": "Réserve de trésorerie",
+    "splitPreset": "Partage de commission",
+    "monthlyBrokerageFee": "Frais mensuels d'agence",
+    "txFeeRate": "Taux de frais de transaction",
+    "txFeeAnnualCap": "Plafond annuel des frais",
+    "experienceYears": "Années d'expérience",
+    "colorTheme": "Thème de couleur"
+  },
+  "actions": {
+    "save": "Enregistrer les modifications",
+    "saved": "Enregistré",
+    "deleteAccount": "Supprimer le compte",
+    "manageSubscription": "Gérer l'abonnement"
+  },
+  "messages": {
+    "disconnectError": "Impossible de déconnecter. Veuillez réessayer.",
+    "settingsSaved": "Paramètres enregistrés."
+  }
+}

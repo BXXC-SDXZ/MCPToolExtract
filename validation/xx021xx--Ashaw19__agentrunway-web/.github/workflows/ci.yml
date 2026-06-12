@@ -1,0 +1,130 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run tests
+        run: pnpm turbo test
+
+      - name: Build web app
+        run: pnpm turbo build --filter=agentrunway-web
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder
+          NEXT_PUBLIC_SENTRY_DSN: https://placeholder@sentry.io/0
+          # 15+ SEO pages cause Next.js to exceed the default ~1.5 GB Node.js
+          # heap on GitHub's ubuntu-latest runner. 4 GB is well within the
+          # 7 GB available on that runner class.
+          NODE_OPTIONS: '--max-old-space-size=4096'
+
+      - name: Check bundle size
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          echo "## Bundle Size Report" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          du -sh apps/web/.next/static/chunks/*.js 2>/dev/null | sort -rh | head -20 >> $GITHUB_STEP_SUMMARY || echo "No chunks found" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          TOTAL=$(du -sh apps/web/.next 2>/dev/null | cut -f1)
+          echo "**Total .next size: $TOTAL**" >> $GITHUB_STEP_SUMMARY
+
+      - name: Type check
+        run: pnpm turbo typecheck --filter=agentrunway-web
+
+  lockfile-typecheck:
+    # Cache-busting full typecheck for PRs that modify pnpm-lock.yaml.
+    #
+    # Background: `pnpm turbo build` and `pnpm turbo typecheck` reuse turbo's
+    # per-file content-hash cache. When a dependency bump (e.g. a Dependabot
+    # PR) tightens types in unmodified files, turbo skips re-typechecking
+    # those files and CI reports green — but Vercel's fresh-build catches
+    # the regressions only as a production-deploy failure after merge.
+    #
+    # This job runs `tsc --noEmit` directly (no turbo, no cache) against the
+    # full source tree, but only when pnpm-lock.yaml has actually changed in
+    # the PR. Non-lockfile PRs are unaffected and keep the fast turbo-cached
+    # path in the `build` job above.
+    #
+    # Source: memory/findings/infra_turbo_cache_masking_dependency_regressions_2026-05-06.md
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Detect pnpm-lock.yaml changes
+        id: lockfile
+        run: |
+          if git diff --name-only "origin/${{ github.base_ref }}...HEAD" | grep -qx 'pnpm-lock.yaml'; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "pnpm-lock.yaml changed in this PR — running cache-busting typecheck."
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "pnpm-lock.yaml unchanged in this PR — skipping cache-busting typecheck."
+          fi
+
+      - uses: pnpm/action-setup@v5
+        if: steps.lockfile.outputs.changed == 'true'
+
+      - uses: actions/setup-node@v6
+        if: steps.lockfile.outputs.changed == 'true'
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies (frozen)
+        if: steps.lockfile.outputs.changed == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Cache-busting typecheck (apps/web)
+        if: steps.lockfile.outputs.changed == 'true'
+        run: cd apps/web && npx tsc --noEmit
+
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: build
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright Chromium
+        run: cd apps/web && npx playwright install chromium --with-deps
+
+      - name: Run E2E tests against production
+        run: cd apps/web && npx playwright test --reporter=github
+        env:
+          PLAYWRIGHT_BASE_URL: https://agentrunway.ca

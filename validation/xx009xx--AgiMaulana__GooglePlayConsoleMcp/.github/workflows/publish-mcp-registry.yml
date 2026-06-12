@@ -1,0 +1,28 @@
+name: Publish to MCP Registry
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  publish:
+    name: Publish server.json to MCP Registry
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # Mandatory for OIDC
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install MCP Publisher
+        run: |
+          curl -L "https://github.com/modelcontextprotocol/registry/releases/download/v1.5.0/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz
+      
+      - name: Update version & Publish
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          python3 -c "import json; d=json.load(open('server.json')); d['version']='$VERSION'; json.dump(d,open('server.json','w'))" 
+          ./mcp-publisher login github-oidc
+          ./mcp-publisher publish
+
+          

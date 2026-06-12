@@ -1,0 +1,62 @@
+// @burnishdev/app — headless SDK for navigation, sessions, and output transformation
+
+export {
+    getNodeById,
+    getChildren,
+    getRootNodes,
+    getAncestryPath,
+    getActivePath,
+    getDescendantIds,
+    type TreeNode,
+    type TreeSession,
+} from './navigation-tree.js';
+
+export {
+    SessionStore,
+    type SessionMeta,
+    type AppNode,
+    type AppSession,
+} from './session-store.js';
+
+export {
+    transformOutput,
+    type TransformOutputOptions,
+} from './output-transformer.js';
+
+export {
+    isWriteTool,
+    generateFallbackForm,
+} from './drill-down.js';
+
+export {
+    generateSummary,
+    formatTimeAgo,
+} from './summary.js';
+
+export { StreamOrchestrator } from './stream-orchestrator.js';
+
+export {
+    assessToolRisk,
+    assessConfigRisk,
+    type ToolRisk,
+    type ConfigWarning,
+} from './risk-indicators.js';
+
+export {
+    PerfStore,
+    type PerfRecord,
+    type ModelStats,
+    type ToolStats,
+} from './perf-store.js';
+
+export {
+    TemplateStore,
+    extractHtmlStructure,
+    deriveToolKey,
+    type LearnedTemplate,
+} from './template-store.js';
+
+export {
+    PromptLibrary,
+    type PromptEntry,
+} from './prompt-library.js';

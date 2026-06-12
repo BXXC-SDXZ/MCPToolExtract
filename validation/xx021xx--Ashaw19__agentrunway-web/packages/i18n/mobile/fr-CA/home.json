@@ -1,0 +1,119 @@
+{
+  "greeting": {
+    "morning": "Bonjour",
+    "afternoon": "Bon après-midi",
+    "evening": "Bonsoir"
+  },
+  "score": {
+    "runwayScore": "Score Runway",
+    "outOf": "/100",
+    "strong": "Solide",
+    "onTrack": "En bonne voie",
+    "building": "En construction",
+    "atRisk": "À risque",
+    "tapForDetails": "{{label}} · Appuyez pour les détails",
+    "description": "Basé sur le rythme de l'objectif, la couverture du pipeline, les dépenses et les réserves"
+  },
+  "scoreBar": {
+    "pace": "Rythme",
+    "pipeline": "Pipeline",
+    "expenses": "Dépenses",
+    "bench": "Réserve",
+    "survival": "Survie"
+  },
+  "metrics": {
+    "ytdGci": "RBC cumul",
+    "goalPace": "Rythme objectif",
+    "activePipeline": "Pipeline actif",
+    "closedDeals": "Transactions conclues",
+    "dealsClosed": "Transactions conclues",
+    "pipelineValue": "Valeur du pipeline",
+    "pipeline": "Pipeline",
+    "clients": "Clients",
+    "pending": "En attente",
+    "deals": "{{count}} transactions",
+    "needFollowUp": "{{count}} à relancer"
+  },
+  "actions": {
+    "overdue": "en retard",
+    "ready": "prêts",
+    "pending": "en attente",
+    "followUps": "suivis",
+    "newLeads": "Nouveaux prospects",
+    "pendingDeals": "Transactions en attente",
+    "allCaughtUp": "Tout est à jour"
+  },
+  "sync": {
+    "offline": "Hors ligne — modifications enregistrées localement",
+    "pendingSync": "{{count}} modification en attente de sync",
+    "pendingSync_plural": "{{count}} modifications en attente de sync",
+    "updating": "Mise à jour…"
+  },
+  "streak": {
+    "loggedToday": "{{count}} enregistré(s) aujourd'hui",
+    "dayStreak": "Série de {{count}} jours"
+  },
+  "briefing": {
+    "title": "FOCUS DU JOUR",
+    "noBriefing": "Aucun élément de briefing aujourd'hui",
+    "itemCount": "{{count}} élément",
+    "itemCount_plural": "{{count}} éléments",
+    "types": {
+      "vip_overdue": "VIP en retard",
+      "uncontacted_lead": "Lead non contacté",
+      "in_flight_stale": "Transaction active silencieuse",
+      "birthday_today": "Anniversaire aujourd'hui",
+      "birthday_soon": "Anniversaire à venir",
+      "closing_anniversary": "Anniversaire de clôture",
+      "mortgage_renewal_window": "Fenêtre de renouvellement hypothécaire",
+      "mortgage_renewal_due": "Renouvellement hypothécaire dû",
+      "past_client_check_in": "Suivi ancien client",
+      "timeframe_approaching": "Échéance approche",
+      "property_value_milestone": "Étape de valeur immobilière",
+      "no_contact_info": "Coordonnées manquantes",
+      "possible_duplicate": "Doublon possible",
+      "listing_appointment_overdue": "Rendez-vous d'inscription en retard",
+      "listing_stale": "Inscription inactive",
+      "hot_pipeline": "Pipeline actif",
+      "task_due_today": "Tâche due aujourd'hui",
+      "overdue_followup": "Suivi en retard",
+      "unknown": "Action requise"
+    }
+  },
+  "goal": {
+    "annualGoal": "OBJECTIF ANNUEL",
+    "ofGoal": "{{current}} de {{goal}}"
+  },
+  "nextUp": {
+    "title": "PROCHAINE TÂCHE",
+    "overdue": "En retard",
+    "high": "ÉLEVÉE"
+  },
+  "pipelinePreview": {
+    "title": "PIPELINE",
+    "seeAll": "Tout voir",
+    "pipelineDeal": "Transaction pipeline"
+  },
+  "quickAccess": {
+    "label": "ACCÈS RAPIDE",
+    "briefing": "Briefing",
+    "outreach": "Contrôle de vol",
+    "forecast": "Prévision",
+    "receipt": "Reçu"
+  },
+  "quickCapture": {
+    "title": "Capture rapide",
+    "clientLabel": "CLIENT",
+    "typeLabel": "TYPE",
+    "notesLabel": "NOTES",
+    "searchClient": "Rechercher un client...",
+    "notesPlaceholder": "Que s'est-il passé ?",
+    "activityTypes": {
+      "call": "Appel",
+      "text": "Texto",
+      "showing": "Visite",
+      "meeting": "Rencontre",
+      "note": "Note"
+    }
+  }
+}

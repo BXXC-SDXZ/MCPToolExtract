@@ -1,0 +1,114 @@
+{
+  "title": "Transactions",
+  "tabs": {
+    "pipeline": "Pipeline",
+    "closed": "Conclues",
+    "pending": "En attente"
+  },
+  "stats": {
+    "gciClosed": "RBC conclues",
+    "totalGci": "RBC total",
+    "pipelineValue": "Pipeline",
+    "pendingCount": "En attente"
+  },
+  "search": {
+    "placeholder": "Rechercher par adresse ou client..."
+  },
+  "stages": {
+    "lead": "Prospect",
+    "showing": "Visite",
+    "offer": "Offre",
+    "conditional": "Conditionnel",
+    "firm": "Ferme",
+    "closed": "Fermé",
+    "breakdown": "RÉPARTITION PAR ÉTAPE"
+  },
+  "pipeline": {
+    "empty": {
+      "title": "Aucune transaction en pipeline",
+      "subtitle": "Ajoutez des transactions pour suivre vos commissions à venir",
+      "actionLabel": "Ajouter une transaction"
+    },
+    "probability": "{{pct}} % de probabilité",
+    "estimatedGci": "RBC estimé",
+    "advanceStage": "Avancer l'étape",
+    "close": "Clôture :",
+    "untitledDeal": "Transaction sans titre"
+  },
+  "transaction": {
+    "closedDate": "Conclue le {{date}}",
+    "pendingDate": "Prévue le {{date}}",
+    "gci": "RBC",
+    "salePrice": "Prix de vente",
+    "sale": "Vente :",
+    "commission": "Commission",
+    "commissionPct": "{{pct}} % de commission",
+    "side": "Côté",
+    "status": "STATUT",
+    "date": "Date",
+    "transactionLabel": "Transaction"
+  },
+  "closedEmpty": {
+    "title": "Aucune transaction conclue cette année",
+    "subtitle": "Les transactions conclues apparaîtront ici"
+  },
+  "pendingEmpty": {
+    "title": "Aucune transaction en attente",
+    "subtitle": "Les transactions en cours de clôture apparaîtront ici"
+  },
+  "searchEmpty": {
+    "title": "Aucune correspondance",
+    "subtitle": "Aucune transaction ne correspond à « {{query}} »"
+  },
+  "addDeal": {
+    "title": "Enregistrer une transaction",
+    "addressLabel": "Adresse",
+    "addressPlaceholder": "123, rue Principale",
+    "clientLabel": "Client",
+    "clientPlaceholder": "Nom du client",
+    "priceLabel": "Prix de vente",
+    "pricePlaceholder": "650 000",
+    "commissionLabel": "Commission %",
+    "commissionPlaceholder": "2,5",
+    "stageLabel": "Étape",
+    "typeLabel": "Côté",
+    "buy": "Acheteur",
+    "sell": "Vendeur",
+    "save": "Enregistrer la transaction",
+    "saving": "Enregistrement..."
+  },
+  "detail": {
+    "title": "Détails de la transaction",
+    "address": "Adresse",
+    "client": "Client",
+    "stage": "ÉTAPE",
+    "estimatedPrice": "Prix estimé",
+    "price": "Prix",
+    "probability": "Probabilité",
+    "expectedClose": "Clôture prévue",
+    "closingDate": "Date de clôture",
+    "notes": "NOTES",
+    "advanceTo": "Avancer à {{stage}}",
+    "markClosed": "Marquer comme conclue",
+    "updating": "Mise à jour..."
+  },
+  "transactionDetail": {
+    "title": "Détails de la transaction"
+  },
+  "edit": {
+    "title": "Modifier la transaction",
+    "edit": "Modifier",
+    "save": "Enregistrer",
+    "saving": "Enregistrement...",
+    "clientPlaceholder": "Nom du client",
+    "expectedCloseLabel": "Date de clôture prévue",
+    "probabilityOverrideLabel": "Probabilité manuelle (%)",
+    "probabilityOverridePlaceholder": "Par défaut {{defaultProb}} %",
+    "notesPlaceholder": "Ajouter des notes...",
+    "overrideTag": "manuel",
+    "invalidPrice": "Entrez un prix valide (chiffres seulement).",
+    "invalidCommission": "La commission doit être entre 0 et 50 %.",
+    "invalidProbability": "La probabilité doit être entre 0 et 100 %.",
+    "invalidDate": "Utilisez le format AAAA-MM-JJ."
+  }
+}

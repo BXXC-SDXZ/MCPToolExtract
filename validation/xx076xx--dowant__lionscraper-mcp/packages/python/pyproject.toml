@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lionscraper"
+dynamic = ["version"]
+description = "LionScraper bridge daemon, thin MCP stdio, and CLI — local HTTP + WebSocket to Chrome extension (Python)"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [{ name = "LionScraper" }]
+keywords = ["lionscraper", "mcp", "cli", "web-scraping", "chrome-extension"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+  "aiohttp>=3.9.0",
+  "pydantic>=2.6.0",
+  "mcp>=1.8.0",
+]
+
+[project.urls]
+Homepage = "https://www.lionscraper.com/"
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.24.0"]
+
+[project.scripts]
+lionscraper = "lionscraper.cli.entry:main_cli"
+"lionscraper-mcp" = "lionscraper.cli.entry:main_mcp_or_cli"
+
+[tool.setuptools.dynamic]
+version = { file = "VERSION" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+lionscraper = ["locale/*.json"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["src"]

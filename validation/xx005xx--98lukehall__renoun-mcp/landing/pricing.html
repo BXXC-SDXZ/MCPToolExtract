@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pricing — ReNoUn | Structural Regime Classification for Crypto</title>
+<meta name="description" content="ReNoUn pricing: 50 free calls/day, $0.02/call metered. Pre-trade structural risk gate for trading agents. No credit card required.">
+<link rel="canonical" href="https://harrisoncollab.com/pricing.html">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://harrisoncollab.com/pricing.html">
+<meta property="og:title" content="ReNoUn Pricing — 50 Free Calls/Day">
+<meta property="og:description" content="Pre-trade risk gate for crypto trading agents. 50 free calls/day. $0.02/call beyond that. No credit card required to start.">
+<meta property="og:image" content="https://harrisoncollab.com/og-image.png">
+<meta property="og:site_name" content="Harrison Collab">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="ReNoUn Pricing — Free to Start">
+<meta name="twitter:description" content="Structural regime classification. 50 free calls/day. $0.02/call metered.">
+<meta name="keywords" content="ReNoUn pricing, crypto risk API pricing, regime classification cost, trading agent API">
+<meta name="author" content="Luke Hall">
+<meta name="theme-color" content="#0A0E17">
+<link rel="icon" type="image/png" href="logo.png">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {"@type": "Question", "name": "How does metered billing work?", "acceptedAnswer": {"@type": "Answer", "text": "50 calls/day are free. Beyond that, each call is $0.02. Billed monthly via Stripe. You must add a payment method before exceeding the free tier — calls stop at 50 without one."}},
+    {"@type": "Question", "name": "What does the API return?", "acceptedAnswer": {"@type": "Answer", "text": "Regime type (bounded/active/unstable), action (proceed/reduce/avoid), exposure scalar (0.0-1.0), DHS score, constellation pattern, and stability half-life estimate."}},
+    {"@type": "Question", "name": "Is this financial advice?", "acceptedAnswer": {"@type": "Answer", "text": "No. ReNoUn is a structural risk measurement tool, not a trading signal. It measures disorder, not direction."}},
+    {"@type": "Question", "name": "Can I cancel anytime?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Remove your payment method anytime to revert to the free tier. No contracts."}}
+  ]
+}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --bg: #0A0E17; --bg-card: #111827; --border: #1F2937;
+  --text: #F9FAFB; --text-dim: #9CA3AF; --text-muted: #6B7280;
+  --accent: #7CDB8A; --accent-dim: rgba(124,219,138,0.15);
+  --radius: 12px;
+}
+body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg); color: var(--text); line-height: 1.7; min-height: 100vh; display: flex; flex-direction: column; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+nav { display: flex; align-items: center; justify-content: space-between; padding: 16px 32px; border-bottom: 1px solid var(--border); }
+nav .logo { font-weight: 700; font-size: 18px; color: var(--text); text-decoration: none; }
+nav .links a { color: var(--text-dim); margin-left: 24px; font-size: 14px; }
+nav .links a:hover { color: var(--text); text-decoration: none; }
+
+.hero { text-align: center; padding: 80px 24px 40px; }
+.hero h1 { font-size: 36px; font-weight: 800; letter-spacing: -0.03em; margin-bottom: 12px; }
+.hero p { color: var(--text-dim); font-size: 18px; max-width: 550px; margin: 0 auto; }
+
+.pricing-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; max-width: 720px; margin: 48px auto; padding: 0 24px; }
+.card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 32px; display: flex; flex-direction: column; }
+.card.featured { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.card .badge { background: var(--accent); color: #0A0E17; font-size: 11px; font-weight: 700; padding: 4px 12px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.05em; display: inline-block; margin-bottom: 16px; width: fit-content; }
+.card .name { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+.card .desc { color: var(--text-dim); font-size: 14px; margin-bottom: 20px; line-height: 1.5; }
+.card .price { font-size: 40px; font-weight: 800; letter-spacing: -0.03em; }
+.card .price .period { font-size: 16px; color: var(--text-muted); font-weight: 500; }
+.card .price-note { color: var(--text-dim); font-size: 13px; margin-top: 4px; margin-bottom: 24px; }
+.card ul { list-style: none; flex: 1; margin-bottom: 24px; }
+.card li { font-size: 14px; color: var(--text-dim); padding: 6px 0; }
+.card li::before { content: "\2713 "; color: var(--accent); font-weight: 700; margin-right: 8px; }
+.card .btn { display: block; text-align: center; padding: 12px; border-radius: 8px; font-weight: 700; font-size: 15px; text-decoration: none; transition: all 0.2s; }
+.btn-primary { background: var(--accent); color: #0A0E17; }
+.btn-primary:hover { background: #6BC77A; text-decoration: none; }
+.btn-outline { border: 2px solid var(--border); color: var(--text); background: transparent; }
+.btn-outline:hover { border-color: var(--text-muted); text-decoration: none; }
+
+.faq { max-width: 700px; margin: 48px auto 80px; padding: 0 24px; }
+.faq h2 { font-size: 24px; font-weight: 700; margin-bottom: 24px; text-align: center; }
+.faq-item { border-bottom: 1px solid var(--border); padding: 20px 0; }
+.faq-item:last-child { border-bottom: none; }
+.faq-q { font-weight: 600; font-size: 15px; margin-bottom: 6px; }
+.faq-a { color: var(--text-dim); font-size: 14px; line-height: 1.6; }
+
+footer { margin-top: auto; padding: 24px; text-align: center; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 13px; }
+footer a { color: var(--text-dim); margin: 0 12px; }
+
+@media (max-width: 600px) { .pricing-grid { grid-template-columns: 1fr; max-width: 400px; } }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="/" class="logo">ReNoUn</a>
+  <div class="links">
+    <a href="/agents.html">Docs</a>
+    <a href="/dashboard.html">Dashboard</a>
+    <a href="/billing.html">Billing</a>
+  </div>
+</nav>
+
+<div class="hero">
+  <h1>Simple pricing</h1>
+  <p>50 free calls/day. No credit card. Add a payment method when you need more.</p>
+</div>
+
+<div class="pricing-grid">
+
+  <div class="card featured">
+    <div class="badge">Default</div>
+    <div class="name">Metered</div>
+    <div class="desc">Pre-trade risk gate for trading bots. Self-provisioning. No credit card required to start.</div>
+    <div class="price">$0 <span class="period">to start</span></div>
+    <div class="price-note">50 free calls/day. $0.02/call beyond that.</div>
+    <ul>
+      <li>50 free API calls/day</li>
+      <li>$0.02/call metered beyond free tier</li>
+      <li>Self-provisioning (POST /v1/keys/provision)</li>
+      <li>regime/live + regime/batch endpoints</li>
+      <li>17-channel structural analysis</li>
+      <li>Stability half-life estimation</li>
+      <li>Exposure scalar for position sizing</li>
+      <li>100% bounded regime accuracy</li>
+    </ul>
+    <a href="/agents.html#provisionWidget" class="btn btn-primary">Get Free API Key</a>
+  </div>
+
+  <div class="card">
+    <div class="name">Enterprise</div>
+    <div class="desc">Custom limits, SLAs, dedicated support, and on-premise deployment options.</div>
+    <div class="price">Custom</div>
+    <div class="price-note">Contact us for pricing.</div>
+    <ul>
+      <li>Unlimited API calls</li>
+      <li>Custom rate limits</li>
+      <li>SLA guarantees</li>
+      <li>Dedicated support</li>
+      <li>On-premise deployment</li>
+      <li>Custom integrations</li>
+      <li>Volume discounts</li>
+    </ul>
+    <a href="mailto:luke@harrisoncollab.com" class="btn btn-outline">Contact Us</a>
+  </div>
+
+</div>
+
+<div class="faq">
+  <h2>Frequently asked questions</h2>
+
+  <div class="faq-item">
+    <div class="faq-q">How does metered billing work?</div>
+    <div class="faq-a">50 calls/day are always free — no credit card required. If you need more, add a payment method at <a href="/billing.html">harrisoncollab.com/billing</a>. Calls beyond 50 are billed at $0.02 each, invoiced monthly via Stripe. Without a payment method, calls stop at 50.</div>
+  </div>
+
+  <div class="faq-item">
+    <div class="faq-q">What do I get for $0.02/call?</div>
+    <div class="faq-a">Regime type (bounded/active/unstable), action (proceed/reduce/avoid), exposure scalar (0.0-1.0), DHS score, constellation pattern, and stability half-life estimate — how long the current regime is expected to last.</div>
+  </div>
+
+  <div class="faq-item">
+    <div class="faq-q">What does the finance overlay do?</div>
+    <div class="faq-a">It takes OHLCV candle data and measures structural disorder in price action using the 17-channel engine. It outputs a regime classification and exposure scalar (0.0-1.0) that tells you how much to scale your position. 100% bounded regime accuracy across 265+ graded predictions.</div>
+  </div>
+
+  <div class="faq-item">
+    <div class="faq-q">Is this financial advice?</div>
+    <div class="faq-a">No. ReNoUn is a structural risk measurement tool, not a trading signal. It measures disorder, not direction. Use it as a pre-trade risk gate, not a signal.</div>
+  </div>
+
+  <div class="faq-item">
+    <div class="faq-q">Can I cancel anytime?</div>
+    <div class="faq-a">Yes. Remove your payment method to revert to the free tier. No contracts, no commitments.</div>
+  </div>
+</div>
+
+<footer>
+  <div>
+    <a href="/">Home</a>
+    <a href="https://github.com/98lukehall/renoun-mcp" target="_blank">GitHub</a>
+    <a href="/agents.html">Docs</a>
+    <a href="mailto:luke@harrisoncollab.com">Contact</a>
+  </div>
+  <p style="margin-top:12px;">&copy; 2026 Harrison Collab. Patent Pending #63/923,592.</p>
+</footer>
+<script>fetch('https://api.harrisoncollab.com/v1/analytics/pageview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({page:'pricing'})}).catch(()=>{});</script>
+</body>
+</html>

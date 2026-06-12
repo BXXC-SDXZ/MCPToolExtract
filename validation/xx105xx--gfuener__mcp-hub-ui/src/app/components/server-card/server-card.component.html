@@ -1,0 +1,91 @@
+<div class="card server-card mb-4">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <div class="d-flex align-items-center">
+        <div class="server-icon me-3" [ngClass]="server.status === 'Online' ? 'online' : 'offline'">
+          <i class="bi bi-hdd-rack"></i>
+        </div>
+        <h5 class="card-title mb-0">{{ server.name }}</h5>
+      </div>
+      <div class="dropdown">
+        <button class="btn btn-link text-secondary" type="button" id="dropdownMenuButton" data-bs-toggle="dropdown" aria-expanded="false">
+          <i class="bi bi-three-dots-vertical"></i>
+        </button>
+        <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+          <li><a class="dropdown-item" href="#">Details</a></li>
+          <li><a class="dropdown-item" href="#">Monitor</a></li>
+          <li><a class="dropdown-item" href="#">Settings</a></li>
+        </ul>
+      </div>
+    </div>
+    
+    <div class="d-flex align-items-center mb-3">
+      <div class="status-indicator me-2" [ngClass]="server.status === 'Online' ? 'online' : 'offline'"></div>
+      <span [ngClass]="server.status === 'Online' ? 'text-success' : 'text-danger'">{{ server.status }}</span>
+      <span class="ms-3 text-muted">{{ server.location }}</span>
+    </div>
+    
+    <div class="server-details row mb-3">
+      <div class="col-md-6">
+        <div class="detail-group">
+          <div class="detail-label">Version</div>
+          <div class="detail-value">{{ server.version }}</div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="detail-group">
+          <div class="detail-label">Last Updated</div>
+          <div class="detail-value">{{ server.lastUpdated }}</div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="server-details row mb-3">
+      <div class="col-md-6">
+        <div class="detail-group">
+          <div class="detail-label">Transport</div>
+          <div class="detail-value">{{ server.transport }}</div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="detail-group">
+          <div class="detail-label">Security</div>
+          <div class="detail-value">
+            <span [ngClass]="{
+              'text-success': server.security === 'Compliant',
+              'text-warning': server.security === 'Partial',
+              'text-danger': server.security === 'None'
+            }">
+              <i class="bi" [ngClass]="{
+                'bi-shield-check': server.security === 'Compliant',
+                'bi-shield-exclamation': server.security === 'Partial',
+                'bi-shield-x': server.security === 'None'
+              }"></i>
+              {{ server.security }}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="server-capabilities">
+      <div class="capabilities-list">
+        <span *ngFor="let capability of server.capabilities" class="capability-badge" (click)="openModal(capability)">
+          {{ capability }}
+        </span>
+      </div>
+    </div>
+    
+    <div class="text-center mt-3">
+      <button class="btn btn-outline-primary test-btn">Test Connection</button>
+    </div>
+  </div>
+</div>
+
+<app-server-modal
+  *ngIf="showModal && selectedCapability"
+  [server]="server"
+  [capability]="selectedCapability"
+  [show]="showModal"
+  (close)="closeModal()"
+></app-server-modal>

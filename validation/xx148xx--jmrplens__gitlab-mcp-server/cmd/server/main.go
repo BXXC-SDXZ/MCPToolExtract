@@ -1,0 +1,1892 @@
+// Command server is the MCP server entry point for gitlab-mcp-server.
+// In stdio mode, configuration comes from environment variables (.env / exports).
+// In HTTP mode, configuration comes from CLI flags; no GITLAB_TOKEN is required
+// at startup — each client provides its own token per-request.
+// The --shutdown flag terminates running instances before external updaters
+// replace the binary on disk.
+//
+// # Modes
+//
+// Stdio mode creates one MCP server from environment configuration and serves
+// JSON-RPC over standard input and output. HTTP mode creates a streamable HTTP
+// handler backed by a server pool so each token and GitLab URL pair receives an
+// isolated MCP server configuration.
+//
+// # Startup Flow
+//
+// The command validates configuration, registers tools, resources, prompts,
+// completions, roots, logging, progress, sampling, and elicitation support, then
+// starts the selected transport:
+//
+//	server
+//	    |
+//	    v
+//	configuration and auto-update setup
+//	    |
+//	    v
+//	MCP capability registration
+//	    |
+//	    v
+//	stdio or HTTP transport
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"flag"
+	"fmt"
+	"log/slog"
+	"net"
+	"net/http"
+	"net/url"
+	"os"
+	"os/signal"
+	"slices"
+	"strconv"
+	"strings"
+	"syscall"
+	"time"
+
+	"github.com/modelcontextprotocol/go-sdk/auth"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+
+	"github.com/jmrplens/gitlab-mcp-server/v2/internal/autoupdate"
+	"github.com/jmrplens/gitlab-mcp-server/v2/internal/completions"
+	"github.com/jmrplens/gitlab-mcp-server/v2/internal/config"
+	gitlabclient "github.com/jmrplens/gitlab-mcp-server/v2/internal/gitlab"
+	"github.com/jmrplens/gitlab-mcp-server/v2/internal/oauth"
+	"github.com/jmrplens/gitlab-mcp-server/v2/internal/prompts"
+	"github.com/jmrplens/gitlab-mcp-server/v2/internal/resources"
+	"github.com/jmrplens/gitlab-mcp-server/v2/internal/roots"
+	"github.com/jmrplens/gitlab-mcp-server/v2/internal/serverpool"
+	gitlabtools "github.com/jmrplens/gitlab-mcp-server/v2/internal/tools"
+	"github.com/jmrplens/gitlab-mcp-server/v2/internal/tools/actioncatalog"
+	dynamictools "github.com/jmrplens/gitlab-mcp-server/v2/internal/tools/dynamic"
+	"github.com/jmrplens/gitlab-mcp-server/v2/internal/tools/health"
+	"github.com/jmrplens/gitlab-mcp-server/v2/internal/tools/serverupdate"
+	"github.com/jmrplens/gitlab-mcp-server/v2/internal/toolutil"
+	"github.com/jmrplens/gitlab-mcp-server/v2/internal/wizard"
+)
+
+// version and commit are set at build time via -ldflags.
+// The VERSION file at the repo root is the single source of truth for version.
+var (
+	version = "dev"
+	commit  = "none"
+)
+
+// Project metadata.
+const (
+	projectAuthor     = "Jose Manuel Requena Plens"
+	projectDepartment = ""
+	projectRepository = "https://github.com/jmrplens/gitlab-mcp-server"
+)
+
+// httpConfig holds CLI-flag configuration for HTTP server mode.
+// When non-nil is passed to [runWithContext], the server starts in HTTP mode
+// without requiring a GITLAB_TOKEN — each client must provide its own token
+// via PRIVATE-TOKEN header or Authorization: Bearer.
+type httpConfig struct {
+	addr               string
+	gitlabURL          string
+	skipTLSVerify      bool
+	metaTools          bool
+	metaToolsSet       bool
+	toolSurface        string
+	capabilitySurface  string
+	enterprise         bool
+	enterpriseSet      bool
+	readOnly           bool
+	safeMode           bool
+	embeddedResources  bool
+	excludeTools       string
+	ignoreScopes       bool
+	maxHTTPClients     int
+	sessionTimeout     time.Duration
+	autoUpdate         string
+	autoUpdateRepo     string
+	autoUpdateInterval time.Duration
+	autoUpdateTimeout  time.Duration
+	revalidateInterval time.Duration
+	authMode           string
+	oauthCacheTTL      time.Duration
+	trustedProxyHeader string
+	rateLimitRPS       float64
+	rateLimitBurst     int
+	metaParamSchema    string
+}
+
+// main parses CLI flags, handles one-shot commands such as --help and
+// --tool-search, and dispatches into stdio or HTTP server mode.
+func main() {
+	var showHelp bool
+	var showVersion bool
+	var shutdownPeers bool
+	var useHTTP bool
+	var forceSetup bool
+	var setupMode string
+	var toolSearch string
+	var hcfg httpConfig
+
+	flag.BoolVar(&showHelp, "h", false, "Show full help with flags, env vars, and examples")
+	flag.BoolVar(&shutdownPeers, "shutdown", false, "Terminate all running instances and exit")
+	flag.BoolVar(&forceSetup, "setup", false, "Run interactive setup wizard")
+	flag.StringVar(&setupMode, "setup-mode", "auto", "Setup UI mode: auto, web, tui, cli")
+	flag.BoolVar(&showVersion, "version", false, "Print version and exit")
+	flag.StringVar(&toolSearch, "tool-search", "", "Search tools by name/description and exit")
+	flag.BoolVar(&useHTTP, "http", false, "Run MCP server in HTTP mode")
+	flag.StringVar(&hcfg.addr, "http-addr", ":8080", "HTTP listen address")
+	flag.StringVar(&hcfg.gitlabURL, "gitlab-url", "", "Fixed GitLab instance URL; omit to require per-request GITLAB-URL header")
+	flag.BoolVar(&hcfg.skipTLSVerify, "skip-tls-verify", false, "Skip TLS certificate verification")
+	flag.BoolVar(&hcfg.metaTools, "meta-tools", false, "Legacy boolean tool selector; prefer --tool-surface")
+	flag.StringVar(&hcfg.toolSurface, "tool-surface", "", "Tool surface: dynamic (default), meta, individual")
+	flag.StringVar(&hcfg.capabilitySurface, "capability-surface", config.DefaultCapabilitySurface, "Capability surface: full (default) or minimal")
+	flag.BoolVar(&hcfg.enterprise, "enterprise", false, "Force Enterprise/Premium tool catalog; omit to auto-detect per server entry")
+	flag.BoolVar(&hcfg.readOnly, "read-only", false, "Expose only read-only tools (no create/update/delete)")
+	flag.BoolVar(&hcfg.safeMode, "safe-mode", false, "Intercept mutating tools and return a preview instead of executing")
+	flag.BoolVar(&hcfg.embeddedResources, "embedded-resources", true, "Embed canonical MCP resource URIs in get_* tool results")
+	flag.StringVar(&hcfg.excludeTools, "exclude-tools", "", "Comma-separated list of tool names to exclude from registration")
+	flag.BoolVar(&hcfg.ignoreScopes, "ignore-scopes", false, "Skip PAT scope detection and register all tools")
+	flag.IntVar(&hcfg.maxHTTPClients, "max-http-clients", config.DefaultMaxHTTPClients, "Maximum concurrent client sessions")
+	flag.DurationVar(&hcfg.sessionTimeout, "session-timeout", config.DefaultSessionTimeout, "Idle session timeout")
+	flag.StringVar(&hcfg.autoUpdate, "auto-update", "true", "Auto-update mode: true (auto-apply), check (log-only), false (disabled)")
+	flag.StringVar(&hcfg.autoUpdateRepo, "auto-update-repo", config.DefaultAutoUpdateRepo, "GitHub repository for update checks")
+	flag.DurationVar(&hcfg.autoUpdateInterval, "auto-update-interval", config.DefaultAutoUpdateInterval, "How often to check for updates")
+	flag.DurationVar(&hcfg.autoUpdateTimeout, "auto-update-timeout", config.DefaultAutoUpdateTimeout, "Timeout for startup/background update checks (range 5s\u201310m)")
+	flag.DurationVar(&hcfg.revalidateInterval, "revalidate-interval", config.DefaultRevalidateInterval, "Token re-validation interval (0 to disable)")
+	flag.StringVar(&hcfg.authMode, "auth-mode", "legacy", "Authentication mode: legacy (default) or oauth")
+	flag.DurationVar(&hcfg.oauthCacheTTL, "oauth-cache-ttl", config.DefaultOAuthCacheTTL, "OAuth token cache TTL")
+	flag.StringVar(&hcfg.trustedProxyHeader, "trusted-proxy-header", "", "HTTP header containing the real client IP (e.g. X-Forwarded-For, X-Real-IP)")
+	flag.Float64Var(&hcfg.rateLimitRPS, "rate-limit-rps", 0, "Per-server tools/call rate limit in requests/second (0 = disabled)")
+	flag.IntVar(&hcfg.rateLimitBurst, "rate-limit-burst", config.DefaultRateLimitBurst, "Token-bucket burst size when --rate-limit-rps > 0")
+	flag.StringVar(&hcfg.metaParamSchema, "meta-param-schema", config.DefaultMetaParamSchema, "Meta-tool input schema mode: opaque (default), compact, full")
+	flag.Parse()
+	flag.Visit(func(f *flag.Flag) {
+		switch f.Name {
+		case "enterprise":
+			hcfg.enterpriseSet = true
+		case "meta-tools":
+			hcfg.metaToolsSet = true
+		}
+	})
+
+	if showHelp {
+		printHelp()
+		return
+	}
+
+	if showVersion {
+		fmt.Printf("gitlab-mcp-server %s (commit: %s)\n", version, commit)
+		return
+	}
+
+	if shutdownPeers {
+		os.Exit(runShutdown())
+	}
+
+	if toolSearch != "" {
+		toolSurface, _, surfaceErr := config.ParseToolSurface(hcfg.toolSurface, legacyMetaToolsFlagValue(&hcfg))
+		if surfaceErr != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", surfaceErr)
+			exitProcess(1)
+			return
+		}
+		runToolSearch(toolSearch, toolSurface, hcfg.enterprise)
+		return
+	}
+
+	if forceSetup || (!useHTTP && !showHelp && !showVersion && wizard.IsInteractiveTerminal()) {
+		if err := wizard.Run(version, wizard.UIMode(setupMode), os.Stdin, os.Stdout); err != nil {
+			slog.Error("setup wizard failed", "error", err)
+			os.Exit(1)
+		}
+		return
+	}
+
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
+		Level: parseLogLevel(os.Getenv("LOG_LEVEL")),
+	})))
+
+	setupAutoUpdateRedaction("")
+
+	health.SetServerInfo(health.ServerInfo{
+		Version:    version,
+		Author:     projectAuthor,
+		Department: projectDepartment,
+		Repository: projectRepository,
+	})
+
+	serverupdate.SetServerInfo(serverupdate.ServerInfo{
+		Author:     projectAuthor,
+		Department: projectDepartment,
+		Repository: projectRepository,
+	})
+
+	var hcfgPtr *httpConfig
+	if useHTTP {
+		hcfgPtr = &hcfg
+	}
+
+	if err := run(hcfgPtr); err != nil {
+		slog.Error("server exited with error", "error", err)
+		os.Exit(1)
+	}
+}
+
+// printHelp displays comprehensive usage information including version, author,
+// all flags, environment variables, and JSON configuration examples.
+func printHelp() {
+	fmt.Printf(`gitlab-mcp-server — GitLab MCP Server
+==================================
+
+Version:      %s (commit: %s)
+Author:       %s
+Department:   %s
+Repository:   %s
+
+DESCRIPTION
+  A Model Context Protocol (MCP) server that exposes GitLab operations
+  as MCP tools, resources, and prompts for AI assistants.
+  Supports stdio (default) and HTTP transport modes.
+
+FLAGS
+  -h                        Show this help message
+  -version                  Print version and exit
+  -shutdown                 Terminate all running instances and exit
+  -setup                    Run interactive setup wizard
+  -setup-mode string        Setup UI mode: auto|web|tui|cli (default "auto")
+  -tool-search string       Search tools by name/description and exit
+  -http                     Run in HTTP transport mode (default: stdio)
+  -http-addr string         HTTP listen address (default ":8080")
+  -gitlab-url string        Fixed GitLab URL; omit to require per-request GITLAB-URL header
+  -skip-tls-verify          Skip TLS certificate verification (default false)
+	-meta-tools               Legacy boolean tool selector; prefer -tool-surface
+	-tool-surface string      Tool surface: dynamic|meta|individual (default dynamic)
+  -capability-surface str   Capability surface: full|minimal (default full)
+  -enterprise               Force Enterprise/Premium tool catalog; omit to auto-detect per server entry
+  -read-only                Expose only read-only tools (default false)
+  -exclude-tools string     Comma-separated tool names to exclude from registration
+  -ignore-scopes            Skip PAT scope detection, register all tools (default false)
+  -max-http-clients int     Maximum concurrent client sessions (default %d)
+  -session-timeout duration Idle session timeout (default %s)
+  -auto-update string       Auto-update mode: true|check|false (default "true")
+  -auto-update-repo string  GitHub repository for update checks (default "%s")
+  -auto-update-interval dur How often to check for updates (default %s)
+  -auto-update-timeout dur  Timeout for startup/background update checks (default %s)
+  -auth-mode string         Authentication mode: legacy|oauth (default "legacy")
+  -oauth-cache-ttl duration OAuth token cache TTL (default %s, min %s, max %s)
+  -trusted-proxy-header str HTTP header with real client IP (e.g. X-Forwarded-For, X-Real-IP)
+
+ENVIRONMENT VARIABLES (stdio mode)
+  GITLAB_URL                GitLab instance URL (default: %s; set for self-managed instances)
+  GITLAB_TOKEN              Personal Access Token (glpat-...)
+  GITLAB_SKIP_TLS_VERIFY    Skip TLS verification: true/false (default false)
+	TOOL_SURFACE              Canonical tool surface: dynamic|meta|individual (default dynamic)
+	META_TOOLS                Deprecated legacy selector: true|false|dynamic; ignored when TOOL_SURFACE is set
+  CAPABILITY_SURFACE        Resource/prompt surface: full|minimal (default full)
+  GITLAB_ENTERPRISE         Enable Enterprise/Premium meta-tools: true/false (default false)
+  GITLAB_READ_ONLY          Expose only read-only tools: true/false (default false)
+  EXCLUDE_TOOLS             Comma-separated tool names to exclude (default empty)
+  GITLAB_IGNORE_SCOPES      Skip PAT scope detection: true/false (default false)
+  AUTO_UPDATE               Auto-update mode: true/check/false (default true)
+  AUTO_UPDATE_REPO          GitHub repository for update checks (default %s)
+  AUTO_UPDATE_INTERVAL      Periodic check interval (default 1h, HTTP mode)
+  AUTO_UPDATE_TIMEOUT       Startup/background update timeout (default 60s, range 5s–10m)
+  LOG_LEVEL                 Logging: debug/info/warn/error (default info)
+
+JSON CONFIGURATION EXAMPLES
+
+  VS Code / GitHub Copilot (.vscode/mcp.json):
+  {
+    "servers": {
+      "gitlab": {
+        "type": "stdio",
+        "command": "/usr/local/bin/gitlab-mcp-server",
+        "env": {
+          "GITLAB_URL": "https://gitlab.example.com",
+          "GITLAB_TOKEN": "glpat-your-token",
+          "GITLAB_SKIP_TLS_VERIFY": "true",
+		  "TOOL_SURFACE": "dynamic"
+        }
+      }
+    }
+  }
+
+  OpenCode (MCP configuration):
+  {
+    "mcpServers": {
+      "gitlab": {
+        "command": "/usr/local/bin/gitlab-mcp-server",
+        "env": {
+          "GITLAB_URL": "https://gitlab.example.com",
+          "GITLAB_TOKEN": "glpat-your-token"
+        }
+      }
+    }
+  }
+
+  HTTP mode (single GitLab instance):
+  gitlab-mcp-server --http --gitlab-url=https://gitlab.example.com --http-addr=:8080
+
+  HTTP mode (no fixed GitLab URL; clients send GITLAB-URL per request):
+  gitlab-mcp-server --http --http-addr=:8080
+`, version, commit,
+		projectAuthor, projectDepartment, projectRepository,
+		config.DefaultMaxHTTPClients, config.DefaultSessionTimeout,
+		config.DefaultAutoUpdateRepo, config.DefaultAutoUpdateInterval,
+		config.DefaultAutoUpdateTimeout,
+		config.DefaultOAuthCacheTTL, config.MinOAuthCacheTTL, config.MaxOAuthCacheTTL,
+		config.DefaultGitLabURL,
+		config.DefaultAutoUpdateRepo)
+}
+
+// run starts the MCP server with OS signal handling for graceful shutdown.
+// Pass a non-nil [httpConfig] for HTTP mode; nil selects stdio mode.
+func run(hcfg *httpConfig) error {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	return runWithContext(ctx, hcfg)
+}
+
+// runWithContext dispatches to HTTP or stdio mode depending on hcfg.
+// A non-nil hcfg starts the HTTP server using CLI-flag configuration
+// (no GITLAB_TOKEN required). A nil hcfg starts stdio mode using
+// environment-variable configuration (GITLAB_TOKEN required).
+func runWithContext(ctx context.Context, hcfg *httpConfig) error {
+	if hcfg != nil {
+		return runHTTP(ctx, hcfg)
+	}
+	return runStdio(ctx)
+}
+
+// runHTTP validates HTTP flags, builds a [config.Config] from them, and
+// starts the HTTP server. No GITLAB_TOKEN is needed; each client provides
+// its own token per-request via PRIVATE-TOKEN or Authorization: Bearer headers.
+// The GitLab URL can be fixed globally via --gitlab-url, or selected per
+// request via the GITLAB-URL header when no global URL is configured. At least
+// one URL source must be available for each request.
+func runHTTP(ctx context.Context, hcfg *httpConfig) error {
+	if err := normalizeFixedGitLabURL(hcfg); err != nil {
+		return err
+	}
+
+	toolSurface, metaTools, err := config.ParseToolSurface(hcfg.toolSurface, legacyMetaToolsFlagValue(hcfg))
+	if err != nil {
+		return fmt.Errorf("parse tool surface: %w", err)
+	}
+	cfg := configFromHTTPFlags(hcfg, toolSurface, metaTools)
+	if validationErr := validateHTTPRuntimeConfig(cfg); validationErr != nil {
+		return validationErr
+	}
+
+	toolutil.SetUploadConfig(cfg.UploadMaxFileSize)
+	toolutil.EnableEmbeddedResources(cfg.EmbeddedResources)
+	autoupdate.CleanupOldBinary()
+	startAutoUpdate(ctx, cfg)
+
+	return serveHTTP(ctx, cfg, hcfg.addr)
+}
+
+func normalizeFixedGitLabURL(hcfg *httpConfig) error {
+	if hcfg.gitlabURL == "" {
+		return nil
+	}
+	u, err := url.Parse(hcfg.gitlabURL)
+	if err != nil {
+		return fmt.Errorf("--gitlab-url is not a valid URL: %w", err)
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return fmt.Errorf("--gitlab-url must use http:// or https:// scheme, got %q", u.Scheme)
+	}
+	if u.Host == "" {
+		return errors.New("--gitlab-url must include a host")
+	}
+	hcfg.gitlabURL = strings.TrimRight(hcfg.gitlabURL, "/")
+	return nil
+}
+
+func configFromHTTPFlags(hcfg *httpConfig, toolSurface string, metaTools bool) *config.Config {
+	return &config.Config{
+		GitLabURL:            hcfg.gitlabURL,
+		SkipTLSVerify:        hcfg.skipTLSVerify,
+		MetaTools:            metaTools,
+		ToolSurface:          toolSurface,
+		CapabilitySurface:    hcfg.capabilitySurface,
+		Enterprise:           hcfg.enterprise,
+		AutoDetectEnterprise: !hcfg.enterpriseSet,
+		ReadOnly:             hcfg.readOnly,
+		SafeMode:             hcfg.safeMode,
+		EmbeddedResources:    hcfg.embeddedResources,
+		ExcludeTools:         config.ParseCSV(hcfg.excludeTools),
+		IgnoreScopes:         hcfg.ignoreScopes,
+		MaxHTTPClients:       hcfg.maxHTTPClients,
+		SessionTimeout:       hcfg.sessionTimeout,
+		RevalidateInterval:   hcfg.revalidateInterval,
+		UploadMaxFileSize:    config.DefaultMaxFileSize,
+		AutoUpdate:           hcfg.autoUpdate,
+		AutoUpdateRepo:       hcfg.autoUpdateRepo,
+		AutoUpdateInterval:   hcfg.autoUpdateInterval,
+		AutoUpdateTimeout:    hcfg.autoUpdateTimeout,
+		AuthMode:             hcfg.authMode,
+		OAuthCacheTTL:        hcfg.oauthCacheTTL,
+		TrustedProxyHeader:   hcfg.trustedProxyHeader,
+		RateLimitRPS:         hcfg.rateLimitRPS,
+		RateLimitBurst:       hcfg.rateLimitBurst,
+		MetaParamSchema:      hcfg.metaParamSchema,
+	}
+}
+
+func validateHTTPRuntimeConfig(cfg *config.Config) error {
+	if err := validateHTTPAuthConfig(cfg); err != nil {
+		return err
+	}
+	if err := validateHTTPSurfaceConfig(cfg); err != nil {
+		return err
+	}
+	if err := validateHTTPDurationConfig(cfg); err != nil {
+		return err
+	}
+	if rateErr := toolutil.ValidateRateLimit(cfg.RateLimitRPS, cfg.RateLimitBurst); rateErr != nil {
+		return fmt.Errorf("--rate-limit-rps/--rate-limit-burst: %w", rateErr)
+	}
+	return nil
+}
+
+func validateHTTPAuthConfig(cfg *config.Config) error {
+	if cfg.AuthMode == "" {
+		cfg.AuthMode = "legacy"
+	}
+	if cfg.AuthMode != "legacy" && cfg.AuthMode != "oauth" {
+		return fmt.Errorf("--auth-mode must be 'legacy' or 'oauth', got %q", cfg.AuthMode)
+	}
+	if cfg.AuthMode != "oauth" {
+		return nil
+	}
+	if cfg.GitLabURL == "" {
+		return errors.New("--auth-mode=oauth requires --gitlab-url")
+	}
+	return validateOAuthCacheTTL(cfg.OAuthCacheTTL)
+}
+
+func validateOAuthCacheTTL(ttl time.Duration) error {
+	if ttl <= 0 {
+		return nil
+	}
+	if ttl < config.MinOAuthCacheTTL {
+		return fmt.Errorf("--oauth-cache-ttl %s is below minimum of %s", ttl, config.MinOAuthCacheTTL)
+	}
+	if ttl > config.MaxOAuthCacheTTL {
+		return fmt.Errorf("--oauth-cache-ttl %s exceeds maximum of %s", ttl, config.MaxOAuthCacheTTL)
+	}
+	return nil
+}
+
+func validateHTTPSurfaceConfig(cfg *config.Config) error {
+	switch cfg.MetaParamSchema {
+	case "":
+		cfg.MetaParamSchema = config.DefaultMetaParamSchema
+	case config.MetaParamSchemaOpaque, config.MetaParamSchemaCompact, config.MetaParamSchemaFull:
+	default:
+		return fmt.Errorf("--meta-param-schema must be one of %q, %q, %q, got %q",
+			config.MetaParamSchemaOpaque, config.MetaParamSchemaCompact, config.MetaParamSchemaFull, cfg.MetaParamSchema)
+	}
+	switch cfg.CapabilitySurface {
+	case "":
+		cfg.CapabilitySurface = config.DefaultCapabilitySurface
+	case config.CapabilitySurfaceFull, config.CapabilitySurfaceMinimal:
+	default:
+		return fmt.Errorf("--capability-surface must be %q or %q, got %q",
+			config.CapabilitySurfaceFull, config.CapabilitySurfaceMinimal, cfg.CapabilitySurface)
+	}
+	return nil
+}
+
+func validateHTTPDurationConfig(cfg *config.Config) error {
+	if cfg.SessionTimeout > config.MaxSessionTimeout {
+		return fmt.Errorf("--session-timeout %s exceeds maximum of %s", cfg.SessionTimeout, config.MaxSessionTimeout)
+	}
+	if cfg.RevalidateInterval > config.MaxRevalidateInterval {
+		return fmt.Errorf("--revalidate-interval %s exceeds maximum of %s", cfg.RevalidateInterval, config.MaxRevalidateInterval)
+	}
+	if cfg.AutoUpdateTimeout < config.MinAutoUpdateTimeout {
+		return fmt.Errorf("--auto-update-timeout %s is below minimum of %s", cfg.AutoUpdateTimeout, config.MinAutoUpdateTimeout)
+	}
+	if cfg.AutoUpdateTimeout > config.MaxAutoUpdateTimeout {
+		return fmt.Errorf("--auto-update-timeout %s exceeds maximum of %s", cfg.AutoUpdateTimeout, config.MaxAutoUpdateTimeout)
+	}
+	return nil
+}
+
+func legacyMetaToolsFlagValue(hcfg *httpConfig) string {
+	if hcfg == nil || !hcfg.metaToolsSet {
+		return ""
+	}
+	return strconv.FormatBool(hcfg.metaTools)
+}
+
+type serverSurfaceRegistration struct {
+	metaSchemaRoutes map[string]toolutil.ActionMap
+	surfaceCatalog   *actioncatalog.Catalog
+}
+
+// runStdio loads configuration from environment variables (GITLAB_TOKEN
+// required), validates GitLab connectivity, and starts the stdio server.
+func runStdio(ctx context.Context) error {
+	cfg, err := config.Load()
+	if err != nil {
+		return fmt.Errorf("loading config: %w", err)
+	}
+	logLegacyMetaToolsDeprecation(os.Getenv("TOOL_SURFACE"), os.Getenv("META_TOOLS"))
+
+	toolutil.SetUploadConfig(cfg.UploadMaxFileSize)
+	toolutil.EnableEmbeddedResources(cfg.EmbeddedResources)
+
+	// Clean up leftover .old binary from previous updates.
+	autoupdate.CleanupOldBinary()
+
+	startStdioAutoUpdate(ctx, cfg)
+
+	client, err := gitlabclient.NewClient(cfg)
+	if err != nil {
+		return fmt.Errorf("creating gitlab client: %w", err)
+	}
+
+	slog.Info("connecting to gitlab", "url", cfg.GitLabURL, "tls_skip", cfg.SkipTLSVerify)
+	gitlabVersion, err := client.Initialize(ctx)
+	if err != nil {
+		slog.Warn("gitlab connectivity check failed — server will start in degraded mode",
+			"url", cfg.GitLabURL, "error", err)
+		client.EnableLazyInit()
+	} else {
+		userInfo, userErr := client.CurrentUser(ctx)
+		if userErr != nil {
+			slog.Warn("could not resolve user identity at startup", "error", userErr)
+			slog.Info("gitlab connection verified", "url", cfg.GitLabURL, "version", gitlabVersion)
+		} else {
+			ctx = toolutil.IdentityToContext(ctx, toolutil.UserIdentity{
+				UserID:   strconv.Itoa(userInfo.UserID),
+				Username: userInfo.Username,
+			})
+			slog.Info(
+				"gitlab connection verified",
+				"url", cfg.GitLabURL,
+				"user", userInfo.Username,
+				"user_id", userInfo.UserID,
+				"version", gitlabVersion,
+			)
+		}
+	}
+
+	// Detect PAT scopes for scope-based tool filtering.
+	serverCfg := cfg.ServerConfig()
+	if !cfg.IgnoreScopes {
+		serverCfg.TokenScopes = gitlabclient.DetectScopes(ctx, client.GL())
+		if serverCfg.TokenScopes == nil {
+			slog.Debug("PAT scope detection unavailable — all tools will be registered")
+		}
+	}
+
+	updater := newUpdaterForTools(cfg)
+	server, err := createServer(client, serverCfg, updater) //nolint:contextcheck // startup: removeExcludedTools uses ephemeral in-memory MCP transport isolated from request ctx
+	if err != nil {
+		return fmt.Errorf("creating MCP server: %w", err)
+	}
+	return serveStdio(ctx, server)
+}
+
+// createServer builds a fully configured [*mcp.Server] with all tools,
+// resources, and prompts registered for the given GitLab client.
+// Used both by stdio mode (single call) and by the HTTP server pool factory.
+// If updater is non-nil, server update MCP tools are registered.
+func createServer(client *gitlabclient.Client, cfg *config.ServerConfig, updater *autoupdate.Updater) (*mcp.Server, error) {
+	if client == nil {
+		return nil, errors.New("createServer: client must not be nil")
+	}
+
+	completionHandler := completions.NewHandler(client)
+	rootsManager := roots.NewManager()
+	capabilitySurface := config.EffectiveCapabilitySurface(cfg.CapabilitySurface)
+	serverCapabilities := &mcp.ServerCapabilities{
+		Logging:   &mcp.LoggingCapabilities{},
+		Tools:     &mcp.ToolCapabilities{ListChanged: true},
+		Resources: &mcp.ResourceCapabilities{ListChanged: true},
+	}
+	if capabilitySurface == config.CapabilitySurfaceFull {
+		serverCapabilities.Prompts = &mcp.PromptCapabilities{ListChanged: true}
+	}
+
+	server := mcp.NewServer(&mcp.Implementation{
+		Name:       "gitlab-mcp-server",
+		Title:      "GitLab MCP Server",
+		Version:    version,
+		WebsiteURL: projectRepository,
+		Icons:      toolutil.IconServer,
+	}, &mcp.ServerOptions{
+		Instructions: "gitlab-mcp-server is a GitLab MCP server providing tools for projects, merge requests, " +
+			"issues, branches, tags, releases, repositories, commits, files, groups, members, " +
+			"and uploads.\n\n" +
+			"PROJECT DISCOVERY — To find the project_id needed for most operations:\n" +
+			"1. Read the .git/config file from the workspace to find [remote \"origin\"] url = ...\n" +
+			"2. Call gitlab_resolve_project_from_remote with that URL to get the project_id.\n" +
+			"3. Alternatively, use gitlab_list_projects (owned=true) or gitlab_search_projects to find projects by name.\n" +
+			"4. You can also read the gitlab://workspace/roots resource to discover workspace paths.\n\n" +
+			"DEFAULT BRANCH — When generating URLs to repository files or branches:\n" +
+			"1. Call gitlab_project_get to retrieve the project metadata, which includes the default_branch field.\n" +
+			"2. ALWAYS use the returned default_branch value (e.g. develop, master) instead of assuming 'main'.\n" +
+			"3. Projects can use any branch as default, so NEVER hardcode 'main' in URLs.\n\n" +
+			"PACKAGE + RELEASE WORKFLOW — When uploading packages and linking them to releases:\n" +
+			"1. Preferred: Use gitlab_package_publish_and_link to upload a file and create the release link in one step.\n" +
+			"2. Alternative: Use gitlab_package_publish first, then use the 'url' field from its response as the URL for gitlab_release_link_create.\n" +
+			"3. NEVER construct package download URLs manually — always use the actual URL returned by the publish tool.\n" +
+			"4. RELEASE LINK NAMING: The link_name MUST be the exact filename (e.g. 'checksums.txt.asc'), NEVER add descriptive suffixes like '(GPG signature)'. go-selfupdate and other tools match asset names exactly.\n\n" +
+			"RELEASE CREATION — When creating releases:\n" +
+			"1. You do NOT need to create the tag first. Provide 'ref' (branch or SHA) in gitlab_release_create and GitLab auto-creates the tag.\n" +
+			"2. The response includes 'assets_sources' with auto-generated tar.gz/zip archive URLs — use those, never construct source archive URLs.\n" +
+			"3. Use 'tag_message' to create an annotated tag instead of a lightweight one.\n\n" +
+			"ID vs IID — GitLab uses two identifiers for issues and merge requests:\n" +
+			"1. IID is the project-scoped number shown in URLs and UI (e.g. issue #3, MR !5). Most tools expect IID.\n" +
+			"2. ID is the global numeric identifier. Only use gitlab_issue_get_by_id when you have a global ID from another API response.",
+		Logger:       slog.Default(),
+		Capabilities: serverCapabilities,
+		CompletionHandler: func(ctx context.Context, req *mcp.CompleteRequest) (*mcp.CompleteResult, error) {
+			return completionHandler.Complete(ctx, req)
+		},
+		InitializedHandler: func(ctx context.Context, req *mcp.InitializedRequest) {
+			if err := rootsManager.Refresh(ctx, req.Session); err != nil {
+				slog.Debug("initial roots fetch failed; roots cache left empty", "error", err)
+			}
+		},
+		RootsListChangedHandler: func(ctx context.Context, req *mcp.RootsListChangedRequest) {
+			if err := rootsManager.Refresh(ctx, req.Session); err != nil {
+				slog.Warn("failed to refresh roots on change notification", "error", err)
+			}
+		},
+		ProgressNotificationHandler: func(_ context.Context, req *mcp.ProgressNotificationServerRequest) {
+			slog.Debug(
+				"received progress notification from client",
+				"token", req.Params.ProgressToken,
+				"progress", req.Params.Progress,
+			)
+		},
+		KeepAlive: 30 * time.Second,
+	})
+
+	toolSurface := config.EffectiveToolSurface(cfg.MetaTools, cfg.ToolSurface)
+	var metaSchemaRoutes map[string]toolutil.ActionMap
+	var surfaceCatalog *actioncatalog.Catalog
+	if toolSurface != config.ToolSurfaceIndividual {
+		gitlabtools.SetMetaParamSchema(cfg.MetaParamSchema)
+	}
+	surfaceRegistration, err := registerConfiguredToolSurface(server, client, cfg, updater, toolSurface)
+	if err != nil {
+		return nil, err
+	}
+	metaSchemaRoutes = surfaceRegistration.metaSchemaRoutes
+	surfaceCatalog = surfaceRegistration.surfaceCatalog
+
+	applyToolVisibilityConfig(server, cfg)
+
+	toolCount, err := countRegisteredTools(server)
+	if err != nil {
+		slog.Warn("failed to count registered tools", "error", err)
+	}
+	logRegisteredToolSurface(toolSurface, toolCount, metaSchemaRoutes)
+
+	if toolSurface == config.ToolSurfaceMeta {
+		var routesErr error
+		metaSchemaRoutes, routesErr = visibleMetaSchemaRoutes(server, metaSchemaRoutes)
+		if routesErr != nil {
+			slog.Warn("failed to filter meta-schema routes to visible tools", "error", routesErr)
+		}
+	}
+
+	registerConfiguredCapabilities(server, client, rootsManager, capabilitySurface)
+
+	// Force `additionalProperties: false` on tool input schemas so unknown
+	// properties produce actionable validation errors LLMs can self-correct
+	// rather than silent acceptance with empty values. Registered as a
+	// receiving middleware after every tool/resource/prompt is in place so
+	// it sees the final schema set on every tools/list response.
+	toolutil.LockdownInputSchemas(server)
+
+	// Inject JSON Schema numeric bounds on the standard pagination
+	// parameters so LLM clients see `page >= 1` and `1 <= per_page <= 100`
+	// directly in tools/list. Runs after the lockdown so it operates on
+	// the same finalized schema set.
+	toolutil.EnrichPaginationConstraints(server)
+
+	if manifestTools, listErr := listRegisteredToolsForInspection(server, "tool-manifest"); listErr != nil {
+		slog.Warn("failed to build tool manifest resource", "error", listErr)
+	} else {
+		resources.RegisterToolSurfaceResources(server, resources.ToolSurfaceResourceOptions{
+			Surface:    toolSurface,
+			Tools:      manifestTools,
+			Catalog:    surfaceCatalog,
+			MetaRoutes: metaSchemaRoutes,
+		})
+	}
+
+	// Optional per-server tools/call rate limit. In HTTP mode each pooled
+	// per-token server gets its own bucket (effectively per-token). In
+	// stdio mode the bucket is global to the process. Disabled when
+	// RateLimitRPS is 0 (default).
+	if limiter := toolutil.NewRateLimiter(cfg.RateLimitRPS, cfg.RateLimitBurst); limiter != nil {
+		toolutil.AttachRateLimit(server, limiter)
+		slog.Info(
+			"tools/call rate limit enabled",
+			"rps", cfg.RateLimitRPS,
+			"burst", cfg.RateLimitBurst,
+		)
+	}
+
+	return server, nil
+}
+
+func applyToolVisibilityConfig(server *mcp.Server, cfg *config.ServerConfig) {
+	if len(cfg.ExcludeTools) > 0 {
+		removed := removeExcludedTools(server, cfg.ExcludeTools)
+		slog.Info("excluded tools by configuration", "excluded", removed, "patterns", cfg.ExcludeTools)
+	}
+	if cfg.TokenScopes != nil {
+		removed := gitlabtools.RemoveScopeFilteredTools(server, cfg.TokenScopes)
+		if removed > 0 {
+			slog.Info("scope-filtered tools", "removed", removed)
+		}
+	}
+	if cfg.ReadOnly {
+		removed := removeNonReadOnlyTools(server)
+		slog.Info("read-only mode: removed write tools", "removed", removed)
+		return
+	}
+	if cfg.SafeMode {
+		wrapped := gitlabtools.WrapMutatingToolsForSafeMode(server)
+		slog.Info("safe mode: wrapped mutating tools with preview handler", "wrapped", wrapped)
+	}
+}
+
+func logRegisteredToolSurface(toolSurface string, toolCount int, metaSchemaRoutes map[string]toolutil.ActionMap) {
+	switch toolSurface {
+	case config.ToolSurfaceDynamic:
+		slog.Info("registered dynamic toolset", "tools", toolCount, "catalog_groups", len(metaSchemaRoutes), "catalog_actions", countCatalogActions(metaSchemaRoutes))
+	case config.ToolSurfaceMeta:
+		slog.Info("registered meta-tools", "tools", toolCount)
+	default:
+		slog.Info("registered individual tools", "tools", toolCount)
+	}
+}
+
+func registerConfiguredCapabilities(server *mcp.Server, client *gitlabclient.Client, rootsManager *roots.Manager, capabilitySurface string) {
+	if capabilitySurface == config.CapabilitySurfaceFull {
+		resources.Register(server, client)
+	}
+	resources.RegisterWorkspaceRoots(server, rootsManager)
+	if capabilitySurface == config.CapabilitySurfaceFull {
+		resources.RegisterWorkflowGuides(server)
+		prompts.Register(server, client)
+	}
+}
+
+func registerConfiguredToolSurface(server *mcp.Server, client *gitlabclient.Client, cfg *config.ServerConfig, updater *autoupdate.Updater, toolSurface string) (serverSurfaceRegistration, error) {
+	return registerConfiguredToolSurfaceWithCatalog(server, client, cfg, updater, toolSurface, nil)
+}
+
+func registerConfiguredToolSurfaceWithCatalog(server *mcp.Server, client *gitlabclient.Client, cfg *config.ServerConfig, updater *autoupdate.Updater, toolSurface string, prebuiltCatalog *actioncatalog.Catalog) (serverSurfaceRegistration, error) {
+	switch toolSurface {
+	case config.ToolSurfaceDynamic:
+		actionCatalog := prebuiltCatalog
+		if actionCatalog == nil {
+			var catalogErr error
+			actionCatalog, catalogErr = buildDynamicActionCatalog(client, cfg, updater)
+			if catalogErr != nil {
+				return serverSurfaceRegistration{}, fmt.Errorf("build dynamic action catalog: %w", catalogErr)
+			}
+		}
+		dynamictools.RegisterCatalogFindExecuteTools(server, actionCatalog)
+		return serverSurfaceRegistration{metaSchemaRoutes: actionCatalog.ActionMaps(), surfaceCatalog: actionCatalog}, nil
+	case config.ToolSurfaceMeta:
+		filteredCatalog := prebuiltCatalog
+		if filteredCatalog == nil {
+			actionCatalog, catalogErr := gitlabtools.BuildActionCatalog(client, gitlabtools.ActionCatalogOptions{Enterprise: cfg.Enterprise, IncludeMCP: true, Updater: updater})
+			if catalogErr != nil {
+				slog.Warn("failed to build meta action catalog", "error", catalogErr)
+				actionCatalog = actioncatalog.NewCatalog()
+			}
+			var filterErr error
+			filteredCatalog, filterErr = filterActionCatalog(actionCatalog, cfg)
+			if filterErr != nil {
+				return serverSurfaceRegistration{}, fmt.Errorf("filter meta action catalog: %w", filterErr)
+			}
+		}
+		gitlabtools.RegisterMetaCatalog(server, filteredCatalog)
+		gitlabtools.RegisterMetaStandaloneTools(server, client)
+		return serverSurfaceRegistration{metaSchemaRoutes: filteredCatalog.ActionMaps(), surfaceCatalog: filteredCatalog}, nil
+	default:
+		gitlabtools.RegisterAll(server, client, cfg.Enterprise)
+		gitlabtools.RegisterServerMaintenanceSurfaceTools(server, updater)
+		return serverSurfaceRegistration{}, nil
+	}
+}
+
+// httpShutdownTimeout bounds graceful HTTP shutdown after the process context
+// is cancelled.
+const httpShutdownTimeout = 5 * time.Second
+
+// serveHTTP starts the MCP server in HTTP mode using a [serverpool.ServerPool].
+// Each unique token in incoming requests gets its own [*mcp.Server] instance
+// backed by a dedicated GitLab client. Requests without a valid authentication
+// token are rejected. Sessions expire after cfg.SessionTimeout of inactivity.
+// The pool is bounded by cfg.MaxHTTPClients entries with LRU eviction.
+func serveHTTP(ctx context.Context, cfg *config.Config, httpAddr string) error {
+	slog.Info(
+		"starting MCP server in HTTP mode",
+		"addr", httpAddr,
+		"auth_mode", cfg.AuthMode,
+		"max_clients", cfg.MaxHTTPClients,
+		"session_timeout", cfg.SessionTimeout,
+		"trusted_proxy_header", cfg.TrustedProxyHeader,
+		"version", version,
+		"commit", commit,
+	)
+
+	pool := serverpool.New(cfg, func(client *gitlabclient.Client, serverCfg *config.ServerConfig) (*mcp.Server, error) {
+		return createServer(client, serverCfg, nil)
+	}, serverpool.WithMaxSize(cfg.MaxHTTPClients),
+		serverpool.WithRevalidateInterval(cfg.RevalidateInterval))
+	defer pool.Close()
+
+	pool.StartRevalidation(ctx)
+
+	// Build server-card JSON once at startup using an ephemeral MCP server
+	// so that /.well-known/mcp/server-card.json is served without authentication.
+	serverCardJSON, serverCardErr := buildServerCard(cfg) //nolint:contextcheck // startup: ephemeral MCP server isolated from request ctx
+	if serverCardErr != nil {
+		slog.Warn("failed to build server-card.json, endpoint will return 503", "error", serverCardErr)
+	}
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /health", healthHandler)
+	mux.HandleFunc("GET /.well-known/mcp/server-card.json", func(w http.ResponseWriter, _ *http.Request) {
+		if serverCardJSON == nil {
+			http.Error(w, `{"error":"server card unavailable"}`, http.StatusServiceUnavailable)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Cache-Control", "public, max-age=3600")
+		_, _ = w.Write(serverCardJSON)
+	})
+
+	registerHTTPMCPHandlers(ctx, cfg, httpAddr, pool, mux)
+
+	var rootHandler http.Handler = mux
+	rootHandler = crossOriginProtectionMiddleware(rootHandler)
+	rootHandler = securityHeadersMiddleware(rootHandler)
+	if hosts := allowedHosts(httpAddr); len(hosts) > 0 {
+		rootHandler = hostValidationMiddleware(hosts, rootHandler)
+	}
+
+	httpServer := &http.Server{
+		Addr:              httpAddr,
+		Handler:           rootHandler,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      60 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
+
+	serverErr := make(chan error, 1)
+	go func() {
+		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			serverErr <- err
+		}
+		close(serverErr)
+	}()
+
+	select {
+	case <-ctx.Done():
+		slog.Info("HTTP server shutdown requested")
+		shutdownCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), httpShutdownTimeout)
+		defer cancel()
+		if err := httpServer.Shutdown(shutdownCtx); err != nil {
+			return fmt.Errorf("http server shutdown: %w", err)
+		}
+		return nil
+	case err := <-serverErr:
+		return fmt.Errorf("mcp server error (http): %w", err)
+	}
+}
+
+func registerHTTPMCPHandlers(ctx context.Context, cfg *config.Config, httpAddr string, pool *serverpool.ServerPool, mux *http.ServeMux) {
+	if cfg.AuthMode == "oauth" {
+		registerOAuthMCPHandlers(ctx, cfg, httpAddr, pool, mux)
+		return
+	}
+	registerLegacyMCPHandlers(ctx, cfg, pool, mux)
+}
+
+func registerOAuthMCPHandlers(ctx context.Context, cfg *config.Config, httpAddr string, pool *serverpool.ServerPool, mux *http.ServeMux) {
+	mcpHandler := mcp.NewStreamableHTTPHandler(func(r *http.Request) *mcp.Server { //nolint:contextcheck // pool bounds per-token scope detection with its own timeout
+		token := serverpool.ExtractToken(r)
+		if token == "" {
+			slog.Error("request rejected: missing token after OAuth middleware (unexpected)")
+			return nil
+		}
+		requestOptions, err := serverpool.ResolveRequestOptions(r, cfg.GitLabURL)
+		if err != nil {
+			slog.Error("request rejected: invalid GITLAB-URL header", "error", err)
+			return nil
+		}
+		logIgnoredRequestOptions(token, requestOptions)
+		server, err := pool.GetOrCreate(token, requestOptions.GitLabURL)
+		if err != nil {
+			slog.Error("failed to create server for token", "error", err)
+			return nil
+		}
+		return server
+	}, &mcp.StreamableHTTPOptions{SessionTimeout: cfg.SessionTimeout})
+
+	tokenCache := oauth.NewTokenCache()
+	verifier := oauth.NewGitLabVerifier(cfg.GitLabURL, cfg.SkipTLSVerify, cfg.OAuthCacheTTL, tokenCache)
+	authMiddleware := auth.RequireBearerToken(verifier, &auth.RequireBearerTokenOptions{ResourceMetadataURL: "http://" + httpAddr + "/.well-known/oauth-protected-resource", Scopes: []string{"api"}})
+	mux.Handle("GET /.well-known/oauth-protected-resource", oauth.NewProtectedResourceHandler("http://"+httpAddr+"/mcp", cfg.GitLabURL))
+	mux.Handle("/", oauth.NormalizeAuthHeader(authMiddleware(mcpHandler)))
+	startPeriodicCleanup(ctx, tokenCache.Cleanup)
+	slog.Info("oauth mode enabled", "cache_ttl", cfg.OAuthCacheTTL, "metadata_endpoint", "/.well-known/oauth-protected-resource")
+}
+
+func registerLegacyMCPHandlers(ctx context.Context, cfg *config.Config, pool *serverpool.ServerPool, mux *http.ServeMux) {
+	authLimiter := serverpool.NewAuthRateLimiter(10, 1*time.Minute)
+	startPeriodicCleanup(ctx, authLimiter.Cleanup)
+	mcpHandler := mcp.NewStreamableHTTPHandler(func(r *http.Request) *mcp.Server { //nolint:contextcheck // pool bounds per-token scope detection with its own timeout
+		ip := clientIP(r, cfg.TrustedProxyHeader)
+		if authLimiter.IsBlocked(ip) {
+			slog.Warn("request blocked: too many authentication failures", "ip", ip) //#nosec G706 -- slog structured args are not interpolated
+			return nil
+		}
+		token := serverpool.ExtractToken(r)
+		if token == "" {
+			authLimiter.RecordFailure(ip)
+			slog.Error("request rejected: missing authentication token (set PRIVATE-TOKEN header or Authorization: Bearer)")
+			return nil
+		}
+		requestOptions, err := serverpool.ResolveRequestOptions(r, cfg.GitLabURL)
+		if err != nil {
+			slog.Error("request rejected: invalid GITLAB-URL header", "error", err)
+			return nil
+		}
+		logIgnoredRequestOptions(token, requestOptions)
+		server, err := pool.GetOrCreate(token, requestOptions.GitLabURL)
+		if err != nil {
+			authLimiter.RecordFailure(ip)
+			slog.Error("failed to create server for token", "error", err)
+			return nil
+		}
+		return server
+	}, &mcp.StreamableHTTPOptions{SessionTimeout: cfg.SessionTimeout})
+	mux.Handle("/", mcpHandler)
+}
+
+func startPeriodicCleanup(ctx context.Context, cleanup func()) {
+	go func() {
+		ticker := time.NewTicker(5 * time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				cleanup()
+			}
+		}
+	}()
+}
+
+// healthResponse is the JSON body returned by the /health endpoint.
+type healthResponse struct {
+	Status  string `json:"status"`
+	Version string `json:"version"`
+	Commit  string `json:"commit"`
+}
+
+// logIgnoredRequestOptions reports request-scoped configuration headers that
+// were intentionally ignored because the server was started with fixed CLI
+// configuration. The token is reduced to a masked suffix before logging.
+func logIgnoredRequestOptions(token string, options serverpool.RequestOptions) {
+	if !options.HasIgnoredOptions() {
+		return
+	}
+	args := []any{
+		"ignored_options", options.IgnoredOptionsCopy(),
+		"token_suffix", safeTokenSuffix(token),
+	}
+	if deprecated := options.DeprecatedOptionsCopy(); len(deprecated) > 0 {
+		args = append(
+			args,
+			"deprecated_options", deprecated,
+			"deprecation_hint", "use TOOL_SURFACE instead of META_TOOLS",
+		)
+	}
+	slog.Warn("request options ignored due to MCP configuration", args...) //#nosec G706 -- structured log uses constant option names and a masked token suffix only
+}
+
+func logLegacyMetaToolsDeprecation(toolSurfaceValue, metaToolsValue string) {
+	if !config.LegacyMetaToolsSelectorInUse(toolSurfaceValue, metaToolsValue) {
+		return
+	}
+	replacement := config.LegacyMetaToolsReplacement(metaToolsValue)
+	if replacement == "" {
+		return
+	}
+	slog.Warn(
+		"META_TOOLS is deprecated; use TOOL_SURFACE instead", //#nosec G706 -- replacement is derived from supported TOOL_SURFACE constants and logged as structured data.
+		"legacy_selector", "META_TOOLS",
+		"replacement", "TOOL_SURFACE="+replacement,
+	)
+}
+
+// safeTokenSuffix returns a masked token suffix suitable for structured logs.
+// Short tokens are fully masked to avoid exposing low-entropy credentials.
+func safeTokenSuffix(token string) string {
+	if len(token) <= 4 {
+		return "****"
+	}
+	return "..." + token[len(token)-4:]
+}
+
+// clientIP extracts the real client IP from the request. When a trusted
+// proxy header is configured (e.g. Fly-Client-IP, X-Real-IP, X-Forwarded-For),
+// its value is used instead of RemoteAddr.
+//
+// For multi-value headers like X-Forwarded-For — where well-behaved proxies
+// *append* to an existing header — the rightmost value is returned because
+// the leftmost entry is client-supplied and therefore spoofable. Operators
+// who configure this flag must ensure the trusted proxy is the only ingress
+// path to the server; otherwise any client can set the header directly and
+// bypass per-IP rate limiting.
+func clientIP(r *http.Request, trustedHeader string) string {
+	if trustedHeader != "" {
+		if val := r.Header.Get(trustedHeader); val != "" {
+			// For comma-separated values (X-Forwarded-For style), take the
+			// rightmost non-empty IP — it is the most recent proxy-appended
+			// hop and cannot be spoofed by an untrusted upstream client.
+			parts := strings.Split(val, ",")
+			for _, part := range slices.Backward(parts) {
+				if ip := strings.TrimSpace(part); ip != "" {
+					return ip
+				}
+			}
+		}
+	}
+	host, _, _ := net.SplitHostPort(r.RemoteAddr)
+	return host
+}
+
+// parseLogLevel converts a LOG_LEVEL string to slog.Level.
+// Accepts: debug, info, warn, error (case-insensitive). Defaults to info.
+func parseLogLevel(s string) slog.Level {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "debug":
+		return slog.LevelDebug
+	case "warn", "warning":
+		return slog.LevelWarn
+	case "error":
+		return slog.LevelError
+	default:
+		return slog.LevelInfo
+	}
+}
+
+// allowedHosts computes the set of valid Host header values based on the
+// listen address. Returns nil when binding to all interfaces (0.0.0.0/::),
+// which skips host validation — suitable for reverse-proxy deployments.
+func allowedHosts(addr string) map[string]bool {
+	host, _, _ := net.SplitHostPort(addr)
+	if host == "" || host == "0.0.0.0" || host == "::" {
+		return nil
+	}
+	return map[string]bool{
+		host:        true,
+		"localhost": true,
+		"127.0.0.1": true,
+		"::1":       true,
+	}
+}
+
+// securityHeadersMiddleware adds standard security headers to every HTTP response
+// and enforces a request body size limit.
+func securityHeadersMiddleware(next http.Handler) http.Handler {
+	const maxBodySize = 10 << 20 // 10 MB
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("X-Frame-Options", "DENY")
+		w.Header().Set("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'")
+		w.Header().Set("Cache-Control", "no-store")
+		w.Header().Set("Referrer-Policy", "no-referrer")
+		r.Body = http.MaxBytesReader(w, r.Body, maxBodySize)
+		next.ServeHTTP(w, r)
+	})
+}
+
+// crossOriginProtectionMiddleware applies explicit CSRF-oriented checks for
+// browser-originated HTTP requests. The MCP SDK no longer enables this by
+// default when StreamableHTTPOptions.CrossOriginProtection is nil.
+func crossOriginProtectionMiddleware(next http.Handler) http.Handler {
+	return http.NewCrossOriginProtection().Handler(next)
+}
+
+// hostValidationMiddleware rejects requests whose Host header does not match
+// the allowed set, mitigating DNS rebinding attacks on local servers.
+func hostValidationMiddleware(allowed map[string]bool, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		host := r.Host
+		if h, _, err := net.SplitHostPort(host); err == nil {
+			host = h
+		}
+		if !allowed[host] {
+			slog.Warn("request blocked: invalid Host header", "host", r.Host) //#nosec G706 -- slog structured args are not interpolated
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// healthHandler responds with HTTP 200 and a JSON body for container healthchecks
+// and load-balancer probes. It does not require authentication.
+func healthHandler(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(healthResponse{ //nolint:errchkjson // healthcheck: client write errors are non-actionable
+		Status:  "ok",
+		Version: version,
+		Commit:  commit,
+	})
+}
+
+// buildServerCard creates a Smithery-compatible server-card JSON by spinning up
+// an ephemeral MCP server with a dummy GitLab client, listing all registered
+// tools, resources, resource templates, and prompts via in-memory MCP session,
+// and marshaling the result. The dummy client is never used for API calls —
+// it only satisfies createServer's non-nil requirement so that registration
+// can proceed.
+//
+// The card includes per-tool OutputSchema, Annotations, and Title so external
+// scanners (Smithery, Glama, MCP Hive) get the full metadata without needing
+// to authenticate against the live MCP endpoint.
+func buildServerCard(cfg *config.Config) ([]byte, error) {
+	// Use configured URL or a placeholder — the dummy client only needs a
+	// parseable URL to register tools; it never makes real API calls.
+	gitlabURL := cfg.GitLabURL
+	if gitlabURL == "" {
+		gitlabURL = config.DefaultGitLabURL
+	}
+
+	dummyClient, err := gitlabclient.NewClientWithToken(gitlabURL, "dummy-token-for-tool-discovery", cfg.SkipTLSVerify)
+	if err != nil {
+		return nil, fmt.Errorf("creating dummy client: %w", err)
+	}
+
+	srv, err := createServer(dummyClient, cfg.ServerConfig(), nil)
+	if err != nil {
+		return nil, fmt.Errorf("creating server-card MCP server: %w", err)
+	}
+
+	st, ct := mcp.NewInMemoryTransports()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	serverSession, err := srv.Connect(ctx, st, nil)
+	if err != nil {
+		return nil, fmt.Errorf("server connect: %w", err)
+	}
+	defer serverSession.Close()
+
+	mcpClient := mcp.NewClient(&mcp.Implementation{Name: "server-card-builder", Version: "0"}, nil)
+	session, err := mcpClient.Connect(ctx, ct, nil)
+	if err != nil {
+		return nil, fmt.Errorf("client connect: %w", err)
+	}
+	defer session.Close()
+
+	toolsResult, err := session.ListTools(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("list tools: %w", err)
+	}
+
+	type serverCardTool struct {
+		Name         string               `json:"name"`
+		Title        string               `json:"title,omitempty"`
+		Description  string               `json:"description,omitempty"`
+		InputSchema  any                  `json:"inputSchema,omitempty"`
+		OutputSchema any                  `json:"outputSchema,omitempty"`
+		Annotations  *mcp.ToolAnnotations `json:"annotations,omitempty"`
+	}
+
+	cardTools := make([]serverCardTool, 0, len(toolsResult.Tools))
+	for _, t := range toolsResult.Tools {
+		cardTools = append(cardTools, serverCardTool{
+			Name:         t.Name,
+			Title:        t.Title,
+			Description:  t.Description,
+			InputSchema:  t.InputSchema,
+			OutputSchema: t.OutputSchema,
+			Annotations:  t.Annotations,
+		})
+	}
+
+	type serverCardResource struct {
+		URI         string           `json:"uri"`
+		Name        string           `json:"name,omitempty"`
+		Title       string           `json:"title,omitempty"`
+		Description string           `json:"description,omitempty"`
+		MIMEType    string           `json:"mimeType,omitempty"`
+		Annotations *mcp.Annotations `json:"annotations,omitempty"`
+	}
+
+	resourcesResult, err := session.ListResources(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("list resources: %w", err)
+	}
+	cardResources := make([]serverCardResource, 0, len(resourcesResult.Resources))
+	for _, r := range resourcesResult.Resources {
+		cardResources = append(cardResources, serverCardResource{
+			URI:         r.URI,
+			Name:        r.Name,
+			Title:       r.Title,
+			Description: r.Description,
+			MIMEType:    r.MIMEType,
+			Annotations: r.Annotations,
+		})
+	}
+
+	type serverCardResourceTemplate struct {
+		URITemplate string           `json:"uriTemplate"`
+		Name        string           `json:"name,omitempty"`
+		Title       string           `json:"title,omitempty"`
+		Description string           `json:"description,omitempty"`
+		MIMEType    string           `json:"mimeType,omitempty"`
+		Annotations *mcp.Annotations `json:"annotations,omitempty"`
+	}
+
+	templatesResult, err := session.ListResourceTemplates(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("list resource templates: %w", err)
+	}
+	cardTemplates := make([]serverCardResourceTemplate, 0, len(templatesResult.ResourceTemplates))
+	for _, rt := range templatesResult.ResourceTemplates {
+		cardTemplates = append(cardTemplates, serverCardResourceTemplate{
+			URITemplate: rt.URITemplate,
+			Name:        rt.Name,
+			Title:       rt.Title,
+			Description: rt.Description,
+			MIMEType:    rt.MIMEType,
+			Annotations: rt.Annotations,
+		})
+	}
+
+	type serverCardPromptArgument struct {
+		Name        string `json:"name"`
+		Title       string `json:"title,omitempty"`
+		Description string `json:"description,omitempty"`
+		Required    bool   `json:"required,omitempty"`
+	}
+	type serverCardPrompt struct {
+		Name        string                     `json:"name"`
+		Title       string                     `json:"title,omitempty"`
+		Description string                     `json:"description,omitempty"`
+		Arguments   []serverCardPromptArgument `json:"arguments,omitempty"`
+	}
+
+	cardPrompts := []serverCardPrompt{}
+	if config.EffectiveCapabilitySurface(cfg.CapabilitySurface) == config.CapabilitySurfaceFull {
+		promptsResult, promptsErr := session.ListPrompts(ctx, nil)
+		if promptsErr != nil {
+			return nil, fmt.Errorf("list prompts: %w", promptsErr)
+		}
+		cardPrompts = make([]serverCardPrompt, 0, len(promptsResult.Prompts))
+		for _, p := range promptsResult.Prompts {
+			args := make([]serverCardPromptArgument, 0, len(p.Arguments))
+			for _, a := range p.Arguments {
+				args = append(args, serverCardPromptArgument{
+					Name:        a.Name,
+					Title:       a.Title,
+					Description: a.Description,
+					Required:    a.Required,
+				})
+			}
+			cardPrompts = append(cardPrompts, serverCardPrompt{
+				Name:        p.Name,
+				Title:       p.Title,
+				Description: p.Description,
+				Arguments:   args,
+			})
+		}
+	}
+
+	card := map[string]any{
+		"serverInfo": map[string]any{
+			"name":    "gitlab-mcp-server",
+			"version": version,
+		},
+		"authentication": map[string]any{
+			"required": true,
+			"schemes":  []string{"header-token"},
+		},
+		"tools":             cardTools,
+		"resources":         cardResources,
+		"resourceTemplates": cardTemplates,
+		"prompts":           cardPrompts,
+	}
+
+	return json.Marshal(card)
+}
+
+// serveStdio starts the MCP server using stdio transport.
+// It blocks until the context is canceled or an error occurs.
+func serveStdio(ctx context.Context, server *mcp.Server) error {
+	slog.Info("starting MCP server", "transport", "stdio", "version", version, "commit", commit)
+	if err := server.Run(ctx, &mcp.StdioTransport{}); err != nil {
+		return fmt.Errorf("mcp server error: %w", err)
+	}
+	return nil
+}
+
+type stdioAutoUpdateCheckFunc func(context.Context, autoupdate.Config) (newVersion string, updated bool, err error)
+
+func runStdioAutoUpdateCheck(ctx context.Context, cfg autoupdate.Config) (newVersion string, updated bool, err error) {
+	updater, err := autoupdate.NewUpdater(cfg)
+	if err != nil {
+		return "", false, err
+	}
+	return updater.CheckOnce(ctx)
+}
+
+// startStdioAutoUpdate launches the startup update check for stdio mode.
+// The check runs in the background so MCP startup and tool negotiation are not
+// delayed by release detection, download, or binary replacement.
+func startStdioAutoUpdate(ctx context.Context, cfg *config.Config) {
+	startStdioAutoUpdateWithCheck(ctx, cfg, runStdioAutoUpdateCheck)
+}
+
+func startStdioAutoUpdateWithCheck(ctx context.Context, cfg *config.Config, check stdioAutoUpdateCheckFunc) {
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("autoupdate: startup auto-update panicked — continuing without update", "panic", r)
+		}
+	}()
+
+	mode, err := autoupdate.ParseMode(cfg.AutoUpdate)
+	if err != nil {
+		slog.Warn("autoupdate: invalid AUTO_UPDATE value, skipping", "error", err)
+		return
+	}
+	if mode == autoupdate.ModeDisabled {
+		return
+	}
+	if autoupdate.JustUpdated() {
+		autoupdate.ClearJustUpdated()
+		slog.Info("autoupdate: skipping startup update check (just re-executed after update)")
+		return
+	}
+
+	timeout := cfg.AutoUpdateTimeout
+	if timeout <= 0 {
+		timeout = config.DefaultAutoUpdateTimeout
+	}
+	updateCfg := autoupdate.Config{
+		Mode:           mode,
+		Repository:     cfg.AutoUpdateRepo,
+		Timeout:        timeout,
+		CurrentVersion: version,
+	}
+
+	slog.Info(
+		"autoupdate: starting startup check in background",
+		"mode", mode,
+		"repository", cfg.AutoUpdateRepo,
+		"current_version", version,
+	)
+
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Error("autoupdate: startup auto-update goroutine panicked — continuing without update", "panic", r)
+			}
+		}()
+
+		checkCtx, cancel := context.WithTimeout(ctx, timeout)
+		defer cancel()
+
+		newVersion, updated, checkErr := check(checkCtx, updateCfg)
+		if checkErr != nil {
+			slog.Warn("autoupdate: startup background check failed", "error", checkErr)
+			return
+		}
+		if updated && newVersion != "" {
+			slog.Info(
+				"autoupdate: binary updated in background — restart the server to use the new version",
+				"new_version", newVersion,
+			)
+		}
+	}()
+}
+
+// newUpdaterForTools creates an [*autoupdate.Updater] for the MCP server-update
+// tools. Returns nil (safe for RegisterTools) if auto-update is disabled or
+// initialisation fails.
+func newUpdaterForTools(cfg *config.Config) *autoupdate.Updater {
+	mode, err := autoupdate.ParseMode(cfg.AutoUpdate)
+	if err != nil || mode == autoupdate.ModeDisabled {
+		return nil
+	}
+	u, err := autoupdate.NewUpdater(autoupdate.Config{
+		Mode:           mode,
+		Repository:     cfg.AutoUpdateRepo,
+		CurrentVersion: version,
+	})
+	if err != nil {
+		slog.Warn("autoupdate: could not create updater for MCP tools", "error", err)
+		return nil
+	}
+	return u
+}
+
+// startAutoUpdate initializes background periodic update checks for HTTP mode.
+func startAutoUpdate(ctx context.Context, cfg *config.Config) {
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("autoupdate: background auto-update panicked — continuing without updates", "panic", r)
+		}
+	}()
+
+	mode, err := autoupdate.ParseMode(cfg.AutoUpdate)
+	if err != nil {
+		slog.Warn("autoupdate: invalid auto-update mode, skipping", "error", err)
+		return
+	}
+	if mode == autoupdate.ModeDisabled {
+		return
+	}
+
+	u, err := autoupdate.NewUpdater(autoupdate.Config{
+		Mode:           mode,
+		Repository:     cfg.AutoUpdateRepo,
+		Interval:       cfg.AutoUpdateInterval,
+		Timeout:        cfg.AutoUpdateTimeout,
+		CurrentVersion: version,
+	})
+	if err != nil {
+		slog.Warn("autoupdate: could not initialize periodic updater", "error", err)
+		return
+	}
+
+	u.StartPeriodicCheck(ctx)
+}
+
+// countRegisteredTools returns the number of tools registered on the server
+// by connecting an ephemeral in-memory client session and calling ListTools.
+func countRegisteredTools(server *mcp.Server) (int, error) {
+	registered, err := listRegisteredToolsForInspection(server, "counter")
+	if err != nil {
+		return 0, err
+	}
+	return len(registered), nil
+}
+
+// MCP inspection hooks are replaceable in tests so error paths from in-memory
+// server/client setup can be exercised without mutating production behavior.
+var (
+	listRegisteredToolsForInspection = listRegisteredTools
+	newInspectionTransports          = mcp.NewInMemoryTransports
+	connectInspectionServer          = func(server *mcp.Server, ctx context.Context, transport mcp.Transport) (*mcp.ServerSession, error) {
+		return server.Connect(ctx, transport, nil)
+	}
+	connectInspectionClient = func(client *mcp.Client, ctx context.Context, transport mcp.Transport) (*mcp.ClientSession, error) {
+		return client.Connect(ctx, transport, nil)
+	}
+	listInspectionTools = func(session *mcp.ClientSession, ctx context.Context) (*mcp.ListToolsResult, error) {
+		return session.ListTools(ctx, nil)
+	}
+)
+
+// listRegisteredTools connects an in-memory MCP client to server and returns
+// the tool catalog advertised through tools/list.
+func listRegisteredTools(server *mcp.Server, clientName string) ([]*mcp.Tool, error) {
+	st, ct := newInspectionTransports()
+	ctx := context.Background()
+
+	serverSession, err := connectInspectionServer(server, ctx, st)
+	if err != nil {
+		return nil, fmt.Errorf("server connect: %w", err)
+	}
+	defer serverSession.Close()
+
+	mcpClient := mcp.NewClient(&mcp.Implementation{Name: clientName, Version: "0"}, nil)
+	session, err := connectInspectionClient(mcpClient, ctx, ct)
+	if err != nil {
+		return nil, fmt.Errorf("client connect: %w", err)
+	}
+	defer session.Close()
+
+	result, err := listInspectionTools(session, ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list tools: %w", err)
+	}
+	return result.Tools, nil
+}
+
+// visibleMetaSchemaRoutes filters catalog-derived route maps to the tools
+// still visible after read-only or exclude-tools registration filters run.
+func visibleMetaSchemaRoutes(server *mcp.Server, routes map[string]toolutil.ActionMap) (map[string]toolutil.ActionMap, error) {
+	registeredTools, err := listRegisteredToolsForInspection(server, "meta-schema-filter")
+	if err != nil {
+		return nil, err
+	}
+
+	visibleTools := make(map[string]struct{}, len(registeredTools))
+	for _, tool := range registeredTools {
+		visibleTools[tool.Name] = struct{}{}
+	}
+
+	visibleRoutes := make(map[string]toolutil.ActionMap, len(routes))
+	for toolName, actions := range routes {
+		if _, ok := visibleTools[toolName]; ok {
+			visibleRoutes[toolName] = actions
+		}
+	}
+	return visibleRoutes, nil
+}
+
+// buildDynamicActionCatalog builds the executable catalog for low-token dynamic
+// mode. Filters run before standalone tools are added so configured exclusions,
+// token scopes, and read-only mode cannot leave hidden catalog actions behind.
+func buildDynamicActionCatalog(client *gitlabclient.Client, cfg *config.ServerConfig, updater *autoupdate.Updater) (*actioncatalog.Catalog, error) {
+	catalog, err := gitlabtools.BuildActionCatalog(client, gitlabtools.ActionCatalogOptions{
+		Enterprise: cfg.Enterprise,
+		IncludeMCP: true,
+		Updater:    updater,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("build action catalog: %w", err)
+	}
+	filtered, filterErr := filterActionCatalog(catalog, cfg)
+	if filterErr != nil {
+		return nil, fmt.Errorf("filter dynamic action catalog: %w", filterErr)
+	}
+	withStandalone, standaloneErr := dynamictools.AddStandaloneCatalog(filtered, client, dynamictools.StandaloneOptions{
+		ReadOnly:     cfg.ReadOnly,
+		ExcludeTools: cfg.ExcludeTools,
+	})
+	if standaloneErr != nil {
+		return nil, fmt.Errorf("add standalone dynamic actions: %w", standaloneErr)
+	}
+	return withStandalone, nil
+}
+
+func filterActionCatalog(catalog *actioncatalog.Catalog, cfg *config.ServerConfig) (*actioncatalog.Catalog, error) {
+	filtered := catalog.FilterExcludedTools(cfg.ExcludeTools)
+	var err error
+	filtered, err = gitlabtools.FilterScopeFilteredCatalog(filtered, cfg.TokenScopes)
+	if err != nil {
+		return nil, err
+	}
+	if cfg.ReadOnly {
+		filtered = filtered.FilterReadOnlyGroups()
+	}
+	return filtered, nil
+}
+
+// countCatalogActions sums actions across catalog route maps for startup logs.
+func countCatalogActions(routes map[string]toolutil.ActionMap) int {
+	total := 0
+	for _, actions := range routes {
+		total += len(actions)
+	}
+	return total
+}
+
+// removeNonReadOnlyTools lists all registered tools via an ephemeral in-memory
+// session and removes those that do not have ReadOnlyHint set to true.
+// Returns the number of tools removed.
+func removeNonReadOnlyTools(server *mcp.Server) int {
+	st, ct := mcp.NewInMemoryTransports()
+	ctx := context.Background()
+
+	serverSession, err := server.Connect(ctx, st, nil)
+	if err != nil {
+		slog.Error("removeNonReadOnlyTools: server connect failed", "error", err)
+		return 0
+	}
+	defer serverSession.Close()
+
+	mcpClient := mcp.NewClient(&mcp.Implementation{Name: "readonly-filter", Version: "0"}, nil)
+	session, err := mcpClient.Connect(ctx, ct, nil)
+	if err != nil {
+		slog.Error("removeNonReadOnlyTools: client connect failed", "error", err)
+		return 0
+	}
+	defer session.Close()
+
+	result, err := session.ListTools(ctx, nil)
+	if err != nil {
+		slog.Error("removeNonReadOnlyTools: list tools failed", "error", err)
+		return 0
+	}
+
+	var toRemove []string
+	for _, t := range result.Tools {
+		if t.Annotations == nil || !t.Annotations.ReadOnlyHint {
+			toRemove = append(toRemove, t.Name)
+		}
+	}
+
+	if len(toRemove) > 0 {
+		server.RemoveTools(toRemove...)
+	}
+	return len(toRemove)
+}
+
+// removeExcludedTools lists all registered tools and removes those whose name
+// matches any entry in the exclusion list. Matching is exact by tool name.
+// Returns the number of tools removed.
+func removeExcludedTools(server *mcp.Server, exclude []string) int {
+	if len(exclude) == 0 {
+		return 0
+	}
+
+	excludeSet := make(map[string]struct{}, len(exclude))
+	for _, name := range exclude {
+		excludeSet[name] = struct{}{}
+	}
+
+	st, ct := mcp.NewInMemoryTransports()
+	ctx := context.Background()
+
+	serverSession, err := server.Connect(ctx, st, nil)
+	if err != nil {
+		slog.Error("removeExcludedTools: server connect failed", "error", err)
+		return 0
+	}
+	defer serverSession.Close()
+
+	mcpClient := mcp.NewClient(&mcp.Implementation{Name: "exclude-filter", Version: "0"}, nil)
+	session, err := mcpClient.Connect(ctx, ct, nil)
+	if err != nil {
+		slog.Error("removeExcludedTools: client connect failed", "error", err)
+		return 0
+	}
+	defer session.Close()
+
+	result, err := session.ListTools(ctx, nil)
+	if err != nil {
+		slog.Error("removeExcludedTools: list tools failed", "error", err)
+		return 0
+	}
+
+	var toRemove []string
+	for _, t := range result.Tools {
+		if _, ok := excludeSet[t.Name]; ok {
+			toRemove = append(toRemove, t.Name)
+		}
+	}
+
+	if len(toRemove) > 0 {
+		server.RemoveTools(toRemove...)
+	}
+	return len(toRemove)
+}
+
+// runToolSearch creates an in-memory MCP server, lists all tools, and
+// prints those matching every space-separated search term (AND logic,
+// case-insensitive match on name + description). Then it exits.
+func runToolSearch(query, toolSurface string, enterprise bool) {
+	if err := toolSearchRunner(query, toolSurface, enterprise); err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		exitProcess(1)
+	}
+}
+
+// Tool search hooks are replaceable in tests so runToolSearch can be verified
+// without terminating the test process through os.Exit.
+var (
+	toolSearchRunner = doToolSearch
+	exitProcess      = os.Exit
+)
+
+// doToolSearch builds the selected MCP tool catalog, searches tool names and
+// descriptions with case-insensitive AND matching, and prints matching tool
+// names with the first description line.
+func doToolSearch(query, toolSurface string, enterprise bool) error {
+	terms := strings.Fields(strings.ToLower(query))
+	if len(terms) == 0 {
+		return nil
+	}
+
+	server := mcp.NewServer(&mcp.Implementation{Name: "search", Version: version}, &mcp.ServerOptions{PageSize: 2000})
+
+	switch config.EffectiveToolSurface(true, toolSurface) {
+	case config.ToolSurfaceMeta:
+		if err := gitlabtools.RegisterAllMeta(server, nil, enterprise); err != nil {
+			return err
+		}
+	case config.ToolSurfaceIndividual:
+		gitlabtools.RegisterAll(server, nil, enterprise)
+	case config.ToolSurfaceDynamic:
+		catalog, err := buildToolSearchCatalog(enterprise)
+		if err != nil {
+			return err
+		}
+		dynamictools.RegisterCatalogFindExecuteTools(server, catalog)
+	default:
+		return fmt.Errorf("unsupported tool surface for search: %q", toolSurface)
+	}
+
+	st, ct := mcp.NewInMemoryTransports()
+	ctx := context.Background()
+
+	serverSession, err := server.Connect(ctx, st, nil)
+	if err != nil {
+		return fmt.Errorf("connect error: %w", err)
+	}
+	defer serverSession.Close()
+
+	mcpClient := mcp.NewClient(&mcp.Implementation{Name: "search-client", Version: "0"}, nil)
+	session, err := mcpClient.Connect(ctx, ct, nil)
+	if err != nil {
+		return fmt.Errorf("connect error: %w", err)
+	}
+	defer session.Close()
+
+	result, err := session.ListTools(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("list tools error: %w", err)
+	}
+
+	var matches []*mcp.Tool
+	for _, t := range result.Tools {
+		haystack := strings.ToLower(t.Name + " " + t.Description)
+		allMatch := true
+		for _, term := range terms {
+			if !strings.Contains(haystack, term) {
+				allMatch = false
+				break
+			}
+		}
+		if allMatch {
+			matches = append(matches, t)
+		}
+	}
+
+	if len(matches) == 0 {
+		fmt.Printf("No tools found matching %q\n", query)
+		return nil
+	}
+
+	fmt.Printf("Found %d tool(s) matching %q:\n\n", len(matches), query)
+	fmt.Printf("%-45s %s\n", "NAME", "DESCRIPTION")
+	fmt.Println(strings.Repeat("-", 120))
+	for _, t := range matches {
+		desc := t.Description
+		if len([]rune(desc)) > 80 {
+			desc = string([]rune(desc)[:77]) + "..."
+		}
+		fmt.Printf("%-45s %s\n", t.Name, desc)
+	}
+	return nil
+}
+
+func buildToolSearchCatalog(enterprise bool) (*actioncatalog.Catalog, error) {
+	catalog, err := gitlabtools.BuildActionCatalog(nil, gitlabtools.ActionCatalogOptions{
+		Enterprise: enterprise,
+		IncludeMCP: true,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("build action catalog: %w", err)
+	}
+	withStandalone, standaloneErr := dynamictools.AddStandaloneCatalog(catalog, nil, dynamictools.StandaloneOptions{})
+	if standaloneErr != nil {
+		return nil, fmt.Errorf("add standalone dynamic actions: %w", standaloneErr)
+	}
+	return withStandalone, nil
+}
+
+// setupAutoUpdateRedaction wraps the current global slog handler with a
+// handler that redacts the auto-update GitLab URL (and its host) from log
+// entries whose message starts with "autoupdate:". Regular GitLab operation
+// logs are left untouched so the user's configured GITLAB_URL remains visible.
+func setupAutoUpdateRedaction(autoUpdateURL string) {
+	if autoUpdateURL == "" {
+		return
+	}
+	var redactStrings []string
+	redactStrings = append(redactStrings, autoUpdateURL)
+	if host := extractHost(autoUpdateURL); host != "" {
+		redactStrings = append(redactStrings, host)
+	}
+	slog.SetDefault(slog.New(&autoUpdateRedactHandler{
+		base:          slog.Default().Handler(),
+		redactStrings: redactStrings,
+	}))
+}
+
+// extractHost returns the host (with port) from a URL string, or empty on error.
+func extractHost(rawURL string) string {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return ""
+	}
+	return u.Host
+}
+
+// autoUpdateRedactHandler wraps a [slog.Handler] and replaces occurrences of
+// the auto-update GitLab URL (and host) with "[REDACTED]" in string attributes,
+// but only for log records whose message starts with "autoupdate:".
+type autoUpdateRedactHandler struct {
+	base          slog.Handler
+	redactStrings []string
+}
+
+// Enabled implements [slog.Handler] by delegating to the wrapped base handler.
+func (h *autoUpdateRedactHandler) Enabled(ctx context.Context, level slog.Level) bool {
+	return h.base.Enabled(ctx, level)
+}
+
+// Handle implements [slog.Handler]. For records whose message starts with
+// "autoupdate:", it redacts the configured strings from string-valued
+// attributes before forwarding to the base handler. Other records pass through
+// unchanged.
+func (h *autoUpdateRedactHandler) Handle(ctx context.Context, r slog.Record) error {
+	if !strings.HasPrefix(r.Message, "autoupdate:") {
+		return h.base.Handle(ctx, r)
+	}
+	nr := slog.NewRecord(r.Time, r.Level, r.Message, r.PC)
+	r.Attrs(func(a slog.Attr) bool {
+		nr.AddAttrs(h.redactAttr(a))
+		return true
+	})
+	return h.base.Handle(ctx, nr)
+}
+
+// WithAttrs implements [slog.Handler] by returning a new redacting handler
+// wrapping the base handler with the additional attributes.
+func (h *autoUpdateRedactHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	return &autoUpdateRedactHandler{base: h.base.WithAttrs(attrs), redactStrings: h.redactStrings}
+}
+
+// WithGroup implements [slog.Handler] by returning a new redacting handler
+// wrapping the base handler with the named group.
+func (h *autoUpdateRedactHandler) WithGroup(name string) slog.Handler {
+	return &autoUpdateRedactHandler{base: h.base.WithGroup(name), redactStrings: h.redactStrings}
+}
+
+// redactAttr redacts configured auto-update URL fragments from string-valued
+// log attributes before they are forwarded to the wrapped handler.
+func (h *autoUpdateRedactHandler) redactAttr(a slog.Attr) slog.Attr {
+	if a.Value.Kind() == slog.KindString {
+		s := a.Value.String()
+		for _, r := range h.redactStrings {
+			s = strings.ReplaceAll(s, r, "[REDACTED]")
+		}
+		a.Value = slog.StringValue(s)
+	}
+	return a
+}

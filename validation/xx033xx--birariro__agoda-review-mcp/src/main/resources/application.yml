@@ -1,0 +1,16 @@
+spring:
+  main:
+    web-application-type: none
+    banner-mode: off
+  ai:
+    mcp:
+      server:
+        name: agoda-review-mcp
+        version: 1.0.0
+        type: SYNC
+
+logging:
+  file:
+    name: ./agoda-review-mcp.log
+  pattern:
+    console:

@@ -1,0 +1,50 @@
+<div class="dashboard-container">
+  <app-header></app-header>
+  
+  <div class="container-fluid py-4">
+    <div class="row">
+      <div class="col-lg-3 mb-4">
+        <app-filter-sidebar (filtersChanged)="applyFilters($event)"></app-filter-sidebar>
+      </div>
+      
+      <div class="col-lg-9">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <h2 class="dashboard-title">MCP Server Dashboard</h2>
+          <div class="dashboard-actions">
+            <button class="btn btn-outline-secondary me-2">
+              <i class="bi bi-search me-1"></i>
+              Auto Discover
+            </button>
+            <button class="btn btn-primary">
+              <i class="bi bi-plus me-1"></i>
+              Add Server
+            </button>
+          </div>
+        </div>
+        
+        <div class="tab-container mb-4">
+          <ul class="nav nav-tabs">
+            <li class="nav-item">
+              <a class="nav-link active" href="#">All Servers</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="#">Local</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="#">Remote</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="#">Favorites</a>
+            </li>
+          </ul>
+        </div>
+        
+        <div class="row">
+          <div *ngFor="let server of filteredServers" class="col-md-6 col-xl-4">
+            <app-server-card [server]="server"></app-server-card>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

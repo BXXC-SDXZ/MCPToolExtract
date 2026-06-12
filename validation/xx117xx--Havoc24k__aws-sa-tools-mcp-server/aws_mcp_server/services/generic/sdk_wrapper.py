@@ -1,0 +1,61 @@
+from typing import Any
+
+import boto3
+
+from ...core.utils import create_aws_client
+from ...mcp import mcp
+
+
+@mcp.resource("resource://aws_config")
+def get_aws_config() -> Any:
+    """
+    Get the AWS configuration from the user's home directory.
+
+    Returns:
+        dict: The AWS configuration.
+    """
+    # Get a list of all AWS profiles from the user's home directory ~/.aws/config
+    config = boto3.Session().available_profiles
+    return config
+
+@mcp.resource("resource://aws_profiles")
+def get_aws_profiles() -> Any:
+    """
+    Get the AWS profiles from the user's home directory.
+
+    Returns:
+        dict: The AWS profiles.
+    """
+    # Get a list of all AWS profiles from the user's home directory ~/.aws/credentials
+    profiles = boto3.Session().available_profiles
+    return profiles
+
+
+@mcp.tool(
+    name="aws_sdk_wrapper",
+    description="""
+    A generic AWS SDK wrapper to call any AWS service and operation.
+
+    Args:
+        service_name (str): The name of the AWS service to call (e.g. 's3', 'ec2', 'rds', etc.).
+        operation_name (str): The name of the operation to call (e.g. 'list_buckets', 'describe_instances', etc.).
+        region_name (str): The AWS region to use.
+        profile_name (str): The name of the AWS profile to use.
+        operation_kwargs (dict): The arguments to pass to the operation.
+    Returns:
+        Any: The response from the AWS service.
+    Example:
+        aws_sdk_wrapper('ce', 'get_cost_and_usage_with_resources', region_name='us-east-1', profile_name='my_profile', operation_kwargs={'TimePeriod': {'Start': '2023-01-01', 'End': '2023-01-31'}, 'Granularity': 'MONTHLY', 'GroupBy': [{'Type': 'DIMENSION', 'Key': 'SERVICE'}], 'Metrics': ['BlendedCost']})
+    """,
+)
+async def aws_sdk_wrapper(
+    service_name: str,
+    operation_name: str,
+    region_name: str,
+    profile_name: str,
+    operation_kwargs: dict[str, Any],
+) -> Any:
+    client = create_aws_client(profile_name, region_name, service_name)
+    method = getattr(client, operation_name)
+    response = method(**operation_kwargs)
+    return response

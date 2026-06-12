@@ -1,0 +1,571 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@plugin "@tailwindcss/typography";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  /* Brand accents exposed to Tailwind utilities */
+  --color-brand-orange: var(--brand-orange);
+  --color-brand-orange-foreground: var(--brand-orange-foreground);
+  /* Commission Gold — primary brand accent (achievement / premium) */
+  --color-brand-gold: var(--brand-gold);
+  --color-brand-gold-foreground: var(--brand-gold-foreground);
+  --color-brand-gold-dim: var(--brand-gold-dim);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+  /* ── Elevation shadows — 3-layer system for real physical depth ──────── */
+  /* Layer 1 (contact): 1–3px tight edge — crisp card boundary             */
+  /* Layer 2 (lift):    8–28px mid — perceived height off the surface      */
+  /* Layer 3 (ambient): 28–56px wide soft — atmospheric depth              */
+  --shadow-sm: 0 1px 3px oklch(0.129 0.042 264.695 / 0.10),
+               0 4px 10px oklch(0.129 0.042 264.695 / 0.08);
+  --shadow:    0 2px 4px oklch(0.129 0.042 264.695 / 0.08),
+               0 10px 28px oklch(0.129 0.042 264.695 / 0.13),
+               0 32px 56px oklch(0.129 0.042 264.695 / 0.07);
+  --shadow-md: 0 4px 8px oklch(0.129 0.042 264.695 / 0.10),
+               0 20px 44px oklch(0.129 0.042 264.695 / 0.15),
+               0 48px 80px oklch(0.129 0.042 264.695 / 0.08);
+  --shadow-lg: 0 8px 16px oklch(0.129 0.042 264.695 / 0.12),
+               0 32px 64px oklch(0.129 0.042 264.695 / 0.18),
+               0 64px 104px oklch(0.129 0.042 264.695 / 0.09);
+}
+
+:root {
+  --radius: 0.75rem;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.129 0.042 264.695);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.129 0.042 264.695);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.129 0.042 264.695);
+
+  /* ── Primary brand — Runway Blue #1E72F2 ──────────────────────────── */
+  --primary: oklch(0.57 0.240 261);        /* slightly more vibrant     */
+  --primary-foreground: oklch(1 0 0);
+
+  /* ── Commission Gold #F0A800 ─────────────────────────────────────── */
+  /* Primary brand accent: achievement, milestones, score, top-rank     */
+  /* Hue 73° = pure amber/gold — max split-complement to Runway Blue    */
+  --brand-gold: oklch(0.75 0.19 73);
+  --brand-gold-foreground: oklch(0.15 0.04 80);     /* dark warm brown for text on gold bg */
+  --brand-gold-dim: oklch(0.75 0.19 73 / 0.30);     /* subtle tints, glow fill             */
+
+  /* ── Velocity Orange #F97316 — reserved for urgency signals only ──  */
+  /* (survival critical, CTA bursts, alert states)                       */
+  --brand-orange: oklch(0.71 0.21 41);
+  --brand-orange-foreground: oklch(1 0 0);
+
+  --secondary: oklch(0.968 0.007 247.896);
+  --secondary-foreground: oklch(0.208 0.042 265.755);
+  --muted: oklch(0.968 0.007 247.896);
+  --muted-foreground: oklch(0.554 0.046 257.417);
+  --accent: oklch(0.968 0.007 247.896);
+  --accent-foreground: oklch(0.208 0.042 265.755);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.929 0.013 255.508);
+  --input: oklch(0.929 0.013 255.508);
+  --ring: oklch(0.57 0.240 261);
+
+  /* ── Semantic chart palette (richer, higher chroma) ──────────────── */
+  --chart-1: oklch(0.66 0.19 150);    /* emerald  — income / GCI     */
+  --chart-2: oklch(0.56 0.24 285);    /* violet   — pipeline / forecast */
+  --chart-3: oklch(0.72 0.13 58);     /* ochre    — expenses / costs (deliberately NOT warning-amber) */
+  --chart-4: oklch(0.60 0.17 195);    /* teal     — health / score    */
+  --chart-5: oklch(0.58 0.23 15);     /* rose     — tax / warnings    */
+
+  /* ── Signal layer — globally reserved colours ─────────────────────
+     These colours carry fixed meaning across ALL surfaces and contexts.
+     They must NEVER be used for category labelling or decoration.
+     Physical proximity rule: if a signal colour and a category colour
+     would appear in the same viewport simultaneously, the category
+     colour must shift to avoid the shared hue.
+     ──────────────────────────────────────────────────────────────── */
+  --signal-warning:  oklch(0.77 0.17 65);       /* amber  — alerts, thin runway, at-risk states ONLY */
+  --signal-critical: oklch(0.577 0.245 27.325); /* red    — danger, critical health, overdue ONLY    */
+
+  /* ── Category layer — used in charts, icons, borders, small badges ──
+     NOT in large background fills. Each category token is independent
+     from its signal-layer neighbour even when the hue is similar.
+     --chart-3 (ochre/expenses) shares a hue family with --signal-warning
+     but differs in chroma and lightness — keep them visually distinct.
+     ──────────────────────────────────────────────────────────────── */
+  --category-income:   var(--chart-1); /* emerald  */
+  --category-pipeline: var(--chart-2); /* violet   */
+  --category-expenses: var(--chart-3); /* ochre    */
+  --category-health:   var(--chart-4); /* teal     */
+  --category-tax:      var(--chart-5); /* rose     */
+
+  /* ── Sidebar — deep navy, richer than before ─────────────────────── */
+  --sidebar: oklch(0.13 0.06 265);
+  --sidebar-foreground: oklch(0.93 0.013 255);
+  --sidebar-primary: oklch(0.57 0.240 261);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.22 0.055 265);
+  --sidebar-accent-foreground: oklch(0.93 0.013 255);
+  --sidebar-border: oklch(0.24 0.05 265);
+  --sidebar-ring: oklch(0.57 0.240 261);
+
+  /* ── Chart colour token — follows the active theme ───────────────── */
+  /* Consumed by MonthlyChart, ProbabilityChart, and any future chart.  */
+  --chart-primary:     oklch(0.57 0.240 261);          /* full opacity  */
+  --chart-primary-dim: oklch(0.57 0.240 261 / 0.38);   /* projected     */
+
+  /* ── Brand gradient tokens (reference) ───────────────────────────── */
+  --gradient-runway:      linear-gradient(135deg, oklch(0.10 0.055 265) 0%, oklch(0.57 0.240 261) 100%);
+  --gradient-ascent:      linear-gradient(135deg, oklch(0.57 0.240 261) 0%, oklch(0.50 0.24 290) 100%);
+  --gradient-velocity:    linear-gradient(135deg, oklch(0.71 0.21 41) 0%, oklch(0.60 0.22 15) 100%);
+  --gradient-growth:      linear-gradient(135deg, oklch(0.66 0.19 150) 0%, oklch(0.60 0.17 195) 100%);
+  /* Commission Gold gradients — use for score circles, CTAs, achievement badges */
+  --gradient-commission:  linear-gradient(135deg, oklch(0.75 0.19 73) 0%, oklch(0.68 0.17 62) 100%);
+  --gradient-gold-runway: linear-gradient(135deg, oklch(0.75 0.19 73) 0%, oklch(0.45 0.22 265) 100%);
+  /* Horizon — gold → blue → violet (hero banners, sidebar strip) */
+  --gradient-horizon:     linear-gradient(135deg, oklch(0.75 0.19 73) 0%, oklch(0.57 0.240 261) 55%, oklch(0.50 0.24 290) 100%);
+}
+
+.dark {
+  --background: oklch(0.129 0.042 264.695);
+  --foreground: oklch(0.984 0.003 247.858);
+  --card: oklch(0.208 0.042 265.755);
+  --card-foreground: oklch(0.984 0.003 247.858);
+  --popover: oklch(0.208 0.042 265.755);
+  --popover-foreground: oklch(0.984 0.003 247.858);
+  --primary: oklch(0.929 0.013 255.508);
+  --primary-foreground: oklch(0.208 0.042 265.755);
+  --brand-orange: oklch(0.74 0.18 41);
+  --brand-orange-foreground: oklch(0.12 0.03 41);
+  --secondary: oklch(0.279 0.041 260.031);
+  --secondary-foreground: oklch(0.984 0.003 247.858);
+  --muted: oklch(0.279 0.041 260.031);
+  --muted-foreground: oklch(0.704 0.04 256.788);
+  --accent: oklch(0.279 0.041 260.031);
+  --accent-foreground: oklch(0.984 0.003 247.858);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.551 0.027 264.364);
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar: oklch(0.208 0.042 265.755);
+  --sidebar-foreground: oklch(0.984 0.003 247.858);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
+  --sidebar-accent: oklch(0.279 0.041 260.031);
+  --sidebar-accent-foreground: oklch(0.984 0.003 247.858);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.551 0.027 264.364);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    /* Subtle blue radial glow at top of page — adds depth without distraction */
+    background-image: radial-gradient(
+      ellipse 100% 35% at 50% -4%,
+      oklch(0.57 0.240 261 / 0.045) 0%,
+      transparent 100%
+    );
+  }
+}
+
+/* ── Per-theme colour overrides ───────────────────────────────────────────── */
+/* Applied via data-color-theme attribute on the app root wrapper.           */
+/* Only --primary and its siblings change; the dark sidebar stays unchanged. */
+
+[data-color-theme="violet"] {
+  --primary:                     oklch(0.56 0.24 285);
+  --ring:                        oklch(0.56 0.24 285);
+  --sidebar-primary:             oklch(0.56 0.24 285);
+  --sidebar-ring:                oklch(0.56 0.24 285);
+  --chart-primary:               oklch(0.56 0.24 285);
+  --chart-primary-dim:           oklch(0.56 0.24 285 / 0.38);
+}
+[data-color-theme="emerald"] {
+  --primary:                     oklch(0.60 0.19 155);
+  --ring:                        oklch(0.60 0.19 155);
+  --sidebar-primary:             oklch(0.60 0.19 155);
+  --sidebar-ring:                oklch(0.60 0.19 155);
+  --chart-primary:               oklch(0.60 0.19 155);
+  --chart-primary-dim:           oklch(0.60 0.19 155 / 0.38);
+}
+[data-color-theme="orange"] {
+  --primary:                     oklch(0.71 0.21 41);
+  --ring:                        oklch(0.71 0.21 41);
+  --sidebar-primary:             oklch(0.71 0.21 41);
+  --sidebar-ring:                oklch(0.71 0.21 41);
+  --chart-primary:               oklch(0.71 0.21 41);
+  --chart-primary-dim:           oklch(0.71 0.21 41 / 0.38);
+}
+[data-color-theme="rose"] {
+  --primary:                     oklch(0.58 0.23 15);
+  --ring:                        oklch(0.58 0.23 15);
+  --sidebar-primary:             oklch(0.58 0.23 15);
+  --sidebar-ring:                oklch(0.58 0.23 15);
+  --chart-primary:               oklch(0.58 0.23 15);
+  --chart-primary-dim:           oklch(0.58 0.23 15 / 0.38);
+}
+/* "blue" is the default — no override needed */
+
+/* ── 10 extended themes ───────────────────────────────────────────────────── */
+/* Light-primary themes also override --primary-foreground so text on buttons  */
+/* remains accessible (dark text on bright backgrounds).                        */
+
+/* The Achiever — Commission Gold. Celebrates every closed deal like a trophy. */
+[data-color-theme="gold"] {
+  --primary:                     oklch(0.75 0.19 73);
+  --primary-foreground:          oklch(0.15 0.04 80);
+  --ring:                        oklch(0.75 0.19 73);
+  --sidebar-primary:             oklch(0.75 0.19 73);
+  --sidebar-ring:                oklch(0.75 0.19 73);
+  --chart-primary:               oklch(0.75 0.19 73);
+  --chart-primary-dim:           oklch(0.75 0.19 73 / 0.38);
+}
+/* The Connector — Clear Sky Blue. Warmth, trust, relationship-first agents. */
+[data-color-theme="sky"] {
+  --primary:                     oklch(0.71 0.18 222);
+  --ring:                        oklch(0.71 0.18 222);
+  --sidebar-primary:             oklch(0.71 0.18 222);
+  --sidebar-ring:                oklch(0.71 0.18 222);
+  --chart-primary:               oklch(0.71 0.18 222);
+  --chart-primary-dim:           oklch(0.71 0.18 222 / 0.38);
+}
+/* The Strategist — Deep Teal. Methodical, calm, data-first thinkers. */
+[data-color-theme="teal"] {
+  --primary:                     oklch(0.60 0.17 192);
+  --ring:                        oklch(0.60 0.17 192);
+  --sidebar-primary:             oklch(0.60 0.17 192);
+  --sidebar-ring:                oklch(0.60 0.17 192);
+  --chart-primary:               oklch(0.60 0.17 192);
+  --chart-primary-dim:           oklch(0.60 0.17 192 / 0.38);
+}
+/* The Fresh Lister — Bright Mint. Always new inventory, always moving. */
+[data-color-theme="mint"] {
+  --primary:                     oklch(0.73 0.15 170);
+  --primary-foreground:          oklch(0.15 0.04 180);
+  --ring:                        oklch(0.73 0.15 170);
+  --sidebar-primary:             oklch(0.73 0.15 170);
+  --sidebar-ring:                oklch(0.73 0.15 170);
+  --chart-primary:               oklch(0.73 0.15 170);
+  --chart-primary-dim:           oklch(0.73 0.15 170 / 0.38);
+}
+/* The Analyst — Deep Indigo. Late nights, deep data, zero guesswork. */
+[data-color-theme="indigo"] {
+  --primary:                     oklch(0.51 0.26 272);
+  --ring:                        oklch(0.51 0.26 272);
+  --sidebar-primary:             oklch(0.51 0.26 272);
+  --sidebar-ring:                oklch(0.51 0.26 272);
+  --chart-primary:               oklch(0.51 0.26 272);
+  --chart-primary-dim:           oklch(0.51 0.26 272 / 0.38);
+}
+/* The Dealmaker — Bold Crimson. Gets to yes faster than anyone in the room. */
+[data-color-theme="crimson"] {
+  --primary:                     oklch(0.55 0.23 9);
+  --ring:                        oklch(0.55 0.23 9);
+  --sidebar-primary:             oklch(0.55 0.23 9);
+  --sidebar-ring:                oklch(0.55 0.23 9);
+  --chart-primary:               oklch(0.55 0.23 9);
+  --chart-primary-dim:           oklch(0.55 0.23 9 / 0.38);
+}
+/* The Momentum Player — Warm Amber. Always on a streak, never cooling down. */
+[data-color-theme="amber"] {
+  --primary:                     oklch(0.77 0.17 58);
+  --primary-foreground:          oklch(0.15 0.04 65);
+  --ring:                        oklch(0.77 0.17 58);
+  --sidebar-primary:             oklch(0.77 0.17 58);
+  --sidebar-ring:                oklch(0.77 0.17 58);
+  --chart-primary:               oklch(0.77 0.17 58);
+  --chart-primary-dim:           oklch(0.77 0.17 58 / 0.38);
+}
+/* The Luxury Specialist — Bold Fuchsia. Commands the high end of every market. */
+[data-color-theme="fuchsia"] {
+  --primary:                     oklch(0.62 0.26 316);
+  --ring:                        oklch(0.62 0.26 316);
+  --sidebar-primary:             oklch(0.62 0.26 316);
+  --sidebar-ring:                oklch(0.62 0.26 316);
+  --chart-primary:               oklch(0.62 0.26 316);
+  --chart-primary-dim:           oklch(0.62 0.26 316 / 0.38);
+}
+/* The Innovator — Electric Cyan. Digital-native, always three steps ahead. */
+[data-color-theme="cyan"] {
+  --primary:                     oklch(0.73 0.16 204);
+  --primary-foreground:          oklch(0.15 0.04 210);
+  --ring:                        oklch(0.73 0.16 204);
+  --sidebar-primary:             oklch(0.73 0.16 204);
+  --sidebar-ring:                oklch(0.73 0.16 204);
+  --chart-primary:               oklch(0.73 0.16 204);
+  --chart-primary-dim:           oklch(0.73 0.16 204 / 0.38);
+}
+/* The Long Game — Deep Forest. Plays it steady, builds wealth over decades. */
+[data-color-theme="forest"] {
+  --primary:                     oklch(0.49 0.16 148);
+  --ring:                        oklch(0.49 0.16 148);
+  --sidebar-primary:             oklch(0.49 0.16 148);
+  --sidebar-ring:                oklch(0.49 0.16 148);
+  --chart-primary:               oklch(0.49 0.16 148);
+  --chart-primary-dim:           oklch(0.49 0.16 148 / 0.38);
+}
+
+/* ── Brand utility classes ────────────────────────────────────────────────── */
+@layer utilities {
+
+  /* Gradient text — headline level */
+  .text-gradient-runway {
+    background: var(--gradient-runway);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .text-gradient-ascent {
+    background: var(--gradient-ascent);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .text-gradient-horizon {
+    background: var(--gradient-horizon);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Gradient backgrounds */
+  .bg-runway      { background: var(--gradient-runway); }
+  .bg-ascent      { background: var(--gradient-ascent); }
+  .bg-velocity    { background: var(--gradient-velocity); }
+  .bg-growth      { background: var(--gradient-growth); }
+  .bg-horizon     { background: var(--gradient-horizon); }
+  .bg-commission  { background: var(--gradient-commission); }
+  .bg-gold-runway { background: var(--gradient-gold-runway); }
+
+  /* Brand glow rings — use on hero score circles, key CTAs */
+  .glow-blue   { box-shadow: 0 0 20px oklch(0.57 0.240 261 / 0.35), 0 0 50px oklch(0.57 0.240 261 / 0.12); }
+  .glow-orange { box-shadow: 0 0 16px oklch(0.71 0.21 41 / 0.45),  0 0 40px oklch(0.71 0.21 41 / 0.15); }
+  .glow-green  { box-shadow: 0 0 16px oklch(0.66 0.19 150 / 0.35), 0 0 40px oklch(0.66 0.19 150 / 0.12); }
+  /* Commission Gold glow — for Runway Score circle, milestone badges, achievement rings */
+  .glow-gold   { box-shadow: 0 0 24px oklch(0.75 0.19 73 / 0.50),  0 0 60px oklch(0.75 0.19 73 / 0.18), 0 0 4px oklch(0.75 0.19 73 / 0.80); }
+
+  /* Card lift — interactive cards that should respond to hover              */
+  /* Apply .card-lift to pipeline deals, transaction rows, insight cards    */
+  .card-lift {
+    transition: box-shadow 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+                transform   0.22s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .card-lift:hover {
+    box-shadow: 0 4px 8px oklch(0.129 0.042 264.695 / 0.10),
+                0 16px 40px oklch(0.129 0.042 264.695 / 0.16),
+                0 44px 76px oklch(0.129 0.042 264.695 / 0.09);
+    transform: translateY(-3px);
+  }
+
+  /* Edgy card variant — sharper radius + stronger border */
+  .card-sharp {
+    border-radius: var(--radius-sm);
+    border-width: 1px;
+    border-color: oklch(0.929 0.013 255.508);
+    box-shadow: 0 2px 8px oklch(0.129 0.042 264.695 / 0.08);
+  }
+  .card-sharp:hover {
+    box-shadow: 0 4px 16px oklch(0.129 0.042 264.695 / 0.14);
+  }
+
+  /* "Live" badge pulse — for real-time data indicators */
+  .pulse-orange {
+    animation: pulseOrange 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  @keyframes pulseOrange {
+    0%, 100% { box-shadow: 0 0 0 0 oklch(0.71 0.21 41 / 0.5); }
+    50%       { box-shadow: 0 0 0 6px oklch(0.71 0.21 41 / 0); }
+  }
+  /* Commission Gold pulse — for achievement, score, top-rank indicators */
+  .pulse-gold {
+    animation: pulseGold 2.4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  @keyframes pulseGold {
+    0%, 100% { box-shadow: 0 0 0 0 oklch(0.75 0.19 73 / 0.55); }
+    50%       { box-shadow: 0 0 0 8px oklch(0.75 0.19 73 / 0); }
+  }
+
+  /* Sidebar top gradient — applied on the aside element */
+  .sidebar-gradient {
+    background: linear-gradient(
+      180deg,
+      oklch(0.15 0.065 265) 0%,
+      oklch(0.12 0.060 265) 55%,
+      oklch(0.10 0.055 265) 100%
+    );
+  }
+
+  /* ─── Animated gradient orbs (marketing hero & section backgrounds) ──── */
+  .orb-drift-1 {
+    animation: orbDrift1 18s ease-in-out infinite;
+  }
+  .orb-drift-2 {
+    animation: orbDrift2 22s ease-in-out infinite;
+  }
+  .orb-drift-3 {
+    animation: orbDrift3 26s ease-in-out infinite;
+  }
+  @keyframes orbDrift1 {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33%       { transform: translate(30px, -25px) scale(1.08); }
+    66%       { transform: translate(-20px, 20px) scale(0.95); }
+  }
+  @keyframes orbDrift2 {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    40%       { transform: translate(-35px, 30px) scale(1.06); }
+    70%       { transform: translate(20px, -15px) scale(0.97); }
+  }
+  @keyframes orbDrift3 {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    30%       { transform: translate(20px, 25px) scale(1.04); }
+    60%       { transform: translate(-25px, -20px) scale(1.09); }
+  }
+
+  /* ─── Scroll-reveal system ────────────────────────────────────────────── */
+  /* Base state: hidden + shifted down */
+  .reveal {
+    opacity: 0;
+    transform: translateY(24px);
+    transition: opacity 0.55s cubic-bezier(0.22, 1, 0.36, 1),
+                transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  /* Revealed state */
+  .reveal[data-revealed="true"] {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  /* Delay variants */
+  .reveal-delay-1 { transition-delay: 0.08s; }
+  .reveal-delay-2 { transition-delay: 0.16s; }
+  .reveal-delay-3 { transition-delay: 0.24s; }
+  .reveal-delay-4 { transition-delay: 0.32s; }
+
+  /* ─── Chart bar draw animation ────────────────────────────────────────── */
+  .bar-draw {
+    transform-origin: bottom;
+    animation: barGrowUp 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  @keyframes barGrowUp {
+    from { transform: scaleY(0); opacity: 0; }
+    to   { transform: scaleY(1); opacity: 1; }
+  }
+
+  /* ─── FAB action item entrance ────────────────────────────────────────── */
+  @keyframes fabItemIn {
+    from { opacity: 0; transform: translateY(10px) scale(0.9); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  /* ─── Number counter flash ────────────────────────────────────────────── */
+  @keyframes counterPop {
+    0%   { transform: scale(1); }
+    50%  { transform: scale(1.08); }
+    100% { transform: scale(1); }
+  }
+  .counter-pop {
+    animation: counterPop 0.4s ease-out;
+  }
+
+  /* ─── Greeting fade-in ────────────────────────────────────────────────── */
+  @keyframes greetFadeIn {
+    from { opacity: 0; transform: translateX(-8px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  .greet-fade {
+    animation: greetFadeIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  /* ─── Confetti shimmer on goal card ──────────────────────────────────── */
+  @keyframes shimmer {
+    from { background-position: -200% center; }
+    to   { background-position: 200% center; }
+  }
+  .shimmer-text {
+    background: linear-gradient(
+      90deg,
+      #34d399 0%,
+      #22d3ee 20%,
+      #a78bfa 40%,
+      #34d399 60%,
+      #22d3ee 80%,
+      #a78bfa 100%
+    );
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: shimmer 3s linear infinite;
+  }
+
+  /* ─── Floating card animation ────────────────────────────────────────── */
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50%       { transform: translateY(-10px); }
+  }
+  .float-anim {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  /* ─── Page transition ─────────────────────────────────────────────────── */
+  @keyframes pageIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .page-enter {
+    animation: pageIn 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  /* ─── Toast override — force dark theme in the app ───────────────────── */
+  [data-sonner-toaster] {
+    --normal-bg: oklch(0.18 0.05 265);
+    --normal-border: oklch(0.28 0.05 265);
+    --normal-text: oklch(0.93 0.013 255);
+    --success-bg: oklch(0.18 0.05 155);
+    --success-border: oklch(0.40 0.12 155 / 0.5);
+  }
+}

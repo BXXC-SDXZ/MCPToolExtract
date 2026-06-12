@@ -56,16 +56,101 @@ https://api.storyflo.com/mcp/v1
 }
 ```
 
-## Tools exposed
+## Tools
 
-| Tool | Description |
-|---|---|
-| `search_articles` | Search the corpus, returns slug/title/publisher/snippet/audio_url |
-| `get_article` | Full record + body_text + audio_url for a slug |
-| `get_audio_url` | Resolve playable audio for an article |
-| `subscribe_topic` | Update listener feed verticals; returns RSS feed URL |
-| `list_subscriptions` | Listener feeds the agent has minted |
-| `digest` | Aggregate top-N across selected verticals (heaviest action, paid via x402) |
+Storyflo exposes **7 tools**. Free-tier tools require OAuth only. Premium tools settle per-call via x402 over USDC on Base mainnet — the agent's payment shim runs before the tool is invoked.
+
+The live tool manifest (with full JSON Schema for every parameter) is at
+[`/v1/agents/openai-tools.json`](https://api.storyflo.com/v1/agents/openai-tools.json) — the source of truth Glama, OpenAI, and Anthropic introspect.
+
+### `search_articles` · free
+Search Storyflo's curated article corpus by query and/or vertical. Use this when the agent needs to find articles matching a topic before deciding which one to read or play.
+
+**Parameters**
+| name | type | required | description |
+|---|---|---|---|
+| `query` | string | no | Full-text query against title + body + summary. Omit to browse a vertical without a keyword filter. |
+| `vertical` | enum | no | One of: `tech`, `finance`, `science`, `media`, `sports`, `culture`. Narrows results to a single vertical. |
+| `limit` | int | no | Max results (default 10, capped 25). |
+
+**Returns** — array of `{ slug, title, publisher, vertical, snippet, audio_url, listen_seconds, published_at }`.
+
+---
+
+### `get_article` · free
+Fetch the full record for a single article by slug. Use after `search_articles` when the agent needs the full body text or full audio URL.
+
+**Parameters**
+| name | type | required | description |
+|---|---|---|---|
+| `slug` | string | **yes** | Article slug, as returned by `search_articles`. |
+
+**Returns** — `{ slug, title, body_text, audio_url, publisher, vertical, sources[], published_at }`.
+
+---
+
+### `get_audio_url` · free
+Resolve the playable audio URL for an article without fetching the body. Use when the agent wants to hand off audio playback to the user. Free tier returns a stitched-with-ad URL; Plus/Pro returns the bare audio.
+
+**Parameters**
+| name | type | required | description |
+|---|---|---|---|
+| `slug` | string | **yes** | Article slug. |
+
+**Returns** — `{ slug, audio_url, listen_seconds, tier }`.
+
+---
+
+### `subscribe_topic` · paid (x402)
+Mint or update the listener's personal podcast feed for a set of verticals. **Persistent side effect**: a feed row is created or updated server-side and the listener gets an RSS URL to paste into Spotify / Apple Podcasts / Pocket Casts. Subsequent calls overwrite the previous vertical selection on the same listener.
+
+**Parameters**
+| name | type | required | description |
+|---|---|---|---|
+| `verticals` | array<enum> | **yes** | 1–6 of `tech`, `finance`, `science`, `media`, `sports`, `culture`. |
+
+**Returns** — `{ feed_url, verticals, listener_token }`.
+
+**Cost** — single x402 charge (~$0.005 USDC), no per-item cost.
+
+---
+
+### `list_subscriptions` · free
+Return the listener feeds this agent has minted on the human's behalf. Use before `subscribe_topic` to avoid creating duplicate feeds.
+
+**Parameters** — none.
+
+**Returns** — array of `{ feed_url, verticals, created_at }`.
+
+---
+
+### `get_vertical_briefing` · paid (x402)
+Fetch a stitched audio briefing of the top-25 trending articles in a single vertical from the last 24h. Use when the agent wants a "today's headlines for X" experience for the user. **Read-only** — no listener state mutated.
+
+**Parameters**
+| name | type | required | description |
+|---|---|---|---|
+| `vertical` | enum | **yes** | One of `tech`, `finance`, `science`, `media`, `sports`, `culture`, `news`. |
+
+**Returns** — `{ vertical, audio_url, item_count, listen_seconds, articles[] }`.
+
+**Cost** — single x402 charge; covers the full stitched briefing audio.
+
+---
+
+### `digest` · paid (x402, heaviest)
+Aggregate the top-N articles across one or more verticals for a window (24h / 7d / 30d). The heaviest action — counts most against per-agent rate limit. Use for "read me today's tech + finance news" prompts where the agent wants a curated cross-vertical roll-up rather than a single vertical's briefing.
+
+**Parameters**
+| name | type | required | description |
+|---|---|---|---|
+| `verticals` | array<enum> | no | 1–6 verticals. Defaults to all 6 if omitted. |
+| `window` | enum | no | `24h` (default), `7d`, or `30d`. |
+| `limit` | int | no | Max articles per vertical (default 5, capped 25). |
+
+**Returns** — `{ window, verticals, items: [{ slug, title, vertical, audio_url, snippet }] }`.
+
+**Cost** — single x402 charge; counts as one heavy action against the agent's rate limit.
 
 ## Authentication
 
